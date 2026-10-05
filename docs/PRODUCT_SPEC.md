@@ -74,9 +74,9 @@ Content templates specify semantic sections and structure; document templates sp
 
 ## Information architecture
 
-Dashboard: actionable workload and connection health. Orders: checkout details and individual units. Products: mappings, configuration, tests, publication, pause. Templates: distinct content and document collections. Needs Attention: resolvable issues across units and stores. Store: Etsy connection and sync. Settings: membership, privacy, budgets, account.
+For the current application, [UI_UX_DESIGN_LOCK.md](UI_UX_DESIGN_LOCK.md) supersedes the earlier provisional IA: Home, Orders, Products, Settings. Home surfaces actionable reading issues and recent orders; Orders is the working queue. Product setup exposes only existing input requirements and pause controls. Store/connection, Account and Advanced live in Settings. Future templates and production configuration remain out of scope.
 
-Dashboard and Needs Attention should use the same underlying work/issue projections; do not build parallel workflow engines. Orders remain the source for understanding checkout context.
+Seller-facing “Reading” represents an individual fulfillment unit without changing its domain identity. Ready means current information checks passed, not created or delivered. Home and Orders use existing issue projections; no parallel workflow engine or persisted UI status is introduced.
 
 ## Success and acceptance
 

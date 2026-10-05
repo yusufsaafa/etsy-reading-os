@@ -1,6 +1,6 @@
 # Design principles
 
-Status: V1 UX requirements, 2026-10-05. Brand colors, component library and final navigation are undecided.
+Status: V1 UX requirements, 2026-10-05. Current seller-facing design and navigation are locked in UI_UX_DESIGN_LOCK.md; broader future production requirements remain below.
 
 ## Product identity
 
@@ -12,11 +12,11 @@ Suggested action language: Create reading, Create output, Retry document, Review
 
 ## Navigation and hierarchy
 
-Provisional navigation: Dashboard, Orders, Products, Templates, Needs Attention, Store, Settings. On a phone prioritize Orders, Needs Attention, Products and the active store; put less frequent configuration in reachable secondary navigation. Show the selected store persistently to reduce actions in the wrong store.
+Current primary navigation: Home, Orders, Products, Settings. Needs-attention work is contextual on Home and Orders; Store/Etsy access lives in Settings. Phone navigation uses a four-item bottom bar. See [UI / UX design lock](UI_UX_DESIGN_LOCK.md), which supersedes previous provisional IA and technical presentation language.
 
 Dashboard shows work requiring action, pending review, deadlines and integration health. Counts link to real filtered work lists. Display useful factual metrics only; charts need a decision and enough data. Do not equate paid, produced, approved and delivered.
 
-Order detail starts with checkout identity and progress, then individually labeled line items and quantity units. Example: Love Reading — unit 1 of 2 and unit 2 of 2, each with distinct status. An order-level badge must reveal partial progress and affected units.
+Order detail starts with checkout identity and progress, then individually labeled line items and quantity units. Example: Love Reading — Reading 1 of 2 and Reading 2 of 2, each with distinct status. An order-level badge must reveal partial progress and affected units.
 
 ## Phone operations are a release requirement
 

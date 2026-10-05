@@ -10,6 +10,8 @@ Milestone 1 skeleton and transactional intake core, dated 2026-10-05. TypeScript
 
 Validation limitation: this execution environment cannot reach the npm registry and has no cached Auth.js package. Core typechecking and domain/database tests run, but the full application typecheck/build and browser/mobile demonstration are blocked until a complete dependency install. Native PostgreSQL startup is restricted here; database tests run the PostgreSQL engine through PGlite. Do not treat this as a production-ready release.
 
+The seller-facing interface redesign is defined in [UI / UX design lock](docs/UI_UX_DESIGN_LOCK.md): Home, Orders, Products and Settings, with contextual attention queues and independent readings inside each checkout.
+
 See [local development](docs/LOCAL_DEVELOPMENT.md), [implementation plan](docs/MILESTONE_1_PLAN.md), [Etsy capability matrix](docs/ETSY_INTEGRATION.md), and [validation report](docs/MILESTONE_1_REPORT.md).
 
 ## Read first

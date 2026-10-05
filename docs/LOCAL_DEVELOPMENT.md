@@ -4,14 +4,14 @@ Requires Node.js 22.12+ (validated core with 22.23.1), pnpm 9.7.1 and PostgreSQL
 
 ## Installation and configuration
 
-The authoring environment could install cached dependencies except Auth.js. A complete lockfile cannot be generated from that partial installation; no misleading partial lockfile is checked in. On a machine with npm access, run the full install below, commit its pnpm-lock.yaml after successful validation, and use frozen-lockfile installs thereafter. Auth.js is pinned to 5.0.0-beta.30; review its beta status before deploying.
+The base milestone branch now includes pnpm-lock.yaml. Use a frozen install to preserve its dependency graph. Auth.js remains unavailable in this authoring environment, so full runtime checks are still blocked here. Auth.js is pinned to 5.0.0-beta.30; review its beta status before deploying.
 
 ```sh
 git clone https://github.com/yusufsaafa/etsy-reading-os.git
 cd etsy-reading-os
 # Check out the milestone branch if it has not been merged.
-git checkout codex/milestone-1-intake
-pnpm install
+git checkout codex/ui-ux-design-lock
+pnpm install --frozen-lockfile
 node scripts/configure-local.mjs
 ```
 
@@ -42,18 +42,18 @@ Open http://localhost:3000/sign-in and use DEV_LOGIN_PASSWORD. In another termin
 pnpm worker
 ```
 
-Seed creates one synthetic owner/store with six orders, seven line items and ten fulfillment units. Repeating seed preserves identities (it intentionally restores the two demo mappings). It does not connect to Etsy. In Store, enable the fixture connection, request synchronization, and refresh to see the worker's result. Repeated import, including a duplicated receipt in the adapter, leaves counts unchanged.
+Seed creates one synthetic owner/store with six orders, seven line items and ten fulfillment units. Repeating seed preserves identities (it intentionally restores the two demo mappings). It does not connect to Etsy. In Settings, connect the demo store, open Advanced and request an update, and refresh to see the worker's result. Repeated import, including a duplicated receipt in the adapter, leaves counts unchanged.
 
 ## Demonstration path
 
 1. Dashboard: actionable counts, no manufactured charts.
 2. Orders: inspect the Love x2 + Career x1 checkout; it has three units.
-3. Needs Attention: inspect missing personalization, unmapped Future variants, and quantity allocations.
-4. Products: configure the purchased variant explicitly; default mapping does not match it automatically.
+3. Home / Orders: inspect customer information needed, product setup and recipient confirmation; use Needs info or contextual Needs attention.
+4. Products: open Set up/Edit, confirm the purchased option explicitly; standard setup does not apply to variants automatically.
 5. Order detail: review original inputs, correct/confirm each unit and observe a new context revision. No reading content is created.
-6. Store: disconnect and confirm pending sync is canceled; history remains.
+6. Settings: disconnect and confirm pending sync is canceled; history remains.
 
-Check at a 360px viewport and desktop, including keyboard, error states and interrupted actions. Those browser checks were not completed in the authoring environment because Auth.js installation was blocked.
+Check at 390px, 768px and 1440px viewports, including keyboard, error states and interrupted actions. Those browser checks were not completed in the authoring environment because Auth.js installation was blocked.
 
 ## Checks
 
@@ -85,6 +85,6 @@ Do not use fixtures with real credentials. The skeleton contains OAuth exchange/
 
 - Missing next-auth: complete pnpm install with registry access; the UI cannot run without the actual Auth.js package.
 - Missing DATABASE_URL/unreachable database: check .env.local, database creation and port; scripts load .env.local explicitly.
-- Sync remains queued: start pnpm worker. Retryable failures get at most three attempts; failed runs remain visible. A new sync command intentionally creates a new run after a terminal failure.
+- Store update remains queued: start pnpm worker. Retryable failures get at most three attempts; failed runs remain visible. A new sync command intentionally creates a new run after a terminal failure.
 - Stale correction: reload to obtain the current unit revision before saving; original data and prior corrections remain intact.
 - Etsy callback fails: check session, registered HTTPS URL, granted scopes and encryption configuration. Do not log callback codes, token responses or secret-bearing headers.
