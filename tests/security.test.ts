@@ -5,7 +5,7 @@ import { newOAuthIntent, authorizationUrl, exchangeTokens } from "../src/modules
 import { developmentLoginAllowed, validDevelopmentPassword } from "../src/modules/identity/development-login";
 describe("secret and OAuth boundaries", () => {
   it("cannot enable development credentials in production or live Etsy mode", () => {
-    const env = { NODE_ENV:"development", DEV_LOGIN_ENABLED:"true", ETSY_ADAPTER:"fixtures", DEV_LOGIN_PASSWORD:"long-synthetic-password" };
+    const env: NodeJS.ProcessEnv = { NODE_ENV:"development", DEV_LOGIN_ENABLED:"true", ETSY_ADAPTER:"fixtures", DEV_LOGIN_PASSWORD:"long-synthetic-password" };
     expect(validDevelopmentPassword("long-synthetic-password",env)).toBe(true);
     expect(validDevelopmentPassword("wrong",env)).toBe(false);
     expect(developmentLoginAllowed({...env,NODE_ENV:"production"})).toBe(false);
