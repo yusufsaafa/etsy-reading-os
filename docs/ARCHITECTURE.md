@@ -22,9 +22,9 @@ All tenant-owned records carry organization ownership, directly or through an en
 | Store | Organization owns stores; external shop identity remains stable across reconnects |
 | EtsyConnection | Store authorization, granted scopes, encrypted credentials, expiry, health, sync cursor; historical grants may be retained without retained secret material |
 | ListingSnapshot | External listing ID, state, variant/offer information, optional SKUs, personalization schema, source time/fingerprint; not the internal product |
-| Product, ProductRevision | Internal production identity; draft, tested, active, paused, retired lifecycle; immutable published recipe references input schema, reader revision, content template, document template, execution/review policy |
+| Product, ProductRevision | Internal production identity; draft, tested, active, paused, retired lifecycle; immutable published recipe references input schema, content template, document template, execution/review policy |
 | ListingBinding | Store/listing and specific offer/variant or explicit default -> product revision policy; versioned mapping, unambiguous precedence |
-| ReaderIdentityRevision | Tone, persona, examples, terminology, style constraints and branding references; may serve multiple products |
+| SellerProfile, StyleProfileVersion | One creator identity per Store; independent immutable published style instructions, shared across store products; optional private previous-work references |
 | ContentTemplateRevision | Semantic output sections/schema and content instructions |
 | DocumentTemplateRevision | Layout, assets, fonts, page settings and renderer compatibility; independent of content template |
 | Order | Store and external receipt identity; payment, cancellation, refund facts, source timestamps and order totals; aggregate fulfillment progress is derived |
@@ -181,4 +181,12 @@ Before production email registration, approve identity-provider/account policy a
 
 Store-row locks serialize publish/intake. Activation archives the former active version and changes the owned active pointer atomically. Partial unique indexes, composite foreign keys, immutable-version/unit triggers and deferred pointer checks enforce historical safety. New orders bind the version effective at ingestion; replay never adopts current configuration. Existing M1 data is preserved as legacy checks rather than fabricated configured products.
 
-The onboarding Product Setup boundary is now real. One selected, active configured product permits explicit persisted completion; remaining selections need not be configured. Production engines, document rendering, automatic execution and style identity remain deferred. Technology choices for those future engines are unchanged and undecided.
+The onboarding Product Setup boundary is now real. One selected, active configured product permits explicit persisted completion; remaining selections need not be configured. Production engines, document rendering and automatic execution remain deferred. Seller/style identity is now implemented separately as described below. Technology choices for those future engines are unchanged and undecided.
+
+## Single-seller identity and style implementation
+
+[SELLER_STYLE.md](SELLER_STYLE.md) defines the current contract. `modules/seller-style` owns one SellerProfile and one StyleProfile per Store, immutable published StyleProfileVersions, and optional pasted-text StyleSources. Mutable creator metadata stays separate from Store identity and ProductVersion instructions. Structured bounded JSONB style values avoid a prompt blob or unnecessary dimension tables. Four additive tables have composite ownership references, version uniqueness, one-active/one-draft indexes, publication immutability and deferred pointer checks. Store locks, expected draft revisions and same-payload replay protect transactions. Meaningful changes use metadata-only AuditLog events.
+
+The future production read boundary returns exact style version identity, mutable seller identity data and source metadata/digests from one repeatable-read snapshot, with separately authorized content reads. Generation must snapshot seller/customer/source context before use; nothing consumes a provider SDK or builds prompts now. Source deletion is permanent today because no generation references exist; production retention and historical source binding must be settled before that changes.
+
+Only pasted text is implemented. PrivateObjectStorage remains a port without an adapter; no uploads, binaries, public storage URLs, PDF extraction or new infrastructure are introduced. Persisted product-based onboarding completion is preserved, not reset. Style completeness is server-readable separately and must become a future production-admission requirement. An explicit onboarding-flow migration will add profile/style steps for new stores while preserving completed stores’ access. Multi-reader support is explicitly out of scope.

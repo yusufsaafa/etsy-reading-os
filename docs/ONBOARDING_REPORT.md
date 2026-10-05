@@ -79,3 +79,7 @@ Product-owner review of the onboarding screens, followed by verified live Etsy i
 ## Product configuration follow-up
 
 The earlier placeholder limitation above is superseded by the real Product Setup implementation documented in [PRODUCT_CONFIGURATION.md](PRODUCT_CONFIGURATION.md). Selected listings create drafts through authorized POST commands. Save/reload preserves configuration; activation validates and publishes a version transactionally. Continue to Home persists completion only after at least one selected, unpaused active product; the other selections may remain Setup required. Previous onboarding test results above are historical; current validation is recorded in PRODUCT_CONFIGURATION_REPORT.md.
+
+## Seller/style compatibility follow-up
+
+Seller identity and style setup now lives in Settings after the existing product-based Continue to Home. Completion records are not reset or reinterpreted; one selected active product still permits completion, and no seller/style data is invented for legacy stores. The new production-context read reports missing identity/style independently. Before generation, explicitly revise new-store onboarding to include Profile → Style → Store ready and enforce context completeness at production admission while retaining completed stores’ operational access. See SELLER_STYLE.md and SELLER_STYLE_REPORT.md.

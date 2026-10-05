@@ -99,3 +99,37 @@ export const oauthStates = pgTable("oauth_states", {
 export const auditLogs = pgTable("audit_logs", {
   id: id(), organizationId: org(), storeId: store(), actorId: text("actor_id"), action: text("action").notNull(), resourceId: text("resource_id"), createdAt: time("created_at").defaultNow().notNull(),
 }, t => [foreignKey({ columns: [t.organizationId, t.storeId], foreignColumns: [stores.organizationId, stores.id] })]);
+
+// One creator identity per store; business/shop identity stays on Store.
+export const sellerProfiles = pgTable("seller_profiles", {
+  id:id(), organizationId:org(), storeId:store(), displayName:text("display_name").notNull(), shortBio:text("short_bio").notNull().default(""),
+  createdAt:time("created_at").defaultNow().notNull(), updatedAt:time("updated_at").defaultNow().notNull(),
+},t=>[unique("seller_one_per_store").on(t.organizationId,t.storeId),unique("seller_owned_identity").on(t.organizationId,t.storeId,t.id),
+  foreignKey({name:"seller_owned_store_fk",columns:[t.organizationId,t.storeId],foreignColumns:[stores.organizationId,stores.id]}),
+  check("seller_identity_valid",sql`length(trim(${t.displayName})) between 1 and 100 and length(${t.shortBio})<=1000`)]);
+// Separate stable style identity and immutable published instructions.
+export const styleProfiles = pgTable("style_profiles", {
+  id:id(),organizationId:org(),storeId:store(),activeVersionId:uuid("active_version_id"),createdAt:time("created_at").defaultNow().notNull(),
+},t=>[unique("style_one_per_store").on(t.organizationId,t.storeId),unique("style_owned_identity").on(t.organizationId,t.storeId,t.id),
+  foreignKey({name:"style_owned_store_fk",columns:[t.organizationId,t.storeId],foreignColumns:[stores.organizationId,stores.id]}),
+  foreignKey({name:"style_active_version_fk",columns:[t.organizationId,t.storeId,t.id,t.activeVersionId],foreignColumns:ownedStyleColumns()})]);
+export const styleVersions = pgTable("style_profile_versions", {
+  id:id(),organizationId:org(),storeId:store(),styleProfileId:uuid("style_profile_id").notNull(),versionNumber:integer("version_number").notNull(),
+  status:text("status").notNull().default("DRAFT"),configuration:jsonb("configuration").$type<import("../modules/seller-style/contracts").StyleConfiguration>().notNull(),
+  revision:integer("revision").notNull().default(0),createdAt:time("created_at").defaultNow().notNull(),activatedAt:time("activated_at"),
+},t=>[unique("style_version_owned_identity").on(t.organizationId,t.storeId,t.id),unique("style_version_profile_identity").on(t.organizationId,t.storeId,t.styleProfileId,t.id),
+  unique("style_version_number").on(t.organizationId,t.storeId,t.styleProfileId,t.versionNumber),
+  foreignKey({name:"style_version_owned_profile_fk",columns:[t.organizationId,t.storeId,t.styleProfileId],foreignColumns:[styleProfiles.organizationId,styleProfiles.storeId,styleProfiles.id]}),
+  uniqueIndex("one_active_style_version").on(t.organizationId,t.storeId,t.styleProfileId).where(sql`${t.status}='ACTIVE'`),
+  uniqueIndex("one_style_draft").on(t.organizationId,t.storeId,t.styleProfileId).where(sql`${t.status}='DRAFT'`),
+  check("style_version_status",sql`${t.status} in ('DRAFT','ACTIVE','ARCHIVED')`),check("style_version_positive",sql`${t.versionNumber}>0 and ${t.revision}>=0`),
+  check("style_activation_time",sql`(${t.status}='DRAFT')=(${t.activatedAt} is null)`),
+  check("style_configuration_structure",sql`jsonb_typeof(${t.configuration})='object' and jsonb_typeof(${t.configuration}->'preferredExpressions')='array' and jsonb_typeof(${t.configuration}->'avoidExpressions')='array' and jsonb_typeof(${t.configuration}->'instructions')='string'`)]);
+function ownedStyleColumns():[AnyPgColumn,AnyPgColumn,AnyPgColumn,AnyPgColumn] {return [styleVersions.organizationId,styleVersions.storeId,styleVersions.styleProfileId,styleVersions.id];}
+export const styleSources = pgTable("style_sources", {
+  id:id(),organizationId:org(),storeId:store(),title:text("title").notNull(),sourceType:text("source_type").notNull().default("PASTED_TEXT"),
+  text:text("source_text").notNull(),contentHash:text("content_hash").notNull(),commandKey:uuid("command_key").notNull(),
+  createdAt:time("created_at").defaultNow().notNull(),
+},t=>[unique("source_command_unique").on(t.organizationId,t.storeId,t.commandKey),unique("source_owned_identity").on(t.organizationId,t.storeId,t.id),
+  foreignKey({name:"source_owned_store_fk",columns:[t.organizationId,t.storeId],foreignColumns:[stores.organizationId,stores.id]}),
+  check("source_text_valid",sql`${t.sourceType}='PASTED_TEXT' and length(trim(${t.title})) between 1 and 150 and length(trim(${t.text})) between 1 and 50000 and ${t.contentHash} ~ '^[a-f0-9]{64}$'`)]);

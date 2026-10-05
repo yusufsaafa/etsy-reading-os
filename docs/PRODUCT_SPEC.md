@@ -13,7 +13,7 @@ Initial customers are Etsy tarot and psychic reading sellers. Generalize only th
 - A user signs in and has organization membership. An organization is the tenant and owns one or more stores, configurations, artifacts, and usage.
 - A store represents one connected Etsy shop. A connection represents authorization, not the store's identity or history.
 - An owner configures the store, permissions, production, and budgets. An operator concept permits reviewing and delivering without owning credentials. A full invitation/roles UI can wait; permissions cannot be inferred solely from knowing an order ID.
-- A reader/persona is a versioned production identity, not necessarily a platform user. Several products may share it.
+- V1 has one seller/creator identity and one versioned structured style per Store, independent of application users and reusable across store products. Multi-reader lists/assignment are out of scope.
 - A buyer is an external customer/context source, not automatically a SaaS account.
 
 V1 may expose one owner and one store per organization while preserving the above relationships.
@@ -105,3 +105,9 @@ Resolve application access and delivery feasibility first. Then decide pilot sto
 A selected Etsy listing can create a generic Product draft. Sellers add TEXT/LONG_TEXT/DATE inputs, ordered content sections, TEXT/PDF output preferences and Manual/Assisted workflow intent. Save permits incomplete drafts; server validation and transactional activation publish one immutable version. Editing active instructions creates a new draft. Orders/line items/quantity readings preserve their cardinality and bind the exact version effective at ingestion. Required-input readiness uses the existing deterministic validator and explicit per-reading quantity allocation; unstructured data is not inferred.
 
 One selected active configured product enables Continue to Home; other selected listings remain Setup required. Product Setup and Products reuse the approved visual language. No AI, PDF rendering, seller identity, billing or delivery is introduced. See [PRODUCT_CONFIGURATION.md](PRODUCT_CONFIGURATION.md) for invariants, compatibility and limitations.
+
+## Current seller identity and style slice
+
+Reading OS is operational ecommerce software, not an AI product UI. Settings → Your profile & style separates creator name/optional bio from Etsy Store identity, structured tone/detail/writing preferences from ProductVersion, and an optional private previous-work library from current customer context. Incomplete style drafts can be saved; Apply style publishes a validated immutable version while preserving history. A name plus minimally complete published style is usable without bio, photo or documents.
+
+Pasted text works with bounded inputs, ownership checks, escaped viewing and metadata-only audits. File uploads are unavailable because the existing storage port has no safe implementation; no analysis occurs. Product-based onboarding completion and order readiness remain unchanged. A future production boundary must require usable seller/style context and snapshot exact identity/style/source data. See [SELLER_STYLE.md](SELLER_STYLE.md) for lifecycle, compatibility, security and deferred upload requirements. No generation, AI analysis, PDF, delivery, scheduling, Telegram, billing or multi-reader feature is added.

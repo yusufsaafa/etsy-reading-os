@@ -1,0 +1,29 @@
+.content { max-width:900px; min-width:0; }
+.section { display:grid; grid-template-columns:190px minmax(0,1fr); gap:32px; padding-block:28px; border-top:1px solid var(--border); }
+.section h2 { font-size:17px; margin-bottom:8px; }
+.form { display:grid; gap:20px; min-width:0; }
+.form label { display:grid; gap:8px; min-width:0; }
+.form input,.form textarea,.form select { width:100%; min-width:0; }
+.form select { min-height:44px; padding:10px 12px; font:inherit; color:var(--text-primary); background:var(--surface); border:1px solid var(--border-strong); border-radius:var(--radius-sm); }
+.form select:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:16px; min-width:0; }
+.controls { display:flex; flex-wrap:wrap; gap:12px; }
+.current { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
+.current p { margin:0; }
+.summary { display:grid; gap:8px; margin-block:16px; }
+.summary dt { color:var(--text-secondary); font-size:12px; }
+.summary dd { margin:0; overflow-wrap:anywhere; white-space:pre-wrap; }
+.paste { border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--surface); margin-bottom:16px; }
+.paste summary { padding:14px 16px; min-height:48px; }
+.paste .form { padding:0 16px 16px; }
+.sources { list-style:none; padding:0; margin:0; }
+.source { border-bottom:1px solid var(--border); padding-block:16px; }
+.sourceHeading { display:flex; gap:16px; align-items:flex-start; justify-content:space-between; }
+.sourceHeading strong { overflow-wrap:anywhere; }
+.source p { margin:4px 0; }
+.remove { font-size:13px; }
+.remove summary { min-height:44px; display:flex; align-items:center; color:var(--text-secondary); cursor:pointer; }
+.reference { white-space:pre-wrap; overflow-wrap:anywhere; font-size:14px; line-height:1.65; margin-top:12px; }
+.referenceSummary { min-height:44px; display:flex; align-items:center; font-size:13px; color:var(--accent); cursor:pointer; }
+@media(max-width:900px){ .section { grid-template-columns:minmax(0,1fr); gap:20px; } }
+@media(max-width:600px){ .section { padding-block:24px; } .fields { grid-template-columns:minmax(0,1fr); } .form input,.form textarea,.form select { font-size:16px; } .controls :global(.button) { flex:1; } .sourceHeading { flex-wrap:wrap; } }
