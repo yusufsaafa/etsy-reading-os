@@ -86,3 +86,7 @@ Before production onboarding requires “Configure product → Profile → Style
 ## Non-goals
 
 No multi-reader support, assignments, seller style analysis, AI/provider SDK or requests, embeddings, vector database, prompt building, generation, PDF rendering, delivery, queue/scheduler, urgency engine, Telegram, billing, subscriptions or analytics redesign. No new dependencies. Live Etsy and production-auth gates remain as documented separately.
+
+## Generation follow-up
+
+The first generation uses the transaction-compatible seller production-context reader and authoritative exact published StyleProfileVersion. It snapshots only seller ID/name/bio and customer revision/answers. StyleSources are deliberately unused and retain their existing independent deletion behavior; there is no production source-binding claim. GENERATION_ENGINE.md supersedes earlier no-generation statements for this authorized milestone without adding multi-reader/style analysis.

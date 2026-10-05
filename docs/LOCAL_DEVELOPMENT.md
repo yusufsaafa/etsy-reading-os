@@ -115,3 +115,7 @@ From Products, Edit product creates a new draft. Save does not replace the activ
 ## Seller profile and style acceptance
 
 After applying all migrations, sign in to an existing completed synthetic store or finish the current Product Setup/Continue to Home. Open Settings → Manage profile & style. Save a creator name (bio optional), create a style draft, select tone/detail/writing approach, Save changes and reload. Apply style, add synthetic pasted previous work without customer details, reload and open it. Edit style again: the prior current style stays published until Apply style. Products and Orders should remain unchanged. File uploads and analysis are intentionally unavailable. See SELLER_STYLE.md / SELLER_STYLE_REPORT.md for version/authorization guarantees and recorded native/browser validation.
+
+## Canonical reading preparation
+
+Apply migration 0005. For synthetic development only set AI_PROVIDER=fake, ETSY_ADAPTER=fixtures, using an actual fixture Store; no API key is required. Create/activate a product and apply a complete style, then import a **new** synthetic reading so intake binds that ProductVersion. Existing legacy seeded readings are intentionally not rebound. Resolve required information/quantity allocation and open order detail → Prepare reading. Reload preserves canonical content. Live configuration and the opt-in isolated acceptance script are documented in GENERATION_ENGINE.md. Native/browser acceptance for this change was blocked by execution permissions, as recorded in GENERATION_ENGINE_REPORT.md.

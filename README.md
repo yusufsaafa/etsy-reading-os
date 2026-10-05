@@ -6,15 +6,17 @@ The seller experience centers on orders, product configuration, production, revi
 
 ## Current status
 
-Milestone 1 skeleton and transactional intake core, dated 2026-10-05. TypeScript/pnpm/Next.js/PostgreSQL/Drizzle/Zod/Auth.js/Vitest are approved. Synthetic intake is implemented and database-tested; live Etsy intake is deliberately gated pending response-contract validation. No model SDK/calls, PDF engine, delivery automation or Redis is included.
+Milestone 1 skeleton and transactional intake core, dated 2026-10-05. TypeScript/pnpm/Next.js/PostgreSQL/Drizzle/Zod/Auth.js/Vitest are approved. Synthetic intake is implemented and database-tested; live Etsy intake is deliberately gated pending response-contract validation. The current follow-up implements canonical preparation through a central accounted AI gateway; PDF, delivery automation and Redis are not included.
 
-Public entry and authentication now lead into persisted onboarding. Logged-out `/` displays the product landing page; `/sign-up` and `/sign-in` use Auth.js and resume the seller's saved next step. Individual email/password accounts are an explicitly development-only boundary; configured GitHub OAuth remains the supported production identity path. Versioned generic Product Setup is implemented: save drafts, activate configurations and retain historical reading bindings. See [Product configuration](docs/PRODUCT_CONFIGURATION.md). Settings now includes one creator profile, structured draft/published style and a private pasted-text previous-work library. No analysis or generation occurs; file uploads remain deferred because storage currently has a port only. See [seller identity and style](docs/SELLER_STYLE.md) and [validation report](docs/SELLER_STYLE_REPORT.md).
+Public entry and authentication now lead into persisted onboarding. Logged-out `/` displays the product landing page; `/sign-up` and `/sign-in` use Auth.js and resume the seller's saved next step. Individual email/password accounts are an explicitly development-only boundary; configured GitHub OAuth remains the supported production identity path. Versioned generic Product Setup is implemented: save drafts, activate configurations and retain historical reading bindings. See [Product configuration](docs/PRODUCT_CONFIGURATION.md). Settings now includes one creator profile, structured draft/published style and a private pasted-text previous-work library. Style analysis remains deferred; canonical preparation is now available through the generation milestone. File uploads remain deferred because storage currently has a port only. See [seller identity and style](docs/SELLER_STYLE.md) and [validation report](docs/SELLER_STYLE_REPORT.md).
 
 Current entry integration validation: full typecheck, production build, unit/database tests, native PostgreSQL migrations/seed and local browser journey at 1440/768/390px were exercised. See [entry/auth report](docs/ENTRY_AUTH_REPORT.md) for exact results and remaining production limits. This is not a production-ready release.
 
 The seller-facing interface redesign is defined in [UI / UX design lock](docs/UI_UX_DESIGN_LOCK.md): Home, Orders, Products and Settings, with contextual attention queues and independent readings inside each checkout.
 
 See [local development](docs/LOCAL_DEVELOPMENT.md), [implementation plan](docs/MILESTONE_1_PLAN.md), [Etsy capability matrix](docs/ETSY_INTEGRATION.md), and [validation report](docs/MILESTONE_1_REPORT.md).
+
+Generation architecture, configuration, accounting, limits and acceptance evidence are in [GENERATION_ENGINE.md](docs/GENERATION_ENGINE.md) and [GENERATION_ENGINE_REPORT.md](docs/GENERATION_ENGINE_REPORT.md). The current implementation is backend-tested; native PostgreSQL/browser/live-provider acceptance limitations are explicitly recorded.
 
 ## Read first
 
@@ -44,6 +46,6 @@ The implementation uses one Next.js application, domain modules under src/module
 
 Keep the recorded local acceptance checks passing. For live Etsy, obtain approved app access and validate authorized listing/receipt fixtures before enabling the live intake adapter. Listing-level uploads must not be used as a substitute for order-specific delivery.
 
-The current milestone is secure read-only intake and mobile triage. Remaining launch gates and the next proposed milestone are in the implementation report. Future production acceptance criteria remain in [PRODUCT_SPEC.md](docs/PRODUCT_SPEC.md).
+The current milestone is canonical generation with centralized usage/cost accounting. Secure read-only intake and mobile triage remain intact. Native/browser/live-provider acceptance limits and the next recommended milestone are in GENERATION_ENGINE_REPORT.md. Future production acceptance criteria remain in [PRODUCT_SPEC.md](docs/PRODUCT_SPEC.md).
 
 Official Etsy assumptions are time-sensitive. Sources and verification dates are recorded in the architecture document; recheck them before implementing adapters.

@@ -92,3 +92,7 @@ Reconcile provider totals/invoices or usage APIs when available without rewritin
 - Every physical attempt has provider/model/operation/retry metadata and usage completeness; missing provider metrics are explicitly unknown.
 - Updating pricing changes future policy without changing business logic or historical cost basis.
 - A second tenant cannot read another tenant's usage, protected prompts or content references.
+
+## Implemented internal accounting, 2026-10-05
+
+The earlier provider-undecided/no-call statements describe Milestone 1. [GENERATION_ENGINE.md](GENERATION_ENGINE.md) defines the now-implemented CentralAIGateway, attempt/accounting lifecycle, centrally configured Google model, official dated pricing snapshot and exact USD nanos. AIRequest is one physical attempt; UsageEvent is created before dispatch with unknown amount and settled atomically with its result. Missing usage/ambiguous failures retain null cost plus conservative reservation, never zero. Effective 2026/2027 prices are centralized and frozen per request. Concurrent Store admission enforces configured daily/attempt caps including old unknown liabilities. Full organizational/platform budgets, reconciliation adjustments and billing remain unimplemented production gates; this slice does not claim the broader proposed model is complete.

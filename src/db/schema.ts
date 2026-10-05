@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, uuid, text, integer, boolean, timestamp, jsonb, unique, foreignKey, check, index, uniqueIndex, type AnyPgColumn } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, integer, bigint, boolean, timestamp, jsonb, unique, foreignKey, check, index, uniqueIndex, type AnyPgColumn } from "drizzle-orm/pg-core";
 import type { Configuration } from "../modules/products/contracts";
 import type { Answer, ExternalOrder, ExternalListing, InputPolicy } from "../modules/intake/contracts";
 
@@ -133,3 +133,47 @@ export const styleSources = pgTable("style_sources", {
 },t=>[unique("source_command_unique").on(t.organizationId,t.storeId,t.commandKey),unique("source_owned_identity").on(t.organizationId,t.storeId,t.id),
   foreignKey({name:"source_owned_store_fk",columns:[t.organizationId,t.storeId],foreignColumns:[stores.organizationId,stores.id]}),
   check("source_text_valid",sql`${t.sourceType}='PASTED_TEXT' and length(trim(${t.title})) between 1 and 150 and length(trim(${t.text})) between 1 and 50000 and ${t.contentHash} ~ '^[a-f0-9]{64}$'`)]);
+
+export const generations = pgTable("generations", {
+ id:id(),organizationId:org(),storeId:store(),unitId:uuid("unit_id").notNull(),productVersionId:uuid("product_version_id").notNull(),
+ styleVersionId:uuid("style_version_id").notNull(),sellerProfileId:uuid("seller_profile_id").notNull(),customerRevision:integer("customer_revision").notNull(),
+ context:jsonb("context").$type<import("../modules/generation/contracts").GenerationContext>().notNull(),contextHash:text("context_hash").notNull(),
+ status:text("status").notNull().default("PROCESSING"),result:jsonb("result").$type<import("../modules/generation/contracts").CanonicalResult>(),
+ createdAt:time("created_at").defaultNow().notNull(),completedAt:time("completed_at"),
+},t=>[unique("generation_owned_identity").on(t.organizationId,t.storeId,t.id),
+ foreignKey({columns:[t.organizationId,t.storeId,t.unitId],foreignColumns:[units.organizationId,units.storeId,units.id]}),
+ foreignKey({columns:[t.organizationId,t.storeId,t.productVersionId],foreignColumns:[productVersions.organizationId,productVersions.storeId,productVersions.id]}),
+ foreignKey({columns:[t.organizationId,t.storeId,t.styleVersionId],foreignColumns:[styleVersions.organizationId,styleVersions.storeId,styleVersions.id]}),
+ foreignKey({columns:[t.organizationId,t.storeId,t.sellerProfileId],foreignColumns:[sellerProfiles.organizationId,sellerProfiles.storeId,sellerProfiles.id]}),
+ foreignKey({columns:[t.organizationId,t.storeId,t.unitId,t.customerRevision],foreignColumns:[customerInputs.organizationId,customerInputs.storeId,customerInputs.unitId,customerInputs.revision]}),
+ uniqueIndex("one_processing_generation_per_reading").on(t.organizationId,t.storeId,t.unitId).where(sql`${t.status}='PROCESSING'`),
+ check("generation_status",sql`${t.status} in ('PROCESSING','SUCCEEDED','FAILED')`),
+ check("generation_success_result",sql`(${t.status}='SUCCEEDED')=(${t.result} is not null)`),
+ check("generation_context_hash",sql`${t.contextHash} ~ '^[a-f0-9]{64}$'`)]);
+export const aiRequests = pgTable("ai_requests", {
+ id:id(),organizationId:org(),storeId:store(),generationId:uuid("generation_id"),attemptNumber:integer("attempt_number").notNull(),
+ commandKey:uuid("command_key").notNull(),commandHash:text("command_hash").notNull(),parentRequestId:uuid("parent_request_id"),
+ operation:text("operation").notNull(),provider:text("provider").notNull(),model:text("model").notNull(),resolvedModel:text("resolved_model"),
+ providerRequestId:text("provider_request_id"),status:text("status").notNull().default("CLAIMED"),failureCode:text("failure_code"),ambiguous:boolean("ambiguous").notNull().default(false),
+ inputTokens:integer("input_tokens"),outputTokens:integer("output_tokens"),totalTokens:integer("total_tokens"),reasoningTokens:integer("reasoning_tokens"),cachedTokens:integer("cached_tokens"),
+ durationMs:integer("duration_ms"),pricing:jsonb("pricing").$type<import("../infrastructure/ai/pricing").Pricing>().notNull(),
+ reservedNanos:bigint("reserved_nanos",{mode:"bigint"}).notNull(),estimatedNanos:bigint("estimated_nanos",{mode:"bigint"}),actualNanos:bigint("actual_nanos",{mode:"bigint"}),
+ costState:text("cost_state").notNull().default("unknown"),createdAt:time("created_at").defaultNow().notNull(),startedAt:time("started_at"),finishedAt:time("finished_at"),
+},t=>[unique("ai_request_owned_identity").on(t.organizationId,t.storeId,t.id),
+ unique("ai_command_unique").on(t.organizationId,t.storeId,t.commandKey),
+ unique("generation_attempt_number").on(t.organizationId,t.storeId,t.generationId,t.attemptNumber),
+ foreignKey({columns:[t.organizationId,t.storeId],foreignColumns:[stores.organizationId,stores.id]}),
+ foreignKey({columns:[t.organizationId,t.storeId,t.generationId],foreignColumns:[generations.organizationId,generations.storeId,generations.id]}),
+ foreignKey({columns:[t.organizationId,t.storeId,t.parentRequestId],foreignColumns:requestIdentityColumns()}),
+ uniqueIndex("one_active_request_per_generation").on(t.organizationId,t.storeId,t.generationId).where(sql`${t.status} in ('CLAIMED','RUNNING')`),
+ check("ai_request_status",sql`${t.status} in ('CLAIMED','RUNNING','SUCCEEDED','FAILED')`),
+ check("ai_cost_state",sql`${t.costState} in ('estimated','known_zero','unknown') and ((${t.costState}='unknown')=(${t.estimatedNanos} is null))`),
+ check("ai_nonnegative",sql`${t.attemptNumber}>0 and ${t.reservedNanos}>=0 and ${t.estimatedNanos}>=0 and ${t.actualNanos}>=0 and ${t.durationMs}>=0 and ${t.inputTokens}>=0 and ${t.outputTokens}>=0 and ${t.totalTokens}>=0 and ${t.reasoningTokens}>=0 and ${t.cachedTokens}>=0`)]);
+function requestIdentityColumns():[AnyPgColumn,AnyPgColumn,AnyPgColumn] {return [aiRequests.organizationId,aiRequests.storeId,aiRequests.id];}
+export const usageEvents=pgTable("usage_events",{
+ id:id(),organizationId:org(),storeId:store(),aiRequestId:uuid("ai_request_id").notNull(),operation:text("operation").notNull(),
+ amountNanos:bigint("amount_nanos",{mode:"bigint"}),currency:text("currency").notNull().default("USD"),costState:text("cost_state").notNull().default("unknown"),
+ createdAt:time("created_at").defaultNow().notNull(),
+},t=>[unique("one_usage_per_request").on(t.organizationId,t.storeId,t.aiRequestId),
+ foreignKey({columns:[t.organizationId,t.storeId,t.aiRequestId],foreignColumns:[aiRequests.organizationId,aiRequests.storeId,aiRequests.id]}),
+ check("usage_cost",sql`${t.currency}='USD' and ${t.costState} in ('estimated','known_zero','unknown') and ((${t.costState}='unknown')=(${t.amountNanos} is null)) and ${t.amountNanos}>=0`)]);

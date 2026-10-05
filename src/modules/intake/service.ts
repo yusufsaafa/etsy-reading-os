@@ -1,4 +1,4 @@
-import { productVersions } from "../../db/schema";
+import { generations, productVersions } from "../../db/schema";
 import { resolveConfiguration, unitPolicy } from "../products/runtime";
 import { and, eq, desc } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
@@ -70,14 +70,15 @@ export async function ingestOrder(db: Database, scope: Scope, raw: unknown, opti
 }
 export async function workspaceData(db: Database, scope: Scope) {
   await verifyScope(db, scope);
-  const [orderRows, lines, unitRows, inputRows, listingRows, mappingRows, versionRows] = await Promise.all([
+  const [orderRows, lines, unitRows, inputRows, listingRows, mappingRows, versionRows, generationRows] = await Promise.all([
     db.select().from(orders).where(tenantWhere(orders, scope)).orderBy(desc(orders.createdAt)),
     db.select().from(lineItems).where(tenantWhere(lineItems, scope)), db.select().from(units).where(tenantWhere(units, scope)),
     db.select().from(customerInputs).where(tenantWhere(customerInputs, scope)).orderBy(desc(customerInputs.revision)),
     db.select().from(listings).where(tenantWhere(listings, scope)), db.select().from(mappings).where(tenantWhere(mappings, scope)),
     db.select().from(productVersions).where(tenantWhere(productVersions,scope)),
+    db.select({unitId:generations.unitId,status:generations.status,customerRevision:generations.customerRevision}).from(generations).where(tenantWhere(generations,scope)).orderBy(desc(generations.createdAt)),
   ]);
-  return { orders: orderRows, lines, units: unitRows, inputs: inputRows, listings: listingRows, mappings: mappingRows, versions:versionRows };
+  return { orders: orderRows, lines, units: unitRows.map(unit=>({...unit,productionStatus:(generationRows.find(g=>g.unitId===unit.id)?.status==="SUCCEEDED"&&generationRows.find(g=>g.unitId===unit.id)?.customerRevision!==unit.revision)?"STALE":generationRows.find(g=>g.unitId===unit.id)?.status,productionRevision:generationRows.find(g=>g.unitId===unit.id)?.customerRevision})), inputs: inputRows, listings: listingRows, mappings: mappingRows, versions:versionRows };
 }
 export async function correctInput(db: Database, scope: Scope, unitId: string, expectedRevision: number, answers: Answer[], allocated: boolean) {
   await db.transaction(async tx => {

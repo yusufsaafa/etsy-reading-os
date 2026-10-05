@@ -102,3 +102,7 @@ Reuse the existing blue/neutral tokens, 44px controls, compact borders and share
 ## Seller profile and style continuation
 
 Settings owns Your profile & style; no additional primary navigation. Use the same neutral/blue tokens, 44px controls and operations shell. Compact separated sections contain Name/optional bio, structured style choices and optional previous work. Save changes means draft; Apply style explicitly publishes. Current style and Draft changes use small nearby badges; no raw revision numbers, identifiers, storage keys, ISO dates or provider settings. Pasted reference viewing escapes content and uses readable, wrapping text. File uploads are truthfully unavailable. Phone forms stack to one column, tablet fills its available width, desktop uses a bounded label/content grid. Existing Landing/Auth/Home/Orders/Products visuals are untouched. No AI branding or analysis promises.
+
+## Canonical preparation continuation
+
+Order detail now enables Prepare reading for eligible version-bound readings with a saved profile/published style. Pending copy is Preparing; successful sections appear in a compact escaped details view and status is Ready for review. Problem/updated-information/review statuses reuse existing badges and contextual attention lists. Provider/model/token/prompt controls remain absent. Other visual/navigation rules stay locked; no Review Workspace, PDF or delivery is introduced. Earlier disabled-create statements describe the previous milestone.

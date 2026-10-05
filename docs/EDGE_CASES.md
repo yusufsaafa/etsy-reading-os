@@ -79,3 +79,7 @@ Architecture-critical for V1 means identity, relationships, state or durable gua
 ## Minimum future test scenarios
 
 Before a production pilot, demonstrate mixed checkout quantity expansion, duplicate event/command replay, cancellation followed by stale payment event, product edits after ingestion, generation success plus PDF failure, ambiguous provider timeout, ambiguous delivery, token revocation/reconnect, second-tenant artifact denial, and phone review/delivery using long Unicode customer input. These are implementation acceptance scenarios, not instructions to create test code during the documentation phase.
+
+## Generation milestone handling
+
+See GENERATION_ENGINE.md for duplicate/concurrent command exclusion, exact version/context snapshots, malformed-output accounting, nullable unknown cost, explicit retry history and safe transaction stages. Late customer corrections preserve earlier work but project Review updated information. Late cancellation/payment/refund holds take precedence over generated status. A crash or settlement failure remains PROCESSING with unknown liability and never automatically redispatches. Native concurrency/abandoned-request reconciliation remain acceptance/hardening gates for the next queue milestone. No PDF or delivery side effects exist.
