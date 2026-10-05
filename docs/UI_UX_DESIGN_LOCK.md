@@ -40,11 +40,23 @@ Keep customer field labels intact: validation depends on them. Existing correcti
 
 ## Visual rules
 
-Original commerce interface informed by the requested reference principles: compact records, quiet chrome, clear hierarchy and contextual actions. Neutral warm background, charcoal text, restrained green accent, amber only for action-required status. System typography, subtle borders, small radii, no giant white widgets, gradients, glass, chat, robots, sparkles or decorative charts. Shared buttons/inputs/status/loading/error/empty patterns. One dominant action per reading; technical controls secondary.
+Second visual pass (2026-10-05) replaces the first warm/green system completely. Cool-neutral app background #F7F8FA, white surfaces, #F3F4F6 subtle surfaces, near-black #111827 text, gray metadata and #E5E7EB borders. A restrained #2563EB accent is reserved for selection, primary actions and focus. Success, warning and danger appear in small semantic elements. Seller brands never affect the SaaS shell.
+
+Shared tokens define semantic colors, 6/10px radii, 4–40px spacing scale and 44px controls. Typography: 30px desktop page titles, 17px section titles, 14px body, 12–13px metadata. No gradients, glass, mystical identity, large shadows or giant dashboard cards. Navigation uses original consistent 20px inline SVG icons, with no icon dependency.
+
+Metrics, orders and customer information use scoped CSS modules imported by their components. Metrics use discrete definition lists. Orders use a semantic table with scoped columns, row separators and mobile record reflow. Customer labels and values use separate dt/dd blocks with explicit margin/gap, never adjoining inline spans. Reading status stays beside its heading instead of justified against the viewport edge. Reading panels are restrained and constrained to 960px, while general content is centered within a 1280px outer width.
+
+Screenshot extracted text confirmed concatenated values, headers and answers. Pixels were unavailable. The first source already included spacing selectors, so stale/mismatched runtime CSS is a possible additional cause, not a verified diagnosis. Check stylesheet loading and the exact checked-out branch during local review. The second pass does not claim browser or visual acceptance.
 
 ## Desktop and mobile
 
-Desktop: narrow persistent navigation, constrained readable content, aligned list columns and product groups. Tablet: same hierarchy with fewer columns. At 390px: fixed four-item bottom navigation with safe-area padding; list rows reflow, no primary horizontal scrolling; product groups stack; input forms remain inline and reachable. Controls at least 44px, visible keyboard focus, non-color status labels, Unicode wrapping and dir=auto on customer text. Avoid full-card nested links and hover-only actions. Expanded information editors preserve draft state on a save error.
+1440px: 232px persistent white sidebar, brand/workspace at top, aligned navigation and store/settings area at bottom; centered main content with deliberate 24–48px gutters. Home uses one compact metrics surface, attention list and orders table. Order detail uses a 960px reading column with nearby badges and separated answer fields.
+
+768px: compact top shell with horizontal navigation, no desktop sidebar reservation; 24px page gutters, order table becomes record rows and attention reasons sit below identity. Settings retains an intentional label/content grid.
+
+390px: four-item fixed bottom navigation, compact brand/store header, 20px gutters, two-by-two metrics, stacked order records, clearly grouped reading panels and single-column settings. Safe-area and bottom content padding keep actions above navigation. Inputs/editors wrap long Unicode and use 16px phone text to avoid browser input zoom. Primary controls and navigation have at least 44px targets; keyboard focus and textual status remain visible. No clipping/hiding overflow is used as a substitute for responsive sizing. Expanded editors retain drafts on save errors.
+
+Manual browser review at all three widths remains the product owner's acceptance gate. Source/CSS inspection verifies explicit metric separation, table columns, dt/dd answer separation, bounded reading groups, responsive breakpoints and no raw primary action styling.
 
 ## Progressive disclosure
 
