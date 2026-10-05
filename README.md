@@ -6,7 +6,11 @@ The seller experience centers on orders, product configuration, production, revi
 
 ## Current status
 
-Documentation foundation only, dated 2026-10-05. No application, framework, dependency installation, generated boilerplate, or production infrastructure exists. Recommendations below are proposals unless explicitly identified as requirements. No Etsy integration or automated delivery capability has been demonstrated.
+Milestone 1 skeleton and transactional intake core, dated 2026-10-05. TypeScript/pnpm/Next.js/PostgreSQL/Drizzle/Zod/Auth.js/Vitest are approved. Synthetic intake is implemented and database-tested; live Etsy intake is deliberately gated pending response-contract validation. No model SDK/calls, PDF engine, delivery automation or Redis is included.
+
+Validation limitation: this execution environment cannot reach the npm registry and has no cached Auth.js package. Core typechecking and domain/database tests run, but the full application typecheck/build and browser/mobile demonstration are blocked until a complete dependency install. Native PostgreSQL startup is restricted here; database tests run the PostgreSQL engine through PGlite. Do not treat this as a production-ready release.
+
+See [local development](docs/LOCAL_DEVELOPMENT.md), [implementation plan](docs/MILESTONE_1_PLAN.md), [Etsy capability matrix](docs/ETSY_INTEGRATION.md), and [validation report](docs/MILESTONE_1_REPORT.md).
 
 ## Read first
 
@@ -30,12 +34,12 @@ Documentation foundation only, dated 2026-10-05. No application, framework, depe
 
 ## Proposed engineering direction
 
-Start with a modular monolith and one relational source of truth. TypeScript and PostgreSQL are preferred candidates, not final selections. Web/API and worker are runtime roles; domains are modules, not automatically separate services or packages. Do not create empty `apps/` or `packages/` scaffolding before the runtime decisions and first milestone justify them.
+The implementation uses one Next.js application, domain modules under src/modules, infrastructure ports/adapters under src/infrastructure, and a PostgreSQL schema under src/db. The worker is a script using the same modules. No unused apps/packages scaffolding exists. Secret storage and private object storage have provider-neutral boundaries; sync jobs use PostgreSQL behind BackgroundJobs.
 
 ## Before implementation
 
-Resolve the decision register in [ARCHITECTURE.md](docs/ARCHITECTURE.md). In particular, verify Etsy application access, personalization payloads, and the permitted mechanism for delivering a unique customer document. Listing-level uploads must not be used as a substitute for order-specific delivery.
+Complete package installation and full type/build/browser checks before accepting the skeleton as runnable. For live Etsy, obtain approved app access and validate authorized listing/receipt fixtures before enabling the live intake adapter. Listing-level uploads must not be used as a substitute for order-specific delivery.
 
-Recommended first implementation milestone: a tenant-isolated, read-only Etsy intake and mobile order-triage slice. Its acceptance criteria are in [PRODUCT_SPEC.md](docs/PRODUCT_SPEC.md). It precedes billable production and delivery automation.
+The current milestone is secure read-only intake and mobile triage. Remaining launch gates and the next proposed milestone are in the implementation report. Future production acceptance criteria remain in [PRODUCT_SPEC.md](docs/PRODUCT_SPEC.md).
 
 Official Etsy assumptions are time-sensitive. Sources and verification dates are recorded in the architecture document; recheck them before implementing adapters.

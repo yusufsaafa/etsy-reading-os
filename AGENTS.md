@@ -2,13 +2,13 @@
 
 ## Scope and authority
 
-This repository currently contains a documentation foundation. Do not implement application code, install dependencies, scaffold frameworks, or provision infrastructure until the user explicitly starts implementation. This restriction describes the current phase, not a permanent prohibition on future authorized work.
+The user authorized Milestone 1 implementation on 2026-10-05: secure read-only Etsy intake and mobile order triage. Use the approved TypeScript/pnpm/Next.js/PostgreSQL/Drizzle/Zod/Auth.js/Vitest stack. No AI SDK/model calls, PDF generation, automated delivery, Redis requirement, or future production tables in this milestone. Live capabilities remain gated by ETSY_INTEGRATION.md. Do not remove that gate based only on fixtures.
 
 User instructions take precedence over this file. Do not assume recommendations are settled decisions. Surface material contradictions and integration limitations instead of inventing API capabilities.
 
 ## Required reading
 
-Read README.md and the relevant documents under docs/ before changing behavior. Architectural work requires ARCHITECTURE.md; workflow changes require PRODUCT_SPEC.md and EDGE_CASES.md; billable work requires COST_MODEL.md; UI work requires DESIGN_PRINCIPLES.md. Inspect more specific AGENTS.md files if later introduced.
+Read README.md and relevant docs/ before changing behavior. Architectural work requires ARCHITECTURE.md; workflow changes require PRODUCT_SPEC.md and EDGE_CASES.md; billable work requires COST_MODEL.md; UI work requires DESIGN_PRINCIPLES.md. Milestone work also requires MILESTONE_1_PLAN.md, ETSY_INTEGRATION.md and MILESTONE_1_REPORT.md. Inspect more specific AGENTS.md files if introduced.
 
 ## Domain and data rules
 

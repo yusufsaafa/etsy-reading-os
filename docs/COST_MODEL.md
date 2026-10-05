@@ -2,6 +2,8 @@
 
 Status: architectural requirements, 2026-10-05. Provider, pricing, allowance values, billing currency and customer charging policy are undecided. No current model prices are assumed.
 
+Milestone 1 makes zero model calls and includes no AI SDK, provider credentials, model operations, generations or usage tables. Intake/mapping/validation are deterministic. The requirements below apply when billable capabilities are explicitly introduced later, not as permission to add those tables now.
+
 ## Governing rule
 
 Every billable external model operation must be observable and attributable. This includes content production, product tests, explicit regenerations, repair calls, safety/model checks if billable, fallback requests, and failed/retried requests. No UI, background job, integration adapter or helper may invoke a model provider outside the controlled gateway.
