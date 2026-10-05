@@ -6,7 +6,7 @@ Approved redesign scope: 2026-10-05. This lock supersedes provisional navigation
 
 Connect Etsy → Set up products → Receive orders → Create reading → Review → Send.
 
-Milestone 1 supports connection, existing customer requirements, received orders and information review only. Create reading is disabled with an explicit explanation. Production, output and delivery steps are coming later; no fabricated completion or sending state is stored.
+Milestone 1 supports connection, existing customer requirements, received orders and information review only. Create reading is disabled with an explicit explanation. Content creation, document rendering and delivery remain unavailable. Output/workflow preferences can be configured without implying execution.
 
 ## Navigation and screen hierarchy
 
@@ -18,7 +18,7 @@ Orders is the daily queue: customer, checkout reference, reading count/product s
 
 Order detail: customer/order/date → purchased product groups → independently numbered readings → one primary next action. Order #2002 remains one checkout with Love ×2 and Career ×1, three readings. Information editing preserves expected revision, recipient confirmation, original answers and audits. Safety holds cannot be dismissed through presentation.
 
-Products: compact Etsy product list, Etsy state, application setup status, Set up/Edit disclosure. Setup shell has Basics, Customer information, Reading, Output, Delivery. Only existing requirements and pause/resume controls operate. Variant choice labels come from purchased variations; raw IDs are advanced. No images exist in the current canonical listing contract: show a neutral placeholder rather than inventing assets or changing that contract.
+Products: compact Etsy product list, Etsy state, Setup required / Draft / Active status, contextual setup/edit actions. Setup includes Product name, Customer information, Content structure, Output, Workflow; saved drafts and validated activation operate. Pause/resume remains advanced. Variant choice labels come from purchased variations; raw IDs are advanced. No images exist in the current canonical listing contract: show a neutral placeholder rather than inventing assets or changing that contract.
 
 Settings: Store, Etsy connection, Account, Advanced. Explain access before consent. Show connection health, last successful update, supported connect/disconnect actions and retained history. Manual refresh and redacted sync diagnostics are secondary Advanced controls. Current manual-worker limitation stays honest; no implied automatic synchronization is introduced.
 
@@ -70,7 +70,7 @@ Re-run existing domain/security/database suites plus full typecheck/build. Add f
 
 The current approved reference supersedes the earlier hex/radius values: background #F8FAFC, surface #FFFFFF, primary text #0F172A, secondary #64748B, muted #94A3B8, borders #E2E8F0 / #CBD5E1; primary #2563EB, hover #1D4ED8, selected #EFF6FF. Shared radii are 8/10px, sans typography, minimal shadows and 44px controls. Semantic colors remain confined to statuses. Seller brands never style the platform.
 
-New account -> Store -> Etsy -> Products -> Product setup. Dedicated authenticated shell uses the wordmark, sign-out control and compact four-step progress; no operational sidebar. Product setup is an explicit upcoming boundary, not implemented, and new sellers are not routed to Home prematurely. Existing Milestone 1 workspaces retain their operational access.
+New account -> Store -> Etsy -> Products -> Product setup. Dedicated authenticated shell uses the wordmark, sign-out control and compact four-step progress; no operational sidebar. Product setup now saves drafts and activates valid versioned configurations; at least one selected active configuration enables an explicit Continue to Home. Existing Milestone 1 workspaces retain their operational access.
 
 - Store: name only, one replay-safe organization/store creation, then Etsy consent.
 - Etsy: permissions before OAuth, read-only capability limits, redirecting/connected/error/needs-attention states; disconnect remains available as a secondary connection option. Never expose credentials or OAuth internals. Local disconnect does not claim remote revocation.
@@ -88,9 +88,13 @@ Use the existing tokens and primitives above: cool white/slate surfaces, near-bl
 
 - Logged-out `/` is public Landing. Its header exposes How it works, Features, Security, Log in and Get started. The supplied hero copy remains “Run your Etsy reading shop without the repetitive work.” Product UI is the visual language; any example is explicitly illustrative. Future creation/review/sending remain labeled coming later.
 - `/sign-up` and `/sign-in` use a logo/account-switch header and narrow centered form without a floating card or app sidebar. Full name/email/password are shown only where the identity architecture genuinely supports them. Genuine configured GitHub OAuth remains available; Google is not fabricated. Development-only account limitations are visible.
-- Authentication resumes `Store → Etsy → Products → Product setup` from persisted server state. The Product Setup page stays an honest boundary, never an invented completion or shortcut to Home.
+- Authentication resumes `Store → Etsy → Products → Product setup` from persisted server state. Product Setup gates Home on a server-validated active configuration and persisted completion.
 - Primary operational navigation remains Home, Orders, Products, Settings. Completed Home keeps `/`. Public/auth/onboarding pages never duplicate it or show its sidebar.
 - Logout returns the public experience while retaining the workspace, connection, orders and selected products.
 - Desktop content uses deliberate bounded widths; at 768px Landing stacks its hero, and at 390px content/forms fill available width with comfortable gutters. Header keeps account CTAs; secondary section navigation can collapse. Controls retain visible focus and practical 44px targets. No horizontal scrolling or internal-domain terminology in seller copy.
 
 The inspected repository contained design guidance but no existing public Landing component or approved landing image asset. This integration implements the prescribed content with the locked palette/shared primitives; it does not assert pixel equivalence to an external reference or final visual acceptance. Local rendered evidence and journey results are in ENTRY_AUTH_REPORT.md.
+
+## Product configuration screens
+
+Reuse the existing blue/neutral tokens, 44px controls, compact borders and shared onboarding/operations shells. Setup has Product name, Customer information, Content structure, Output, Workflow; Save draft is secondary and Activate product primary. Inputs and sections use bounded rows with accessible move/remove actions. Phones stack field controls without horizontal scrolling. Output and workflow copy explicitly describes preferences, with no fabricated generation, PDF or delivery. Automatic is disabled. Products displays Setup required / Draft / Active with contextual setup/edit actions and a quiet current-version indicator. Variant details and legacy checks remain advanced. Editing clones a draft while active configuration remains intact. New onboarding retains its progress indicator and no application sidebar until Continue to Home.

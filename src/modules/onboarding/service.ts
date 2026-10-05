@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import type { Database, DbExecutor } from "../../db/client";
-import { stores, connections, listings, listingSelections, syncRuns, auditLogs } from "../../db/schema";
+import { stores, connections, listings, listingSelections, syncRuns, auditLogs, mappings, products, productVersions } from "../../db/schema";
 import { createWorkspace, findUserStore as userStore } from "../identity/service";
 import { tenantWhere, verifyScope } from "../intake/service";
 import type { Scope } from "../intake/contracts";
@@ -65,5 +65,22 @@ export async function saveProductSelection(db: Database, scope: Scope, rawIds: u
     }
     await tx.update(stores).set({ onboardingStage: "product_setup" }).where(and(eq(stores.organizationId, scope.organizationId), eq(stores.id, scope.storeId)));
     return ids.length;
+  });
+}
+
+// Completion is an explicit server command; choosing products never satisfies this gate.
+export async function completeProductOnboarding(db: Database, scope: Scope) {
+  return db.transaction(async tx=>{
+    await verifyScope(tx,scope,true);
+    const [store]=await tx.select().from(stores).where(and(eq(stores.organizationId,scope.organizationId),eq(stores.id,scope.storeId))).for("update");
+    if(store.onboardingStage==="complete") return;
+    const [ready]=await tx.select({id:products.id}).from(listingSelections)
+      .innerJoin(mappings,and(eq(mappings.organizationId,listingSelections.organizationId),eq(mappings.storeId,listingSelections.storeId),eq(mappings.listingExternalId,listingSelections.listingExternalId)))
+      .innerJoin(products,and(eq(products.organizationId,mappings.organizationId),eq(products.storeId,mappings.storeId),eq(products.id,mappings.productId)))
+      .innerJoin(productVersions,and(eq(productVersions.organizationId,products.organizationId),eq(productVersions.storeId,products.storeId),eq(productVersions.productId,products.id),eq(productVersions.id,products.activeVersionId)))
+      .where(and(tenantWhere(listingSelections,scope),eq(productVersions.status,"ACTIVE"),eq(mappings.paused,false))).limit(1);
+    if(!ready) throw new Error("ACTIVATE_ONE_SELECTED_PRODUCT");
+    await tx.update(stores).set({onboardingStage:"complete"}).where(and(eq(stores.organizationId,scope.organizationId),eq(stores.id,scope.storeId)));
+    await tx.insert(auditLogs).values({organizationId:scope.organizationId,storeId:scope.storeId,actorId:scope.userId,action:"product_onboarding_completed",resourceId:ready.id});
   });
 }

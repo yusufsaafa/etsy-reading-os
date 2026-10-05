@@ -2,13 +2,13 @@
 
 ## Scope and authority
 
-The user authorized Milestone 1 implementation on 2026-10-05: secure read-only Etsy intake and mobile order triage. Use the approved TypeScript/pnpm/Next.js/PostgreSQL/Drizzle/Zod/Auth.js/Vitest stack. No AI SDK/model calls, PDF generation, automated delivery, Redis requirement, or future production tables in this milestone. Live capabilities remain gated by ETSY_INTEGRATION.md. Do not remove that gate based only on fixtures.
+The user authorized Milestone 1 implementation on 2026-10-05: secure read-only Etsy intake and mobile order triage. Use the approved TypeScript/pnpm/Next.js/PostgreSQL/Drizzle/Zod/Auth.js/Vitest stack. No AI SDK/model calls, PDF generation, automated delivery, Redis requirement, or future execution tables in Milestone 1. The current authorized follow-up adds the generic, versioned Product Configuration System described in PRODUCT_CONFIGURATION.md; it still excludes generation, document rendering, delivery, billing and seller style. Live capabilities remain gated by ETSY_INTEGRATION.md. Do not remove that gate based only on fixtures.
 
 User instructions take precedence over this file. Do not assume recommendations are settled decisions. Surface material contradictions and integration limitations instead of inventing API capabilities.
 
 ## Required reading
 
-Read README.md and relevant docs/ before changing behavior. Architectural work requires ARCHITECTURE.md; workflow changes require PRODUCT_SPEC.md and EDGE_CASES.md; billable work requires COST_MODEL.md; UI work requires DESIGN_PRINCIPLES.md. Milestone work also requires MILESTONE_1_PLAN.md, ETSY_INTEGRATION.md and MILESTONE_1_REPORT.md. Inspect more specific AGENTS.md files if introduced.
+Read README.md and relevant docs/ before changing behavior. Architectural work requires ARCHITECTURE.md; workflow changes require PRODUCT_SPEC.md and EDGE_CASES.md; billable work requires COST_MODEL.md; UI work requires DESIGN_PRINCIPLES.md. Milestone work also requires MILESTONE_1_PLAN.md, ETSY_INTEGRATION.md and MILESTONE_1_REPORT.md. Product changes also require PRODUCT_CONFIGURATION.md and UI_UX_DESIGN_LOCK.md. Inspect more specific AGENTS.md files if introduced.
 
 ## Domain and data rules
 
@@ -16,6 +16,7 @@ Read README.md and relevant docs/ before changing behavior. Architectural work r
 - Do not bypass module ownership or application services through direct cross-domain table mutations for convenience. Cross-domain orchestration is explicit and transactional where needed.
 - Keep marketplace records separate from internal products. SKUs are optional mapping hints, never primary identities.
 - Preserve versioned configuration, context, generation history, document revisions, and approval provenance. Do not silently mutate historical inputs.
+- Published ProductVersions and bound FulfillmentUnit configuration references are immutable. Editing creates a draft; activation is transactional and cannot silently rebind historical orders. Preserve the migration triggers as well as the Drizzle constraints.
 - Keep content structure separate from document appearance. Product-specific tarot concepts must not become mandatory fields of every product.
 - Treat external IDs as opaque strings at application boundaries; validate and canonicalize in adapters. Do not risk JavaScript numeric precision loss.
 

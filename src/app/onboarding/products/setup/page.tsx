@@ -1,13 +1,20 @@
-import Link from "next/link";
-import { redirect } from "next/navigation";
+import { z } from "zod";
+import { redirect, notFound } from "next/navigation";
 import { database } from "@/db/client";
 import { currentStoreScope, currentDestination } from "@/modules/identity/session";
-import { onboardingData } from "@/modules/onboarding/service";
+import { catalogData } from "@/modules/products/service";
+import { AccessDenied } from "@/modules/identity/service";
 import { StepHeader } from "@/components/onboarding/shell";
-import { Card, Badge } from "@/components/ui";
-export default async function SetupBoundary() {
-  const data = await onboardingData(database(), await currentStoreScope());
-  const destination = await currentDestination();
-  if (destination.kind !== "PRODUCT_SETUP") redirect(destination.path);
-  return <><StepHeader step={4} title="Your products are ready to set up." description="Next: configure your first product."/><Card><Badge>Setup required</Badge><h2 style={{ marginTop: 16 }}>{data.selected.length} {data.selected.length === 1 ? "product selected" : "products selected"}</h2><p>Product setup is coming next. Your selection is saved, but no products are configured or automated yet.</p><Link className="button secondary" href="/onboarding/products">Review selected products</Link></Card></>;
+import { Badge } from "@/components/ui";
+import { ProductSetup } from "@/components/products/setup";
+import { startProductSetup, finishProductOnboarding } from "@/components/products/actions";
+export default async function SetupPage({searchParams}:{searchParams:Promise<{product?:string}>}) {
+ const scope=await currentStoreScope(),destination=await currentDestination();if(destination.kind!=="PRODUCT_SETUP")redirect(destination.path);
+ const {product}=await searchParams;if(product){if(!z.string().uuid().safeParse(product).success)notFound();try{return await ProductSetup({scope,productId:product,onboarding:true});}catch(error){if(error instanceof AccessDenied)notFound();throw error;}}
+ const data=await catalogData(database(),scope),selected=data.listings.filter(l=>data.selections.some(s=>s.listingExternalId===l.externalId));
+ const hasActive=data.mappings.some(m=>!m.paused&&selected.some(l=>l.externalId===m.listingExternalId)&&data.products.some(p=>p.id===m.productId&&p.activeVersionId));
+ return <><StepHeader step={4} title="Set up your products" description="Activate your first product to open your workspace. You can finish the others later."/><div className="product-list">{selected.map(listing=>{
+ const mapping=data.mappings.find(m=>m.listingExternalId===listing.externalId&&m.variantKey==="default"),p=data.products.find(p=>p.id===mapping?.productId),draft=data.versions.some(v=>v.productId===p?.id&&v.status==="DRAFT"),status=p?.activeVersionId?"Active":draft?"Draft":"Setup required";
+ return <article className="product-record" key={listing.externalId}><div className="product-summary onboarding-summary"><div className="product-title"><h2>{listing.title}</h2><span className="small muted">Active on Etsy</span></div><Badge tone={status==="Active"?"good":"neutral"}>{status}</Badge><form action={startProductSetup}><input type="hidden" name="listingId" value={listing.externalId}/><input type="hidden" name="variantKey" value="default"/><button className="button secondary">{status==="Active"?"Edit product":draft?"Continue setup":"Set up product"}</button></form></div></article>;
+ })}</div>{hasActive&&<form action={finishProductOnboarding} style={{marginTop:24}}><button className="button">Continue to Home</button></form>}</>;
 }

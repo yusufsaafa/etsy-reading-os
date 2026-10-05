@@ -75,3 +75,7 @@ Product-owner review of the onboarding screens, followed by verified live Etsy i
 - `docs/ONBOARDING_REPORT.md`
 - `docs/screenshots/onboarding-products-1440.jpg`
 - `docs/screenshots/onboarding-products-390.jpg`
+
+## Product configuration follow-up
+
+The earlier placeholder limitation above is superseded by the real Product Setup implementation documented in [PRODUCT_CONFIGURATION.md](PRODUCT_CONFIGURATION.md). Selected listings create drafts through authorized POST commands. Save/reload preserves configuration; activation validates and publishes a version transactionally. Continue to Home persists completion only after at least one selected, unpaused active product; the other selections may remain Setup required. Previous onboarding test results above are historical; current validation is recorded in PRODUCT_CONFIGURATION_REPORT.md.

@@ -255,3 +255,14 @@ dd { display: block; margin: 0 0 16px; line-height: 1.6; overflow-wrap: anywhere
   .footer { margin-top: 32px; }
 }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+
+/* Versioned product configuration uses real contextual form controls. */
+.product-summary.configured-summary { grid-template-columns:52px minmax(0,1fr) auto auto; padding-right:0; }
+.product-summary.onboarding-summary { grid-template-columns:minmax(0,1fr) auto auto; padding-right:0; }
+@media(max-width:900px) {
+ .product-summary.configured-summary { grid-template-columns:44px minmax(0,1fr); }
+ .configured-summary > form { grid-column:2; justify-self:start; }
+ .product-summary.onboarding-summary { grid-template-columns:minmax(0,1fr) auto; }
+ .onboarding-summary > form { grid-column:1 / -1; }
+ .onboarding-summary > .badge { grid-column:2; }
+}

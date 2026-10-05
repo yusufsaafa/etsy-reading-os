@@ -74,7 +74,7 @@ Content templates specify semantic sections and structure; document templates sp
 
 ## Information architecture
 
-For the current application, [UI_UX_DESIGN_LOCK.md](UI_UX_DESIGN_LOCK.md) supersedes the earlier provisional IA: Home, Orders, Products, Settings. Home surfaces actionable reading issues and recent orders; Orders is the working queue. Product setup exposes only existing input requirements and pause controls. Store/connection, Account and Advanced live in Settings. Future templates and production configuration remain out of scope.
+For the current application, [UI_UX_DESIGN_LOCK.md](UI_UX_DESIGN_LOCK.md) supersedes the earlier provisional IA: Home, Orders, Products, Settings. Home surfaces actionable reading issues and recent orders; Orders is the working queue. Product setup supports generic versioned customer fields, content sections, output and workflow preferences. Store/connection, Account and Advanced live in Settings. Generation, document rendering and sending remain out of scope.
 
 Seller-facing “Reading” represents an individual fulfillment unit without changing its domain identity. Ready means current information checks passed, not created or delivered. Home and Orders use existing issue projections; no parallel workflow engine or persisted UI status is introduced.
 
@@ -99,3 +99,9 @@ Deliverable: a seller can connect, see one real mixed checkout (when authorized 
 ## Decisions before implementation
 
 Resolve application access and delivery feasibility first. Then decide pilot store/membership scope, per-quantity context policy, variant mapping fallback, historical-order import cutoff, activation behavior for pending orders, initial output languages, product category constraints, refund/cancellation policy, retention, spending limits, and whether V1 production starts automatically after validation. See the engineering decision register for runtime selections.
+
+## Current product-configuration slice
+
+A selected Etsy listing can create a generic Product draft. Sellers add TEXT/LONG_TEXT/DATE inputs, ordered content sections, TEXT/PDF output preferences and Manual/Assisted workflow intent. Save permits incomplete drafts; server validation and transactional activation publish one immutable version. Editing active instructions creates a new draft. Orders/line items/quantity readings preserve their cardinality and bind the exact version effective at ingestion. Required-input readiness uses the existing deterministic validator and explicit per-reading quantity allocation; unstructured data is not inferred.
+
+One selected active configured product enables Continue to Home; other selected listings remain Setup required. Product Setup and Products reuse the approved visual language. No AI, PDF rendering, seller identity, billing or delivery is introduced. See [PRODUCT_CONFIGURATION.md](PRODUCT_CONFIGURATION.md) for invariants, compatibility and limitations.

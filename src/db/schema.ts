@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
-import { pgTable, uuid, text, integer, boolean, timestamp, jsonb, unique, foreignKey, check, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, integer, boolean, timestamp, jsonb, unique, foreignKey, check, index, uniqueIndex, type AnyPgColumn } from "drizzle-orm/pg-core";
+import type { Configuration } from "../modules/products/contracts";
 import type { Answer, ExternalOrder, ExternalListing, InputPolicy } from "../modules/intake/contracts";
 
 const id = () => uuid("id").defaultRandom().primaryKey();
@@ -32,11 +33,38 @@ export const listingSelections = pgTable("listing_selections", {
   id: id(), organizationId: org(), storeId: store(), listingExternalId: text("listing_external_id").notNull(),
   selectedBy: text("selected_by").notNull().references(() => users.id), createdAt: time("created_at").defaultNow().notNull(),
 }, t => [unique("selection_store_listing_unique").on(t.organizationId, t.storeId, t.listingExternalId), foreignKey({ name: "selection_owned_listing_fk", columns: [t.organizationId, t.storeId, t.listingExternalId], foreignColumns: [listings.organizationId, listings.storeId, listings.externalId] })]);
+// Stable product identity; all production instructions are version-owned.
+export const products = pgTable("products", {
+  id: id(), organizationId: org(), storeId: store(), name: text("name").notNull(),
+  status: text("status").notNull().default("draft"), activeVersionId: uuid("active_version_id"),
+  createdAt: time("created_at").defaultNow().notNull(), updatedAt: time("updated_at").defaultNow().notNull(),
+}, t => [unique("product_owned_identity").on(t.organizationId,t.storeId,t.id),
+  foreignKey({ name:"product_owned_store_fk",columns:[t.organizationId,t.storeId],foreignColumns:[stores.organizationId,stores.id] }),
+  foreignKey({ name:"product_active_version_fk",columns:[t.organizationId,t.storeId,t.id,t.activeVersionId],foreignColumns:ownedVersionColumns() }),
+  check("product_status",sql`${t.status} in ('draft','active')`),
+  check("product_active_pointer",sql`(${t.status}='active') = (${t.activeVersionId} is not null)`),
+]);
+export const productVersions = pgTable("product_versions", {
+  id: id(), organizationId: org(), storeId: store(), productId: uuid("product_id").notNull(),
+  versionNumber: integer("version_number").notNull(), status: text("status").notNull().default("DRAFT"),
+  configuration: jsonb("configuration").$type<Configuration>().notNull(), revision: integer("revision").notNull().default(0),
+  createdAt: time("created_at").defaultNow().notNull(), activatedAt: time("activated_at"),
+}, t => [unique("version_owned_identity").on(t.organizationId,t.storeId,t.id), unique("version_product_identity").on(t.organizationId,t.storeId,t.productId,t.id),
+  unique("product_version_number").on(t.organizationId,t.storeId,t.productId,t.versionNumber),
+  foreignKey({ name:"version_owned_product_fk",columns:[t.organizationId,t.storeId,t.productId],foreignColumns:[products.organizationId,products.storeId,products.id] }),
+  uniqueIndex("one_active_product_version").on(t.organizationId,t.storeId,t.productId).where(sql`${t.status}='ACTIVE'`),
+  uniqueIndex("one_product_draft").on(t.organizationId,t.storeId,t.productId).where(sql`${t.status}='DRAFT'`),
+  check("version_status",sql`${t.status} in ('DRAFT','ACTIVE','ARCHIVED')`), check("version_number_positive",sql`${t.versionNumber}>0 and ${t.revision}>=0`),
+  check("version_activation_time",sql`(${t.status}='DRAFT') = (${t.activatedAt} is null)`),
+  check("configuration_structure",sql`jsonb_typeof(${t.configuration})='object' and jsonb_typeof(${t.configuration}->'inputs')='array' and jsonb_typeof(${t.configuration}->'sections')='array'`),
+]);
+function ownedVersionColumns(): [AnyPgColumn,AnyPgColumn,AnyPgColumn,AnyPgColumn] { return [productVersions.organizationId,productVersions.storeId,productVersions.productId,productVersions.id]; }
 export const mappings = pgTable("listing_mappings", {
   id: id(), organizationId: org(), storeId: store(), listingExternalId: text("listing_external_id").notNull(),
+  productId: uuid("product_id"),
   variantKey: text("variant_key").notNull(), label: text("label").notNull(),
   required: jsonb("required_inputs").$type<InputPolicy>().notNull(), paused: boolean("paused").notNull().default(false),
-}, t => [unique().on(t.organizationId, t.storeId, t.listingExternalId, t.variantKey), foreignKey({ columns: [t.organizationId, t.storeId, t.listingExternalId], foreignColumns: [listings.organizationId, listings.storeId, listings.externalId] })]);
+}, t => [foreignKey({ name:"mapping_owned_product_fk",columns:[t.organizationId,t.storeId,t.productId],foreignColumns:[products.organizationId,products.storeId,products.id] }), unique().on(t.organizationId, t.storeId, t.listingExternalId, t.variantKey), foreignKey({ columns: [t.organizationId, t.storeId, t.listingExternalId], foreignColumns: [listings.organizationId, listings.storeId, listings.externalId] })]);
 export const orders = pgTable("orders", {
   id: id(), organizationId: org(), storeId: store(), externalId: text("external_id").notNull(), buyerName: text("buyer_name").notNull(),
   paid: boolean("paid").notNull(), canceled: boolean("canceled").notNull(), refund: text("refund").notNull(),
@@ -49,10 +77,11 @@ export const lineItems = pgTable("order_line_items", {
   sku: text("sku"), variantKey: text("variant_key").notNull(), snapshot: jsonb("snapshot").$type<ExternalOrder["lines"][number]>().notNull(),
 }, t => [unique().on(t.organizationId, t.storeId, t.externalId), unique().on(t.organizationId, t.storeId, t.id), foreignKey({ columns: [t.organizationId, t.storeId, t.orderId], foreignColumns: [orders.organizationId, orders.storeId, orders.id] }), check("line_quantity_positive", sql`${t.quantity} between 1 and 1000`)]);
 export const units = pgTable("fulfillment_units", {
-  id: id(), organizationId: org(), storeId: store(), lineItemId: uuid("line_item_id").notNull(), unitIndex: integer("unit_index").notNull(),
+  id: id(), organizationId: org(), storeId: store(), productVersionId: uuid("product_version_id"), configurationState: text("configuration_state").notNull().default("legacy"),
+  lineItemId: uuid("line_item_id").notNull(), unitIndex: integer("unit_index").notNull(),
   issues: jsonb("issues").$type<string[]>().notNull(), sourceChanged: boolean("source_changed").notNull().default(false),
   contextAllocated: boolean("context_allocated").notNull().default(false), revision: integer("revision").notNull().default(0),
-}, t => [unique().on(t.organizationId, t.storeId, t.lineItemId, t.unitIndex), unique().on(t.organizationId, t.storeId, t.id), foreignKey({ columns: [t.organizationId, t.storeId, t.lineItemId], foreignColumns: [lineItems.organizationId, lineItems.storeId, lineItems.id] }), check("unit_index_positive", sql`${t.unitIndex} >= 1`)]);
+}, t => [foreignKey({ name:"unit_owned_version_fk",columns:[t.organizationId,t.storeId,t.productVersionId],foreignColumns:[productVersions.organizationId,productVersions.storeId,productVersions.id] }), check("unit_configuration_state",sql`${t.configurationState} in ('legacy','unconfigured','versioned') and ((${t.configurationState}='versioned') = (${t.productVersionId} is not null))`), unique().on(t.organizationId, t.storeId, t.lineItemId, t.unitIndex), unique().on(t.organizationId, t.storeId, t.id), foreignKey({ columns: [t.organizationId, t.storeId, t.lineItemId], foreignColumns: [lineItems.organizationId, lineItems.storeId, lineItems.id] }), check("unit_index_positive", sql`${t.unitIndex} >= 1`)]);
 export const customerInputs = pgTable("customer_inputs", {
   id: id(), organizationId: org(), storeId: store(), unitId: uuid("unit_id").notNull(), revision: integer("revision").notNull(),
   answers: jsonb("answers").$type<Answer[]>().notNull(), source: text("source").notNull(), actorId: text("actor_id"), createdAt: time("created_at").defaultNow().notNull(),

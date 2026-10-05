@@ -30,18 +30,24 @@ export type ExternalOrder = z.infer<typeof orderSchema>;
 export type ExternalListing = z.infer<typeof listingSchema>;
 export type Answer = z.infer<typeof answerSchema>;
 export type Scope = { userId: string; organizationId: string; storeId: string };
-export type InputPolicy = { label: string; minimumLength: number }[];
+export type InputPolicy = { label: string; minimumLength: number; key?: string; type?: "TEXT" | "LONG_TEXT" | "DATE"; required?: boolean }[];
 export function stableJson(value: unknown): string {
   const normalize = (input: unknown): unknown => Array.isArray(input) ? input.map(normalize) : input !== null && typeof input === "object" ? Object.fromEntries(Object.entries(input).sort(([a],[b]) => a.localeCompare(b)).map(([key,entry]) => [key,normalize(entry)])) : input;
   return JSON.stringify(normalize(value));
 }
 export type IssueCode = "unmapped_listing" | "missing_input" | "unusable_input" | "quantity_context" | "canceled" | "refund_review" | "unpaid" | "not_digital" | "source_changed";
+function validDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed=new Date(value+"T00:00:00Z");
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0,10)===value;
+}
 export function validateInputs(answers: Answer[], required: InputPolicy): IssueCode[] {
   if (answers.some(a => a.kind !== "text" || /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/u.test(a.value))) return ["unusable_input"];
   return required.flatMap(rule => {
-    const matches = answers.filter(a => a.label.normalize("NFC") === rule.label.normalize("NFC"));
+    const matches = answers.filter(a => a.label.normalize("NFC") === rule.label.normalize("NFC") || (!!rule.key && a.label.normalize("NFC") === rule.key));
     if (matches.length > 1) return ["unusable_input" as const];
-    if (!matches.length || !matches[0].value.trim()) return ["missing_input" as const];
+    if (!matches.length || !matches[0].value.trim()) return rule.required === false ? [] : ["missing_input" as const];
+    if (rule.type === "DATE" && !validDate(matches[0].value.trim())) return ["unusable_input" as const];
     return [...matches[0].value.trim()].length < rule.minimumLength ? ["unusable_input" as const] : [];
   });
 }
