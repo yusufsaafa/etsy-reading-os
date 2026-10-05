@@ -153,3 +153,11 @@ Correlate tenant/store/order/unit/generation/job/operation/attempt/delivery IDs 
 - Broad category extensibility can become a speculative plugin platform. Use bounded typed recipe data and optional capabilities first.
 - Mobile PDF review and concurrent operator actions can undermine approval correctness. Preview exact artifacts, preserve resource versions, and authorize on the server.
 - Provider timeout plus job retry can duplicate charges. Unknown-outcome handling is a first-class operation state; see COST_MODEL.md.
+
+## Initial onboarding persistence
+
+`modules/onboarding` coordinates existing identity, connection and job boundaries. A constrained `stores.onboarding_stage` tracks `etsy`, `products`, `product_setup`, or `complete`; the migration defaults existing stores to complete so Milestone 1 workflows are preserved. New onboarding store creation explicitly starts at Etsy, under the existing user-row lock. Operational session scope redirects unfinished stores to their saved next step; onboarding scope still validates membership independently.
+
+`listing_selections` records seller intent separately from `listing_mappings`. Composite organization/store/listing foreign keys and uniqueness enforce isolation and replay safety. Selection requires owner authorization, a connected shop and active imported listings. Replacement and progress transition share a transaction and store lock, with an audit event only when selection changes. It does not configure products or mutate orders/readings. Product setup completion is not implemented.
+
+Import orchestration reuses the PostgreSQL job port, connection epoch and fencing. Live import remains gated by ETSY_INTEGRATION.md. Connection DTOs explicitly select only safe presentation fields; encrypted tokens never reach client props.

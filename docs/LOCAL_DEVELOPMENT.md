@@ -88,3 +88,11 @@ Do not use fixtures with real credentials. The skeleton contains OAuth exchange/
 - Store update remains queued: start pnpm worker. Retryable failures get at most three attempts; failed runs remain visible. A new sync command intentionally creates a new run after a terminal failure.
 - Stale correction: reload to obtain the current unit revision before saving; original data and prior corrections remain intact.
 - Etsy callback fails: check session, registered HTTPS URL, granted scopes and encryption configuration. Do not log callback codes, token responses or secret-bearing headers.
+
+## Initial onboarding
+
+Apply migrations with `pnpm db:migrate` before using onboarding. Existing seeded stores remain operational (the migration preserves Milestone 1 access). A newly authenticated user without a workspace enters `/onboarding/store`. Create a name, connect the development demo shop, and keep `pnpm worker` running to complete the automatic product import. Choose at least one imported active listing; selection ends at `/onboarding/products/setup`. This page intentionally does not configure a product or unlock Home. Do not reset a real store or bypass the progress gate to simulate completion.
+
+Live OAuth uses the existing secure connection when configured, but live listing/order import is still gated pending approved response-contract verification. A connected live shop will receive an honest import-unavailable message. No demo listings are substituted for a live shop.
+
+Onboarding checks: `pnpm test` and `pnpm test:db` (the latter applies both migrations using PGlite). PGlite coverage is not native PostgreSQL or browser acceptance. Validate Store, Etsy consent/connected/error/disconnect, product search/selection/import states and the setup boundary at 1440/768/390px locally.

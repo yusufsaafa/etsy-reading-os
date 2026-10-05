@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { database } from "@/db/client";
 import { requireUser, currentScope } from "@/modules/identity/session";
-import { createWorkspace } from "@/modules/identity/service";
+import { createOnboardingStore } from "@/modules/onboarding/service";
 import { configureMapping, correctInput } from "@/modules/intake/service";
 import { answerSchema } from "@/modules/intake/contracts";
 import { PostgresSyncJobs } from "@/infrastructure/jobs";
@@ -15,8 +15,8 @@ export async function onboard(form: FormData) {
   const user = await requireUser();
   const name = z.string().trim().min(1).max(100).parse(form.get("name"));
   const source = process.env.ETSY_ADAPTER === "fixtures" && process.env.NODE_ENV !== "production" ? "fixtures" : "etsy";
-  await createWorkspace(database(), user.id, name, source);
-  redirect("/store");
+  await createOnboardingStore(database(), user.id, name, source);
+  redirect("/onboarding");
 }
 const refresh = () => revalidatePath("/", "layout");
 export async function enableFixtureConnection() { await connectFixtures(database(), await currentScope()); refresh(); }

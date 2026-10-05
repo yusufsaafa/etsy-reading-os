@@ -40,9 +40,9 @@ Keep customer field labels intact: validation depends on them. Existing correcti
 
 ## Visual rules
 
-Second visual pass (2026-10-05) replaces the first warm/green system completely. Cool-neutral app background #F7F8FA, white surfaces, #F3F4F6 subtle surfaces, near-black #111827 text, gray metadata and #E5E7EB borders. A restrained #2563EB accent is reserved for selection, primary actions and focus. Success, warning and danger appear in small semantic elements. Seller brands never affect the SaaS shell.
+Second visual pass (2026-10-05) replaces the first warm/green system completely. Cool-neutral app background #F8FAFC, white surfaces, #F3F4F6 subtle surfaces, near-black #0F172A text, gray metadata and #E2E8F0 borders. A restrained #2563EB accent is reserved for selection, primary actions and focus. Success, warning and danger appear in small semantic elements. Seller brands never affect the SaaS shell.
 
-Shared tokens define semantic colors, 6/10px radii, 4–40px spacing scale and 44px controls. Typography: 30px desktop page titles, 17px section titles, 14px body, 12–13px metadata. No gradients, glass, mystical identity, large shadows or giant dashboard cards. Navigation uses original consistent 20px inline SVG icons, with no icon dependency.
+Shared tokens define semantic colors, 8/10px radii, 4–40px spacing scale and 44px controls. Typography: 30px desktop page titles, 17px section titles, 14px body, 12–13px metadata. No gradients, glass, mystical identity, large shadows or giant dashboard cards. Navigation uses original consistent 20px inline SVG icons, with no icon dependency.
 
 Metrics, orders and customer information use scoped CSS modules imported by their components. Metrics use discrete definition lists. Orders use a semantic table with scoped columns, row separators and mobile record reflow. Customer labels and values use separate dt/dd blocks with explicit margin/gap, never adjoining inline spans. Reading status stays beside its heading instead of justified against the viewport edge. Reading panels are restrained and constrained to 960px, while general content is centered within a 1280px outer width.
 
@@ -64,4 +64,19 @@ Default views show purchased products, customer facts, actionable issues and saf
 
 ## Validation and limits
 
-Re-run existing domain/security/database suites plus full typecheck/build. Add focused tests only for status/filter projections where incorrect display could hide holds. Manually inspect Home, Orders/filter/search, #2002 detail, missing answers, unmapped variants, Unicode, Products setup, Settings/disconnect at 390/768/1440px when runtime access permits. Prior environment lacks Auth.js registry access, native PostgreSQL shared memory and loopback server binding; static implementation is not browser acceptance. No new dependency or backend feature is needed.
+Re-run existing domain/security/database suites plus full typecheck/build. Add focused tests only for status/filter projections where incorrect display could hide holds. Manually inspect Home, Orders/filter/search, #2002 detail, missing answers, unmapped variants, Unicode, Products setup, Settings/disconnect at 390/768/1440px when runtime access permits. Earlier visual passes were blocked by dependency/runtime access. Initial onboarding was subsequently rendered and inspected at all three widths; operational-screen visual acceptance remains separate. No new dependency is introduced for onboarding.
+
+## Initial onboarding lock (2026-10-05)
+
+The current approved reference supersedes the earlier hex/radius values: background #F8FAFC, surface #FFFFFF, primary text #0F172A, secondary #64748B, muted #94A3B8, borders #E2E8F0 / #CBD5E1; primary #2563EB, hover #1D4ED8, selected #EFF6FF. Shared radii are 8/10px, sans typography, minimal shadows and 44px controls. Semantic colors remain confined to statuses. Seller brands never style the platform.
+
+New account -> Store -> Etsy -> Products -> Product setup. Dedicated authenticated shell uses the wordmark, sign-out control and compact four-step progress; no operational sidebar. Product setup is an explicit upcoming boundary, not implemented, and new sellers are not routed to Home prematurely. Existing Milestone 1 workspaces retain their operational access.
+
+- Store: name only, one replay-safe organization/store creation, then Etsy consent.
+- Etsy: permissions before OAuth, read-only capability limits, redirecting/connected/error/needs-attention states; disconnect remains available as a secondary connection option. Never expose credentials or OAuth internals. Local disconnect does not claim remote revocation.
+- Products: imported marketplace listings, compact accessible selection rows, search, select/deselect all, count-aware CTA and nonzero validation. Selection expresses setup intent only; no mapping/configuration is created. No invented images. Inactive listings remain visible but cannot be selected.
+- Next boundary: saved products require configuration; no generation or automatic operation is implied.
+
+Onboarding content is centered within 820px with a narrower 480px store form. At 1440px the restrained shell uses deliberate gutters; at 768px the content fills the available centered column; at 390px four progress labels stack beneath their numbers, rows reflow to thumbnail/title/checkbox, forms and CTAs are full-width, and secondary badges yield to textual Etsy state. Whole product labels are tappable. No horizontal table or app navigation is introduced. Focus, semantic labels, alert/status regions and reduced-motion handling remain mandatory.
+
+Production data comes from scoped Store/EtsyConnection/Listing services. Connection continuation requests an import through the existing job port using a server-derived replay key. Pages poll status only, never initiate imports on GET. Manual retry is secondary recovery. Development help is disclosed only for demo shops; "fixture" is not seller copy. The unverified live intake gate remains in place; live onboarding must report unavailable imports honestly instead of using demo data.

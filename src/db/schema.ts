@@ -12,8 +12,9 @@ export const memberships = pgTable("memberships", { id: id(), organizationId: or
 export const stores = pgTable("stores", {
   id: id(), organizationId: org().references(() => organizations.id), name: text("name").notNull(),
   externalShopId: text("external_shop_id"), source: text("source").notNull().default("fixtures"),
+  onboardingStage: text("onboarding_stage").notNull().default("complete"),
   importSince: time("import_since").notNull(), createdAt: time("created_at").defaultNow().notNull(),
-}, t => [unique().on(t.organizationId, t.id), unique().on(t.source, t.externalShopId), check("store_source", sql`${t.source} in ('fixtures','etsy')`)]);
+}, t => [unique().on(t.organizationId, t.id), unique().on(t.source, t.externalShopId), check("onboarding_stage", sql`${t.onboardingStage} in ('etsy','products','product_setup','complete')`), check("store_source", sql`${t.source} in ('fixtures','etsy')`)]);
 // Composite ownership references are intentionally repeated: an ID alone never proves tenant ownership.
 export const connections = pgTable("etsy_connections", {
   id: id(), organizationId: org(), storeId: store(), status: text("status").notNull().default("disconnected"),
@@ -26,6 +27,11 @@ export const listings = pgTable("listings", {
   title: text("title").notNull(), state: text("state").notNull(), sourceUpdatedAt: integer("source_updated_at").notNull(),
   snapshot: jsonb("snapshot").$type<ExternalListing>().notNull(),
 }, t => [unique().on(t.organizationId, t.storeId, t.externalId), foreignKey({ columns: [t.organizationId, t.storeId], foreignColumns: [stores.organizationId, stores.id] })]);
+// Selection expresses intent only; it never creates a production configuration.
+export const listingSelections = pgTable("listing_selections", {
+  id: id(), organizationId: org(), storeId: store(), listingExternalId: text("listing_external_id").notNull(),
+  selectedBy: text("selected_by").notNull().references(() => users.id), createdAt: time("created_at").defaultNow().notNull(),
+}, t => [unique("selection_store_listing_unique").on(t.organizationId, t.storeId, t.listingExternalId), foreignKey({ name: "selection_owned_listing_fk", columns: [t.organizationId, t.storeId, t.listingExternalId], foreignColumns: [listings.organizationId, listings.storeId, listings.externalId] })]);
 export const mappings = pgTable("listing_mappings", {
   id: id(), organizationId: org(), storeId: store(), listingExternalId: text("listing_external_id").notNull(),
   variantKey: text("variant_key").notNull(), label: text("label").notNull(),

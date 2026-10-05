@@ -1,0 +1,78 @@
+.shell { min-height: 100dvh; background: var(--background); }
+.header { display: flex; align-items: center; justify-content: space-between; padding: 20px 40px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.header :global(.wordmark) { padding: 0; }
+.main { width: min(100%, 820px); margin: 0 auto; padding: 48px 32px 64px; }
+.progress { margin-bottom: 36px; }
+.progress p { color: var(--text-secondary); font-size: 12px; margin-bottom: 12px; }
+.progress ol { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; list-style: none; margin: 0; padding: 0; }
+.progress li { display: flex; align-items: center; gap: 8px; color: var(--text-secondary); font-size: 12px; line-height: 1.4; }
+.progress li > span:first-child { display: grid; place-items: center; flex-shrink: 0; width: 24px; height: 24px; border: 1px solid var(--border-strong); border-radius: 6px; font-size: 11px; }
+.progress li[aria-current] { color: var(--accent); font-weight: 600; }
+.progress li[aria-current] > span:first-child { background: var(--accent-subtle); border-color: #bfdbfe; }
+.finished > span:first-child { color: var(--success); background: var(--success-subtle); }
+.heading { margin-bottom: 28px; max-width: 640px; }
+.heading p { color: var(--text-secondary); margin: 0; }
+.form { display: grid; gap: 16px; max-width: 480px; }
+.form > :global(.button) { justify-self: start; margin-top: 8px; }
+.helper { color: var(--text-secondary); font-size: 12px; margin: -8px 0 0; }
+.actionForm { display: grid; gap: 16px; justify-items: start; margin-top: 24px; }
+.permission { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
+.permissionSection { padding: 22px 24px; }
+.permissionSection + .permissionSection { border-top: 1px solid var(--border); }
+.permissionSection h2 { font-size: 14px; margin-bottom: 12px; }
+.permissionSection ul { display: grid; gap: 10px; list-style: none; padding: 0; margin: 0; }
+.permissionSection li { display: flex; gap: 12px; color: var(--text-secondary); }
+.permissionSection li > span:first-child { font-weight: 600; color: var(--success); }
+.permissionSection:last-child li > span:first-child { color: var(--text-muted); }
+.trust { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 18px 0; color: var(--text-secondary); font-size: 12px; }
+.trust span { display: inline-flex; align-items: center; gap: 6px; }
+.note { color: var(--text-secondary); font-size: 12px; }
+.connected { display: flex; align-items: center; gap: 16px; padding: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); }
+.connected > div { display: grid; gap: 8px; min-width: 0; overflow-wrap: anywhere; }
+.connected p { margin: 0; }
+.connected small { color: var(--text-secondary); }
+.thumbnail { display: grid; place-items: center; width: 44px; height: 44px; flex-shrink: 0; background: var(--surface-subtle); border: 1px solid var(--border); border-radius: 8px; color: var(--text-muted); }
+.picker { display: grid; gap: 16px; }
+.search { display: block; max-width: 440px; }
+.selectionToolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--text-secondary); font-size: 12px; }
+.selectionToolbar > div { display: flex; gap: 4px; }
+.selectionToolbar button { font-size: 12px; padding-inline: 10px; }
+.list { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
+.productRow { display: grid; grid-template-columns: 44px minmax(0,1fr) auto 20px; gap: 16px; align-items: center; padding: 16px 20px; min-height: 80px; cursor: pointer; }
+.productRow + .productRow { border-top: 1px solid var(--border); }
+.productRow:hover { background: var(--surface-hover); }
+.productRow:has(input:checked) { background: var(--accent-subtle); }
+.productRow input { width: 20px; height: 20px; min-height: 20px; padding: 0; accent-color: var(--accent); }
+.productInfo { display: grid; gap: 4px; min-width: 0; overflow-wrap: anywhere; }
+.productInfo strong { font-weight: 600; font-size: 14px; }
+.productInfo > span { font-weight: 400; font-size: 12px; color: var(--text-secondary); }
+.selectionFooter { display: flex; align-items: center; justify-content: space-between; gap: 24px; border-top: 1px solid var(--border); padding-top: 24px; }
+.selectionFooter p { margin: 0; max-width: 340px; font-size: 12px; color: var(--text-secondary); }
+.selectionFooter button { flex-shrink: 0; }
+.empty { padding: 28px; color: var(--text-secondary); }
+.empty h2 { color: var(--text-primary); }
+.importing { display: flex; align-items: center; gap: 10px; padding: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); }
+.spinner { width: 16px; height: 16px; flex-shrink: 0; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (max-width: 800px) { .main { padding-top: 32px; } .header { padding: 16px 24px; } }
+@media (max-width: 600px) {
+  .header { padding: 12px 20px; }
+  .header :global(.wordmark) { font-size: 20px; }
+  .main { padding: 28px 20px 40px; }
+  .progress { margin-bottom: 28px; }
+  .progress ol { gap: 8px; }
+  .progress li { flex-direction: column; align-items: flex-start; gap: 6px; font-size: 11px; }
+  .heading h1 { font-size: 27px; }
+  .form input, .search input { font-size: 16px; }
+  .form > :global(.button), .actionForm, .actionForm > :global(.button) { width: 100%; }
+  .permissionSection { padding: 20px; }
+  .trust { gap: 8px 16px; }
+  .productRow { grid-template-columns: 40px minmax(0,1fr) 20px; gap: 12px; padding: 16px; }
+  .productRow > :global(.badge) { display: none; }
+  .thumbnail { width: 40px; height: 40px; }
+  .selectionFooter { flex-direction: column; align-items: stretch; gap: 16px; }
+  .selectionFooter p { max-width: none; }
+  .selectionFooter button { width: 100%; padding-inline: 12px; }
+  .connected { padding: 20px; }
+}
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
