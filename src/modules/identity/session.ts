@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { database } from "@/db/client";
-import { onboardingDestination } from "../onboarding/service";
+import { resolveSellerDestination } from "../onboarding/destination";
 import { authorizeStore, findUserStore } from "./service";
 export async function requireUser() {
   const session = await auth();
@@ -17,7 +17,12 @@ export async function currentStoreScope() {
 
 export async function currentScope() {
   const scope = await currentStoreScope();
-  const destination = await onboardingDestination(database(), scope.userId);
-  if (destination !== "/") redirect(destination);
+  const destination = await resolveSellerDestination(database(), scope.userId);
+  if (destination.kind !== "OPERATIONS_HOME") redirect(destination.path);
   return scope;
+}
+
+export async function currentDestination() {
+  const user = (await auth())?.user;
+  return resolveSellerDestination(user?.id ? database() : undefined, user?.id);
 }

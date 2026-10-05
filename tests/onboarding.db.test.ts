@@ -1,10 +1,12 @@
-import { beforeEach, afterEach, it, expect } from "vitest";
+import { beforeEach, afterEach, it, expect, vi } from "vitest";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { readFileSync, readdirSync } from "node:fs";
 import { eq } from "drizzle-orm";
 import type { Database } from "../src/db/client";
 import * as schema from "../src/db/schema";
+import { registerDevelopmentAccount, authenticateDevelopmentAccount } from "../src/modules/identity/accounts";
+import { resolveSellerDestination } from "../src/modules/onboarding/destination";
 import { authorizeStore, createWorkspace } from "../src/modules/identity/service";
 import { createOnboardingStore, onboardingDestination, onboardingData, startProductImport, saveProductSelection } from "../src/modules/onboarding/service";
 import { ingestListing, tenantWhere } from "../src/modules/intake/service";
@@ -22,7 +24,7 @@ beforeEach(async () => {
   b = await authorizeStore(db, "b", await createOnboardingStore(db, "b", "Other Store", "fixtures"));
   process.env.ETSY_ADAPTER = "fixtures";
 }, 20000);
-afterEach(async () => { await pg.close(); });
+afterEach(async () => { vi.unstubAllEnvs(); await pg.close(); });
 async function imported() {
   await connectFixtures(db, a);
   const jobs = new PostgresSyncJobs(db);
@@ -92,6 +94,53 @@ it("live import remains gated and never advances onboarding as a successful impo
   await db.update(schema.stores).set({ source: "etsy" }).where(eq(schema.stores.id, a.storeId));
   await db.update(schema.connections).set({ status: "connected" }).where(tenantWhere(schema.connections, a));
   await expect(startProductImport(db, new PostgresSyncJobs(db), a)).rejects.toThrow("LIVE_INTAKE_CONTRACT_NOT_VERIFIED");
-  expect(await onboardingDestination(db, a.userId)).toBe("/onboarding/etsy");
+  expect(await onboardingDestination(db, a.userId)).toBe("/onboarding/products");
   expect((await onboardingData(db, a)).importStatus).toBe("not_started");
+});
+
+it("registration persists one isolated identity, hashes credentials and replays without creating workspaces", async () => {
+  vi.stubEnv("DEV_ACCOUNT_AUTH_ENABLED", "true");
+  const input = { name: "New Seller", email: "  SELLER@example.test  ", password: "synthetic-registration-password" };
+  const first = await registerDevelopmentAccount(db, input);
+  expect(await registerDevelopmentAccount(db, input)).toEqual(first);
+  const rows = await db.select().from(schema.users).where(eq(schema.users.email, "seller@example.test"));
+  expect(rows).toHaveLength(1); expect(rows[0].passwordHash).toMatch(/^scrypt-v1:/); expect(rows[0].passwordHash).not.toContain(input.password);
+  expect(Object.keys(first).sort()).toEqual(["email", "id", "name"]);
+  expect(await authenticateDevelopmentAccount(db, { email: "seller@example.test", password: input.password })).toEqual(first);
+  expect(await resolveSellerDestination(db, first.id)).toEqual({ kind: "STORE_SETUP", path: "/onboarding/store" });
+  expect(await db.select().from(schema.memberships).where(eq(schema.memberships.userId, first.id))).toHaveLength(0);
+  const id = await createOnboardingStore(db, first.id, "New Workspace", "fixtures");
+  expect(await createOnboardingStore(db, first.id, "Replay", "fixtures")).toBe(id);
+  expect(await db.select().from(schema.memberships).where(eq(schema.memberships.userId, first.id))).toHaveLength(1);
+  await expect(authorizeStore(db, first.id, a.storeId)).rejects.toThrow();
+});
+it("duplicate email cannot overwrite an account or authenticate with a wrong password", async () => {
+  vi.stubEnv("DEV_ACCOUNT_AUTH_ENABLED", "true");
+  const original = { name: "Original", email: "account@example.test", password: "synthetic-original-password" };
+  const user = await registerDevelopmentAccount(db, original);
+  await expect(registerDevelopmentAccount(db, { ...original, name: "Attacker", password: "synthetic-different-password" })).rejects.toThrow("ACCOUNT_CREATION_FAILED");
+  expect(await authenticateDevelopmentAccount(db, { email: original.email, password: "synthetic-wrong-password" })).toBeNull();
+  expect(await authenticateDevelopmentAccount(db, { email: "absent@example.test", password: original.password })).toBeNull();
+  expect(await authenticateDevelopmentAccount(db, original)).toEqual(user);
+});
+it("production always rejects development registration and password authentication", async () => {
+  vi.stubEnv("DEV_ACCOUNT_AUTH_ENABLED", "true"); vi.stubEnv("NODE_ENV", "production");
+  const input = { name: "Seller", email: "blocked@example.test", password: "synthetic-development-password" };
+  await expect(registerDevelopmentAccount(db, input)).rejects.toThrow("REGISTRATION_UNAVAILABLE");
+  expect(await authenticateDevelopmentAccount(db, input)).toBeNull();
+  expect(await db.select().from(schema.users).where(eq(schema.users.email, input.email))).toHaveLength(0);
+});
+it("central resume resolver uses trusted connection/selection state without redirect cycles", async () => {
+  expect(await resolveSellerDestination(undefined)).toEqual({ kind: "PUBLIC", path: "/" });
+  expect((await resolveSellerDestination(db, a.userId)).path).toBe("/onboarding/etsy");
+  await connectFixtures(db, a);
+  // Even if a redirect was interrupted before the stage write, connection state resumes Products.
+  expect((await resolveSellerDestination(db, a.userId)).path).toBe("/onboarding/products");
+  await imported(); await saveProductSelection(db, a, ["101"]);
+  expect((await resolveSellerDestination(db, a.userId)).path).toBe("/onboarding/products/setup");
+  await disconnect(db, a);
+  expect((await resolveSellerDestination(db, a.userId)).path).toBe("/onboarding/etsy");
+  expect((await onboardingData(db, a)).selected).toEqual(["101"]);
+  await db.update(schema.stores).set({ onboardingStage: "complete" }).where(eq(schema.stores.id, a.storeId));
+  expect(await resolveSellerDestination(db, a.userId)).toEqual({ kind: "OPERATIONS_HOME", path: "/" });
 });

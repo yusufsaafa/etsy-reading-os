@@ -6,7 +6,7 @@ const id = () => uuid("id").defaultRandom().primaryKey();
 const org = () => uuid("organization_id").notNull();
 const store = () => uuid("store_id").notNull();
 const time = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
-export const users = pgTable("app_users", { id: text("id").primaryKey(), name: text("name").notNull(), createdAt: time("created_at").defaultNow().notNull() });
+export const users = pgTable("app_users", { id: text("id").primaryKey(), name: text("name").notNull(), email: text("email").unique(), passwordHash: text("password_hash"), createdAt: time("created_at").defaultNow().notNull() });
 export const organizations = pgTable("organizations", { id: id(), name: text("name").notNull(), createdAt: time("created_at").defaultNow().notNull() });
 export const memberships = pgTable("memberships", { id: id(), organizationId: org().references(() => organizations.id), userId: text("user_id").notNull().references(() => users.id), role: text("role").notNull().default("owner") }, t => [unique().on(t.organizationId, t.userId), check("membership_role", sql`${t.role} in ('owner', 'operator')`)]);
 export const stores = pgTable("stores", {

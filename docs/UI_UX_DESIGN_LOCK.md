@@ -80,3 +80,17 @@ New account -> Store -> Etsy -> Products -> Product setup. Dedicated authenticat
 Onboarding content is centered within 820px with a narrower 480px store form. At 1440px the restrained shell uses deliberate gutters; at 768px the content fills the available centered column; at 390px four progress labels stack beneath their numbers, rows reflow to thumbnail/title/checkbox, forms and CTAs are full-width, and secondary badges yield to textual Etsy state. Whole product labels are tappable. No horizontal table or app navigation is introduced. Focus, semantic labels, alert/status regions and reduced-motion handling remain mandatory.
 
 Production data comes from scoped Store/EtsyConnection/Listing services. Connection continuation requests an import through the existing job port using a server-derived replay key. Pages poll status only, never initiate imports on GET. Manual retry is secondary recovery. Development help is disclosed only for demo shops; "fixture" is not seller copy. The unverified live intake gate remains in place; live onboarding must report unavailable imports honestly instead of using demo data.
+
+
+## Public entry and authentication integration — locked continuation
+
+Use the existing tokens and primitives above: cool white/slate surfaces, near-black text, restrained `#2563EB` interaction accent, thin borders, minimal shadow and the established modern sans-serif stack. No new visual direction or application-theme changes accompany entry routing.
+
+- Logged-out `/` is public Landing. Its header exposes How it works, Features, Security, Log in and Get started. The supplied hero copy remains “Run your Etsy reading shop without the repetitive work.” Product UI is the visual language; any example is explicitly illustrative. Future creation/review/sending remain labeled coming later.
+- `/sign-up` and `/sign-in` use a logo/account-switch header and narrow centered form without a floating card or app sidebar. Full name/email/password are shown only where the identity architecture genuinely supports them. Genuine configured GitHub OAuth remains available; Google is not fabricated. Development-only account limitations are visible.
+- Authentication resumes `Store → Etsy → Products → Product setup` from persisted server state. The Product Setup page stays an honest boundary, never an invented completion or shortcut to Home.
+- Primary operational navigation remains Home, Orders, Products, Settings. Completed Home keeps `/`. Public/auth/onboarding pages never duplicate it or show its sidebar.
+- Logout returns the public experience while retaining the workspace, connection, orders and selected products.
+- Desktop content uses deliberate bounded widths; at 768px Landing stacks its hero, and at 390px content/forms fill available width with comfortable gutters. Header keeps account CTAs; secondary section navigation can collapse. Controls retain visible focus and practical 44px targets. No horizontal scrolling or internal-domain terminology in seller copy.
+
+The inspected repository contained design guidance but no existing public Landing component or approved landing image asset. This integration implements the prescribed content with the locked palette/shared primitives; it does not assert pixel equivalence to an external reference or final visual acceptance. Local rendered evidence and journey results are in ENTRY_AUTH_REPORT.md.

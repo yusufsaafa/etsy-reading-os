@@ -6,6 +6,7 @@ writeFileSync(".env.local", `DATABASE_URL=postgresql://postgres:postgres@127.0.0
 AUTH_SECRET=${value()}
 AUTH_URL=http://localhost:3000
 APP_URL=http://localhost:3000
+DEV_ACCOUNT_AUTH_ENABLED=true
 DEV_LOGIN_ENABLED=true
 DEV_LOGIN_PASSWORD=${value()}
 ETSY_ADAPTER=fixtures

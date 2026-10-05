@@ -2,7 +2,7 @@
 
 Status: foundation plus Milestone 1 implementation decisions, 2026-10-05. The broader production model below describes future direction, not tables already created. Current implementation is documented in MILESTONE_1_PLAN.md and MILESTONE_1_REPORT.md.
 
-Approved and implemented direction: TypeScript, pnpm, Next.js App Router, PostgreSQL, Drizzle ORM, Zod, Auth.js and Vitest. One modular monolith. Authentication wiring exists but full runtime/build validation is blocked by missing Auth.js in this environment. Sync jobs are PostgreSQL-backed behind BackgroundJobs; storage has a PrivateObjectStorage port only because this milestone creates no artifacts. No Redis or AI/PDF/delivery tables. PostgreSQL composite ownership constraints plus scoped application services enforce tenant isolation; RLS is not implemented and remains a possible defense before deployment.
+Approved and implemented direction: TypeScript, pnpm, Next.js App Router, PostgreSQL, Drizzle ORM, Zod, Auth.js and Vitest. One modular monolith. Auth.js is installed and the public/auth/onboarding integration passes local runtime/build checks; production authentication policy remains a launch decision. Sync jobs are PostgreSQL-backed behind BackgroundJobs; storage has a PrivateObjectStorage port only because this milestone creates no artifacts. No Redis or AI/PDF/delivery tables. PostgreSQL composite ownership constraints plus scoped application services enforce tenant isolation; RLS is not implemented and remains a possible defense before deployment.
 
 ## Architectural recommendation and critique
 
@@ -133,7 +133,7 @@ Correlate tenant/store/order/unit/generation/job/operation/attempt/delivery IDs 
 | Relational database | PostgreSQL with composite ownership/uniqueness constraints | Approved; Drizzle schema/migration implemented |
 | System shape | Modular monolith; Next.js app plus script worker | Approved; hosting still undecided |
 | Web/server framework, package manager, ORM | Next.js, pnpm, Drizzle; Zod contracts; Vitest | Approved |
-| Auth provider and membership scope | Auth.js JWT sessions; GitHub OAuth candidate and guarded local fixture credentials; owner/operator membership | Wired; package/runtime validation incomplete; production IdP policy still needs confirmation |
+| Auth provider and membership scope | Auth.js JWT sessions; configured GitHub OAuth, guarded development accounts/demo credentials; owner/operator membership | Locally validated; production IdP and account lifecycle policy still need confirmation |
 | Jobs | SyncRun implements durable PostgreSQL queue behind BackgroundJobs | Implemented; no Redis required |
 | Hosting, key management, storage, region | Private objects, server-held keys, operationally simple deployment | Undecided; privacy and restore gates |
 | Model provider/model | None in Milestone 1 | Deferred |
@@ -161,3 +161,16 @@ Correlate tenant/store/order/unit/generation/job/operation/attempt/delivery IDs 
 `listing_selections` records seller intent separately from `listing_mappings`. Composite organization/store/listing foreign keys and uniqueness enforce isolation and replay safety. Selection requires owner authorization, a connected shop and active imported listings. Replacement and progress transition share a transaction and store lock, with an audit event only when selection changes. It does not configure products or mutate orders/readings. Product setup completion is not implemented.
 
 Import orchestration reuses the PostgreSQL job port, connection epoch and fencing. Live import remains gated by ETSY_INTEGRATION.md. Connection DTOs explicitly select only safe presentation fields; encrypted tokens never reach client props.
+
+
+## Public entry, identity and onboarding resolution
+
+The root server route dispatches by trusted persisted seller state. Logged-out visitors get the public Landing without a tenant query or operations layout. Completed sellers get the unchanged operational Home/shell at the same `/` URL. Incomplete sellers redirect to their next onboarding step. `(public)` owns `/sign-in` and `/sign-up`; `(operations)` remains protected, and onboarding has its own minimal authenticated shell.
+
+`modules/onboarding/destination.ts` is the single resume resolver: no identity → public; no store → store setup; explicit completion → Home; unavailable/expired connection → Etsy; no selections → Products; saved selections → Product Setup boundary. Selection never implies configured products or completion. An explicit completed legacy store still reaches operations even when disconnected, where connection problems remain actionable. Pages may allow backward review of onboarding steps; they do not invent completion. Membership and store authorization remain server-side.
+
+`app_users.email` is nullable and unique; `password_hash` is nullable for OAuth/demo identities. Individual development accounts have random namespaced IDs and versioned salted scrypt hashes. Replay of registration only reuses an email identity after verifying its existing password, never overwrites a credential, and creates no workspace. Existing transactional store initialization supplies Organization/Store/Membership later and remains replay-safe.
+
+Auth.js owns authentication, JWT sessions, cookies, provider callbacks and logout. No parallel session implementation exists. Email credentials and registration require **all** of non-production runtime, `DEV_ACCOUNT_AUTH_ENABLED=true`, and the synthetic Etsy adapter. The gate is checked again in the application service and Auth.js provider. Production does not accept these credentials even if the flag is accidentally enabled. GitHub OAuth remains genuine and conditional on both configured credentials; no Google provider is advertised. Auth.js Credentials does not persist accounts itself; see its [official provider documentation](https://authjs.dev/getting-started/authentication/credentials).
+
+Before production email registration, approve identity-provider/account policy and implement verification, recovery/reset, and login/registration abuse controls. The current boundary must not be promoted by simply removing the environment gate. Logout terminates only the Auth.js session and returns `/`; it does not reset onboarding or delete business data. No dependencies or intake/connection services changed for this integration.

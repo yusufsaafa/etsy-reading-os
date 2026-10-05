@@ -1,0 +1,52 @@
+.header { display: flex; align-items: center; gap: 24px; justify-content: space-between; padding: 20px 40px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.header :global(.wordmark) { padding: 0; white-space: nowrap; }
+.header nav { display: flex; align-items: center; gap: 24px; margin-left: auto; }
+.header nav a { display: inline-flex; align-items: center; min-height: 44px; text-decoration: none; color: var(--text-secondary); font-size: 13px; }
+.headerActions { display: flex; gap: 8px; }
+.authShell { min-height: 100dvh; background: var(--background); }
+.authMain { width: min(100%,440px); margin: 0 auto; padding: 56px 20px; }
+.authMain h1 { font-size: 28px; line-height: 1.25; }
+.subtitle { color: var(--text-secondary); margin-bottom: 28px; }
+.form { display: grid; gap: 18px; }
+.form :global(.button) { width: 100%; }
+.note { color: var(--text-secondary); font-size: 12px; line-height: 1.65; margin: 16px 0 0; }
+.form .note { margin: -8px 0 0; }
+.provider { display: grid; margin-bottom: 24px; }
+.demo { border-top: 1px solid var(--border); margin-top: 24px; padding-top: 12px; }
+.demo summary { font-size: 12px; color: var(--text-secondary); }
+.demo .form { margin-top: 16px; }
+.landing { background: var(--surface); }
+.landing main, .footer { max-width: 1240px; margin: auto; padding-inline: 40px; }
+.hero { display: grid; grid-template-columns: 1.1fr 1fr; align-items: center; gap: 56px; padding-block: 72px; }
+.eyebrow { color: var(--accent); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .09em; margin-bottom: 16px; }
+.hero h1 { font-size: clamp(32px,3vw,44px); letter-spacing: -.045em; line-height: 1.15; margin-bottom: 24px; }
+.heroCopy { font-size: 16px; color: var(--text-secondary); max-width: 540px; }
+.ctas { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
+.preview { min-width: 0; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--background); overflow-wrap: anywhere; }
+.preview header { display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); padding: 16px 20px; background: var(--surface); border-radius: 10px 10px 0 0; }
+.preview header strong { font-size: 12px; }
+.preview header > span { margin-left: auto; color: var(--text-secondary); font-size: 11px; }
+.previewHeading { padding: 24px 20px 16px; }
+.previewHeading h2 { font-size: 18px; margin-bottom: 8px; }
+.previewHeading p { color: var(--text-secondary); font-size: 12px; }
+.preview article { display: flex; gap: 16px; align-items: center; justify-content: space-between; padding: 20px; background: var(--surface); border-block: 1px solid var(--border); }
+.preview article > div { display: grid; gap: 6px; min-width: 0; }
+.preview article strong { font-size: 13px; }
+.preview article span:not(:global(.badge)) { font-size: 12px; color: var(--text-secondary); }
+.previewProducts { display: flex; flex-wrap: wrap; gap: 8px 20px; padding: 16px 20px; font-size: 12px; color: var(--text-secondary); }
+.preview footer { font-size: 11px; color: var(--text-secondary); padding: 14px 20px; }
+.section { border-top: 1px solid var(--border); padding-block: 48px; scroll-margin-top: 20px; }
+.section h2 { font-size: 24px; margin-bottom: 24px; }
+.steps { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 28px; list-style: none; padding: 0; margin: 0; }
+.steps li > span { display: grid; place-items: center; width: 28px; height: 28px; color: var(--accent); background: var(--accent-subtle); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 16px; font-size: 12px; }
+.steps h3 { font-size: 14px; }
+.steps p, .features p, .security p, .security li { color: var(--text-secondary); font-size: 13px; }
+.features { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 40px; }
+.features h3 { font-size: 15px; }
+.security { display: grid; grid-template-columns: 1.3fr 1fr; gap: 48px; align-items: center; }
+.security ul { display: grid; gap: 12px; padding-left: 20px; }
+.footer { padding-block: 24px; border-top: 1px solid var(--border); color: var(--text-secondary); font-size: 12px; }
+.footer p { max-width: 740px; font-size: 11px; margin: 12px 0 0; }
+@media (max-width: 1000px) { .hero { gap: 28px; } .header { padding-inline: 24px; gap: 16px; } .header nav { gap: 16px; } .landing main, .footer { padding-inline: 24px; } }
+@media (max-width: 800px) { .header nav { display: none; } .headerActions { margin-left: auto; } .hero { grid-template-columns: 1fr; padding-block: 40px; gap: 32px; } .hero > div:first-child { max-width: 600px; } .hero h1 { font-size: 36px; } .steps { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 24px; } .features { gap: 24px; } .security { grid-template-columns: 1fr; gap: 12px; } }
+@media (max-width: 600px) { .header { padding: 12px 20px; gap: 8px; } .header :global(.wordmark) { font-size: 20px; } .headerActions { gap: 0; } .headerActions :global(.button) { padding-inline: 10px; font-size: 12px; } .authMain { padding-top: 32px; } .authMain input { font-size: 16px; } .authMain h1 { font-size: 26px; } .landing main, .footer { padding-inline: 20px; } .hero h1 { font-size: 32px; } .heroCopy { font-size: 14px; } .ctas { gap: 8px; } .preview article { align-items: flex-start; flex-direction: column; gap: 10px; } .section { padding-block: 32px; } .section h2 { font-size: 21px; } .features { grid-template-columns: 1fr; gap: 20px; } }

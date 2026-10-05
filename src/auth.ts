@@ -4,6 +4,7 @@ import GitHub from "next-auth/providers/github";
 import { developmentLoginAllowed, validDevelopmentPassword } from "./modules/identity/development-login";
 import { database } from "./db/client";
 import { users } from "./db/schema";
+import { authenticateDevelopmentAccount, developmentAccountsAllowed } from "./modules/identity/accounts";
 import { z } from "zod";
 
 export function devLoginAllowed() {
@@ -19,12 +20,16 @@ if (devLoginAllowed()) providers.push(Credentials({
     return { id: "dev:owner", name: "Development seller" };
   },
 }));
+if (developmentAccountsAllowed()) providers.push(Credentials({
+  id: "email-password", name: "Development account", credentials: { email: { type: "email" }, password: { type: "password" } },
+  async authorize(credentials) { return authenticateDevelopmentAccount(database(), credentials); },
+}));
 export const { handlers, signIn, signOut, auth } = NextAuth({
   secret: process.env.AUTH_SECRET, providers, session: { strategy: "jwt", maxAge: 28800 }, pages: { signIn: "/sign-in" },
   callbacks: {
     async signIn({ user, account }) {
       if (!account) return false;
-      const id = account.provider === "development" && devLoginAllowed() ? "dev:owner" : account.provider === "github" ? `github:${account.providerAccountId}` : null;
+      const id = account.provider === "development" && devLoginAllowed() ? "dev:owner" : account.provider === "email-password" && developmentAccountsAllowed() && user.id?.startsWith("email:") ? user.id : account.provider === "github" ? `github:${account.providerAccountId}` : null;
       if (!id) return false;
       user.id = id;
       await database().insert(users).values({ id, name: user.name || "Seller" }).onConflictDoNothing();

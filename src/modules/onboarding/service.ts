@@ -7,11 +7,10 @@ import { tenantWhere, verifyScope } from "../intake/service";
 import type { Scope } from "../intake/contracts";
 import type { BackgroundJobs } from "../../infrastructure/jobs";
 
-export const onboardingPaths: Record<string, string> = { etsy: "/onboarding/etsy", products: "/onboarding/products", product_setup: "/onboarding/products/setup", complete: "/" };
 export { userStore };
+import { resolveSellerDestination } from "./destination";
 export async function onboardingDestination(db: DbExecutor, userId: string) {
-  const store = await userStore(db, userId);
-  return store ? onboardingPaths[store.stage] ?? "/onboarding/etsy" : "/onboarding/store";
+  return (await resolveSellerDestination(db, userId)).path;
 }
 export async function createOnboardingStore(db: Database, userId: string, rawName: unknown, source: "etsy" | "fixtures") {
   const name = z.string().trim().min(1).max(100).parse(rawName);

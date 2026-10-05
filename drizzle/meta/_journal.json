@@ -15,6 +15,13 @@
       "when": 1791210446544,
       "tag": "0001_violet_shard",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791212637214,
+      "tag": "0002_dark_lockheed",
+      "breakpoints": true
     }
   ]
 }
