@@ -1,6 +1,8 @@
 # Architecture proposal
 
-Status: initial proposal, 2026-10-05. Domain invariants derive from product requirements; implementation mechanisms and technology choices remain open. This document is not a database migration or a framework selection.
+Status: foundation plus Milestone 1 implementation decisions, 2026-10-05. The broader production model below describes future direction, not tables already created. Current implementation is documented in MILESTONE_1_PLAN.md and MILESTONE_1_REPORT.md.
+
+Approved and implemented direction: TypeScript, pnpm, Next.js App Router, PostgreSQL, Drizzle ORM, Zod, Auth.js and Vitest. One modular monolith. Authentication wiring exists but full runtime/build validation is blocked by missing Auth.js in this environment. Sync jobs are PostgreSQL-backed behind BackgroundJobs; storage has a PrivateObjectStorage port only because this milestone creates no artifacts. No Redis or AI/PDF/delivery tables. PostgreSQL composite ownership constraints plus scoped application services enforce tenant isolation; RLS is not implemented and remains a possible defense before deployment.
 
 ## Architectural recommendation and critique
 
@@ -8,7 +10,7 @@ Use a modular monolith, one relational database, private artifact storage, and d
 
 The proposed apps/packages/docs layout is reasonable only once actual runtimes exist. `web`, `API`, and `worker` are runtime roles; database, Etsy, generation, documents, and usage are domain/infrastructure boundaries. Turning every name into a package or service now adds interfaces, build tooling, and cross-service failure modes without product value. A web framework may host the API; a dedicated API app is not inherently required. Extract shared UI only when there is real reuse. A logical database ownership boundary does not require an ORM package.
 
-Later, apps/ may hold actual deployable entry points, packages/ genuine reusable modules, and docs/ decisions. Start with modules within the selected server runtime. Do not scaffold unused folders or prescribe a package manager yet.
+Actual structure: src/app for Next.js views/actions/routes, src/components for shared UI, src/modules for domain/application services, src/infrastructure for ports/adapters, src/db for Drizzle schema/client, drizzle/ for migrations, scripts/ for migration/seed/worker, tests/ for behavior checks, docs/ for specifications. pnpm is now selected. No apps/packages split is needed.
 
 ## Initial domain model
 
@@ -127,15 +129,15 @@ Correlate tenant/store/order/unit/generation/job/operation/attempt/delivery IDs 
 
 | Decision | Recommendation | Status / gate |
 | --- | --- | --- |
-| Language | TypeScript for application/domain work | Proposed; confirm before code |
-| Relational database | PostgreSQL for constraints, transactions and durable state | Proposed; confirm with tenancy/job design |
-| System shape | Modular monolith, web/API runtime plus worker role | Recommended; deployment arrangement undecided |
-| Web/server framework, package manager, ORM | Choose after first slice and runtime constraints | Undecided; justify dependencies |
-| Auth provider and membership scope | Managed auth candidate; tenant ownership independent of provider | Undecided; before customer data |
-| Jobs | Database-backed durable work/outbox initially; evaluate concurrency/render workload | Undecided; no Redis/broker requirement yet |
+| Language | TypeScript | Approved |
+| Relational database | PostgreSQL with composite ownership/uniqueness constraints | Approved; Drizzle schema/migration implemented |
+| System shape | Modular monolith; Next.js app plus script worker | Approved; hosting still undecided |
+| Web/server framework, package manager, ORM | Next.js, pnpm, Drizzle; Zod contracts; Vitest | Approved |
+| Auth provider and membership scope | Auth.js JWT sessions; GitHub OAuth candidate and guarded local fixture credentials; owner/operator membership | Wired; package/runtime validation incomplete; production IdP policy still needs confirmation |
+| Jobs | SyncRun implements durable PostgreSQL queue behind BackgroundJobs | Implemented; no Redis required |
 | Hosting, key management, storage, region | Private objects, server-held keys, operationally simple deployment | Undecided; privacy and restore gates |
-| Model provider/model | One adapter first, bounded structured output and per-attempt accounting | Undecided; capability/pricing evaluation |
-| PDF renderer | Deterministic rendering with Unicode fonts and sandboxed assets | Undecided; mobile preview and pagination proof required |
+| Model provider/model | None in Milestone 1 | Deferred |
+| PDF renderer | None in Milestone 1 | Deferred |
 | Etsy access and scopes | Appropriate approved app with minimum verified endpoint scopes | External feasibility gate |
 | Delivery channel | Verified order-specific API or explicitly manual seller handoff | Unresolved product/technical gate |
 | Billing/limits | Internal cost ledger and caps before monetary customer billing | Pricing, cap values and currency undecided |

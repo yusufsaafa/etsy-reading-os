@@ -1,0 +1,10 @@
+import Link from "next/link";
+import { database } from "@/db/client";
+import { currentScope } from "@/modules/identity/session";
+import { workspaceData } from "@/modules/intake/service";
+import { Card, Heading, EmptyState } from "@/components/ui";
+export default async function Dashboard() {
+  const data = await workspaceData(database(), await currentScope());
+  const attention = data.units.filter(u => u.issues.length), ready = data.units.length - attention.length;
+  return <><Heading eyebrow="Daily operations" title="Your work, in view" description="Review purchased items, resolve missing information, and keep intake moving." /><div className="metrics"><Link href="/orders"><Card><span className="muted">Orders received</span><strong className="metric-value">{data.orders.length}</strong></Card></Link><Link href="/needs-attention"><Card><span className="muted">Units needing attention</span><strong className="metric-value">{attention.length}</strong></Card></Link><Card><span className="muted">Intake checks passed</span><strong className="metric-value">{ready}</strong><span className="small muted">Content production is not enabled.</span></Card></div><div className="section-heading"><h2>Next actions</h2><Link href="/store">Connection & sync</Link></div>{!data.orders.length ? <EmptyState title="Start with your store" href="/store" action="Open store">Connect the fixture adapter or authorize Etsy, then synchronize your workspace.</EmptyState> : <div className="grid-two"><Card><h2>{attention.length ? "Resolve intake issues" : "Intake is up to date"}</h2><p className="muted">Each purchased quantity has its own fulfillment unit. Input issues affect that unit, while other items remain visible.</p><Link className="button" href="/needs-attention">Open Needs Attention</Link></Card><Card><h2>Check product configuration</h2><p className="muted">Map purchased variations and confirm required customer fields before the next production milestone.</p><Link className="button secondary" href="/products">Manage listings</Link></Card></div>}</>;
+}

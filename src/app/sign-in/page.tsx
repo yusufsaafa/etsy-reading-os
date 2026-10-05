@@ -1,0 +1,8 @@
+import { signIn, devLoginAllowed } from "@/auth";
+import { AuthError } from "next-auth";
+import { redirect } from "next/navigation";
+import { Heading, Card, Button } from "@/components/ui";
+export default async function SignIn({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+  const params = await searchParams;
+  return <main className="auth-shell"><p className="wordmark">Reading<span>OS</span></p><Heading eyebrow="Seller operations" title="Sign in to your workspace" description="Organize personalized digital orders, one purchased item at a time." /><Card>{params.error && <p role="alert" className="error-message">Sign-in failed. Check your credentials and try again.</p>}{process.env.AUTH_GITHUB_ID && <form className="stack" action={async () => { "use server"; await signIn("github", { redirectTo: "/" }); }}><Button>Continue with GitHub</Button></form>}{devLoginAllowed() && <form className="stack" action={async form => { "use server"; try { await signIn("development", { password: form.get("password"), redirectTo: "/" }); } catch (error) { if (error instanceof AuthError) redirect("/sign-in?error=credentials"); throw error; } }}><label>Development password<input type="password" name="password" required autoComplete="current-password" maxLength={200} /></label><Button>Open development workspace</Button><p className="muted small">Synthetic local demonstration only. This login is disabled in production.</p></form>}{!devLoginAllowed() && !process.env.AUTH_GITHUB_ID && <p>Application authentication is not configured. Configure an Auth.js provider before signing in.</p>}</Card><p className="muted small">Application sign-in does not authorize access to your Etsy shop. You choose that separately.</p></main>;
+}

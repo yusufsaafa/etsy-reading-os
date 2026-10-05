@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["src/db/**/*.ts", "src/modules/intake/**/*.ts", "src/modules/etsy/**/*.ts", "src/modules/identity/service.ts", "src/modules/identity/development-login.ts", "src/infrastructure/**/*.ts", "scripts/**/*.ts", "tests/**/*.ts"],
+  "exclude": ["node_modules"], "compilerOptions": { "incremental": false }
+}
