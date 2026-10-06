@@ -11,6 +11,7 @@ export type GenerationContext = {
   seller: { id: string; displayName: string; shortBio: string };
   style: { id: string; versionNumber: number; configuration: StyleConfiguration };
   product: { id: string; versionNumber: number; configuration: Configuration };
+  styleIntelligence?: import("../seller-style/analysis-contracts").PinnedStyleIntelligence;
   customer: { revision: number; answers: Answer[] };
 };
 export const canonicalSchema = z.object({

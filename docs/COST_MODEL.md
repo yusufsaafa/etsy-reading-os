@@ -100,3 +100,8 @@ The earlier provider-undecided/no-call statements describe Milestone 1. [GENERAT
 ## Style analysis operation — Part 2
 
 `style-analysis/v1` now uses the same CentralAIGateway, frozen model pricing, Store budget/reservation and AIRequest/UsageEvent settlement. AIRequest references its owned StyleAnalysisVersion instead of a fabricated customer Generation. Exact bounded request bytes plus the existing envelope allowance are a conservative reservation basis, not exact tokenizer accounting. Invalid/contaminated output still retains measured charges; missing usage and ambiguous liability remain UNKNOWN. Budget rejection persists a failed analysis command before dispatch without creating a fictitious paid attempt. No second ledger, model fallback or automatic analysis retry exists. See STYLE_INTELLIGENCE.md.
+
+
+## Style Intelligence in customer generation
+
+Part 3 enrichment uses the same customer-generation AIRequest/UsageEvent path. Exact assembled system+data bytes, including bounded pinned intelligence, feed existing conservative reserveCost and Store budget checks; actual provider usage settles normally. Intelligence selection is a database operation with no model call or additional usage record. Context SHA-256 includes the pinned snapshot; no fixed token surcharge or separate ledger exists.

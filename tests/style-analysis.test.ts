@@ -74,8 +74,8 @@ it("normalized command hash ignores candidate order but detects incompatible sel
  expect(analysisCommandHash(command)).toBe(analysisCommandHash({...command,sourceIds:[...command.sourceIds].reverse()}));
  expect(analysisCommandHash(command)).not.toBe(analysisCommandHash({...command,sourceIds:[id(3)]}));
 });
-it("customer generation prompt and context modules still have no style analysis imports",()=>{
- for(const file of ["src/modules/generation/context.ts","src/modules/generation/instructions.ts","src/modules/seller-style/context.ts"])
+it("eligibility contexts never resolve analyses or execute analysis",()=>{
+ for(const file of ["src/modules/generation/context.ts","src/modules/seller-style/context.ts"])
   expect(readFileSync(file,"utf8")).not.toMatch(/styleAnalysis|styleIntelligence|analysis-execution|analysis-input/);
 });
 it("analysis runtime shares priced model configuration and fails closed without dispatch or fallback",async()=>{

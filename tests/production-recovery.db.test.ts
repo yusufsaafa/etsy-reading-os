@@ -242,3 +242,16 @@ it("Part 4 migration preserves populated Part 3 queue, Generation and accounting
   expect((await acceptance.query("SELECT * FROM style_analysis_versions")).rows).toHaveLength(0);
  }finally{await acceptance.close();}
 });
+
+it("production retry never resolves latest analysis and preserves admitted intelligence/hash",async()=>{
+ const {addPreviousWork}=await import("../src/modules/seller-style/service");
+ const {createStyleAnalysisVersion,completeStyleAnalysisVersion}=await import("../src/modules/seller-style/analysis-service");
+ const {intelligence}=await import("./style-intelligence.fixture");const pin=await import("../src/modules/seller-style/analysis-generation");
+ const [profile]=await db.select().from(schema.styleProfiles).where(tenantWhere(schema.styleProfiles,a));
+ const source=await addPreviousWork(db,a,{title:"Private history",text:"PRIVATE_PRODUCTION_HISTORY",commandKey:randomUUID()});
+ async function ready(){const v=await createStyleAnalysisVersion(db,a,{styleProfileId:profile.id,sourceIds:[source]});return completeStyleAnalysisVersion(db,a,v.id,{aiRequestId:null,payload:intelligence()});}
+ const v1=await ready(),spy=vi.spyOn(pin,"pinStyleIntelligenceInTransaction"),{q}=await failed(),original=await readGeneration(db,a,q.generationId!);
+ expect(original.context.styleIntelligence?.analysisVersionId).toBe(v1.id);expect(spy).toHaveBeenCalledTimes(1);
+ await ready();spy.mockClear();const claim=await dueClaim(q);expect((await executor().execute(q.id,claim.claimToken!)).status).toBe("COMPLETED");
+ const retry=await readGeneration(db,a,q.generationId!);expect(retry.context).toEqual(original.context);expect(retry.contextHash).toBe(original.contextHash);expect(spy).not.toHaveBeenCalled();
+});

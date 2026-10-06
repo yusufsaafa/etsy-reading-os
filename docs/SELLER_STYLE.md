@@ -98,3 +98,8 @@ The first generation uses the transaction-compatible seller production-context r
 ## Style Intelligence Part 2 follow-up
 
 Explicit previous-work analysis can now execute through the existing CentralAIGateway with deterministic source limits and immutable truncation/input metadata. See [STYLE_INTELLIGENCE.md](STYLE_INTELLIGENCE.md) for exact bounds, prompt/data separation, contamination guards, accounting, idempotency and failure semantics. There is no automatic analysis on paste and no seller-facing control. This is not training/fine-tuning. Analysis results remain separate from customer generation; Part 3 generation integration and Part 4 seller workflow are not implemented.
+
+
+## Style Intelligence Part 3 follow-up
+
+New customer generations now optionally pin latest usable READY analysis from their admitted stable StyleProfile. Explicit published style configuration stays authoritative over learned tendencies; previous work is style evidence, never customer truth. No READY means existing manual style behavior. Existing generations/retries never adopt newer analyses. Source text and manifests are not sent. Seller controls remain unimplemented Part 4. See STYLE_INTELLIGENCE.md.

@@ -136,3 +136,8 @@ User-run synthetic host attempt host-20261006-flash-lite-01 passed HTTP200 throu
 ### Deliberate default switch (2026-10-06)
 
 DEFAULT: gemini-3.5-flash-lite. SUPPORTED: gemini-3.5-flash-lite and gemini-3.8-flash. Explicit AI_GENERATION_MODEL configuration takes precedence; no automatic fallback or failure-triggered switching. Unknown/unpriced overrides still fail closed. Accounting, reservation, canonical validation and provider contracts are unchanged. Flash Lite passed controlled host acceptance; 3.8 had two HTTP503/UNAVAILABLE/high-demand responses. The ignored local .env.local still explicitly selects 3.8 and was not edited: changing/removing that override is a separate manual configuration action. No Gemini calls were made for this switch.
+
+
+## Style Intelligence Part 3 integration
+
+GenerationContext v1 gains an optional strict frozen styleIntelligence snapshot (analysis version ID, independent number, contract and bounded payload). Only new Generation insertion selects latest owned READY; eligibility, execution, command resume and retries do not select analysis. Legacy contexts retain exact hashes/prompts. Enriched prompts keep intelligence in the untrusted JSON envelope below product requirements and explicit seller style settings. Exact sections remain enforced and reservation includes actual added request bytes. No migration, source/exemplar injection, auto-analysis or seller UI. See STYLE_INTELLIGENCE.md.

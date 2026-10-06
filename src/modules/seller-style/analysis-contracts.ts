@@ -28,3 +28,12 @@ export const analysisSelection = z.object({
 // No duplicate usage ledger: provider/model provenance is obtained from this owned AIRequest.
 export const analysisCompletion = z.object({ payload: styleIntelligence, aiRequestId: z.string().uuid().nullable() }).strict();
 export const analysisFailure = z.enum(["INVALID_RESULT", "PROVIDER_FAILURE", "CANCELED", "INTERNAL_FAILURE", "POLICY_REJECTED", "BUDGET_REJECTED", "AMBIGUOUS_EXECUTION"]);
+
+// Additive frozen GenerationContext extension; legacy contexts omit this property.
+export const pinnedStyleIntelligence = z.object({
+  analysisVersionId: z.string().uuid(),
+  versionNumber: z.number().int().positive(),
+  contractVersion: z.literal(STYLE_INTELLIGENCE_CONTRACT),
+  payload: styleIntelligence,
+}).strict();
+export type PinnedStyleIntelligence = z.infer<typeof pinnedStyleIntelligence>;

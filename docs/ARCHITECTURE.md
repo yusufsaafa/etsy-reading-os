@@ -218,3 +218,8 @@ Bounded indexed ProductionRecovery classifies local execution evidence, adopts c
 ## Style Intelligence — Part 2 execution
 
 [STYLE_INTELLIGENCE.md](STYLE_INTELLIGENCE.md) now specifies owner-authorized explicit bounded analysis through the existing CentralAIGateway. Independent command identity and immutable input manifest freeze selected prefixes and provenance; AIRequest's owned analysis-version reference provides attribution without a fake Generation or second ledger. Request-hash fencing, pre-dispatch reservation/UNKNOWN usage, strict structured output and deterministic contamination/verbatim rejection precede atomic result/accounting settlement. Ambiguous and unfinished work remains non-usable with retained liability and no automatic redispatch. Generation context/prompts/hashes, production orchestration and seller UI are unchanged; Part 3/4 integration is deferred.
+
+
+## Style Intelligence — Part 3 generation admission
+
+New Generation admission pins latest owned READY analysis from the same stable StyleProfile into immutable GenerationContext. Selection occurs only under verified authority and Store locking in the new-insertion branch; execution/retry/replay uses the frozen payload/hash. The optional v1 extension preserves historical contexts and exact no-analysis prompts. Existing accounted gateway measures the enriched request. No historical sources/exemplars enter generation; seller UI remains Part 4. See STYLE_INTELLIGENCE.md.

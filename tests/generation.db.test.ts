@@ -267,3 +267,74 @@ it("gateway logs allowlisted transport diagnostics while retaining ambiguous unk
  expect(accounting.attempts[0]).toMatchObject({failureCode:"NETWORK",ambiguous:true,costState:"unknown",estimatedNanos:null});
  expect((await requestAccounting(db,a,accounting.attempts[0].id)).usage).toMatchObject({costState:"unknown",amountNanos:null});
 });
+
+// Part 3 uses real domain completion with synthetic bounded data; no analysis provider call.
+async function analysis(scope=a, state="READY", voice="Reflective writing") {
+ const {addPreviousWork,editStyle}=await import("../src/modules/seller-style/service");
+ const {createStyleAnalysisVersion,completeStyleAnalysisVersion,failStyleAnalysisVersion,markStyleAnalysisAnalyzing}=await import("../src/modules/seller-style/analysis-service");
+ let [profile]=await db.select().from(schema.styleProfiles).where(tenantWhere(schema.styleProfiles,scope));
+ if(!profile){await editStyle(db,scope);[profile]=await db.select().from(schema.styleProfiles).where(tenantWhere(schema.styleProfiles,scope));}
+ const source=await addPreviousWork(db,scope,{title:"Private history",text:"HISTORICAL_ONLY Customer name: Fictional Past Person. old-order-987654",commandKey:randomUUID()});
+ const v=await createStyleAnalysisVersion(db,scope,{styleProfileId:profile.id,sourceIds:[source]});
+ if(state==="FAILED")return failStyleAnalysisVersion(db,scope,v.id,"PROVIDER_FAILURE");
+ if(state==="ANALYZING")return markStyleAnalysisAnalyzing(db,scope,v.id);
+ if(state==="PENDING")return v;
+ return completeStyleAnalysisVersion(db,scope,v.id,{aiRequestId:null,payload:{contractVersion:"style-intelligence/v1",voiceSummary:voice,tone:[],structure:{opening:[],development:[],transitions:[],closing:[]},diction:[],sentenceAndParagraph:[],personalization:[],uncertainty:[],formatting:[],preferredPatterns:[],avoidedPatterns:[],generationGuidance:["Use detailed explanations"]}});
+}
+async function anotherUnit() {
+ const key="9902";await ingestOrder(db,a,{...fixtureOrders[0],externalId:key,lines:[{...fixtureOrders[0].lines[0],externalId:key,listingId:"101",quantity:1,answers:[{label:"Name",value:"New current recipient",kind:"text"}]}]});
+ const data=await workspaceData(db,a),order=data.orders.find(o=>o.externalId===key)!;return data.units.find(u=>data.lines.some(l=>l.orderId===order.id&&l.id===u.lineItemId))!.id;
+}
+it.each(["FAILED","ANALYZING","PENDING"])("new admission pins latest READY despite newer %s; bounded prompt has no historical evidence",async state=>{
+ const one=await analysis(),two=await analysis(a,"READY","New reflective voice");await analysis(a,state);
+ let sent!:import("../src/infrastructure/ai/provider").ProviderRequest;const fake=new FakeGenerationProvider();
+ const result=await service({name:"fake",generate:r=>{sent=r;return fake.generate(r);}}).prepare(a,command());
+ expect(result.context.styleIntelligence).toEqual({analysisVersionId:two.id,versionNumber:two.versionNumber,contractVersion:two.contractVersion,payload:two.payload});
+ expect(result.context.styleIntelligence?.analysisVersionId).not.toBe(one.id);
+ const envelope=JSON.parse(sent.data);expect(envelope.styleIntelligence).toEqual(two.payload);expect(envelope.styleConfiguration).toEqual(style);
+ for(const forbidden of ["HISTORICAL_ONLY","Fictional Past Person","old-order-987654","inputManifest","sourceIds",two.id])expect(sent.data).not.toContain(forbidden);
+ expect(sent.system).toContain("explicit seller styleConfiguration");expect(sent.system).not.toContain(two.payload!.voiceSummary);
+ expect(result.result?.sections.map(s=>s.sectionId)).toEqual(["intro","guidance"]);
+ expect(fake.calls).toBe(1);expect(await db.select().from(schema.aiRequests)).toHaveLength(1);expect(await db.select().from(schema.usageEvents)).toHaveLength(1);
+});
+it.each(["FAILED","PENDING","ANALYZING"])("only %s analysis uses byte-identical legacy manual context/prompt",async state=>{
+ const before=await context();await analysis(a,state);const result=await service().prepare(a,command());
+ expect(result.context).toEqual(before);expect(result.context).not.toHaveProperty("styleIntelligence");
+ const {assembleInstructions,PLATFORM_RULES}=await import("../src/modules/generation/instructions");expect(assembleInstructions(result.context).system).toBe(PLATFORM_RULES);
+});
+it.each([false,true])("later READY cannot enrich or replace pinned context on retry/replay (initial pin=%s)",async initial=>{
+ if(initial)await analysis();const failed=await service(new FakeGenerationProvider({output:"bad"})).prepare(a,command());
+ const newer=await analysis(a,"READY","Later voice");const p=new FakeGenerationProvider(),s=service(p),c={...command(),retryGenerationId:failed.id};
+ const retry=await s.prepare(a,c),replay=await s.prepare(a,c);expect(retry.context).toEqual(failed.context);expect(retry.contextHash).toBe(failed.contextHash);expect(replay.context).toEqual(failed.context);expect(p.calls).toBe(1);
+ const next=await s.prepare(a,command(await anotherUnit()));expect(next.context.styleIntelligence?.analysisVersionId).toBe(newer.id);expect(next.contextHash).not.toBe(failed.contextHash);
+});
+it("admission selects no foreign tenant or same-organization Store intelligence; forged style version denied",async()=>{
+ await analysis(b);const otherId=randomUUID();await db.insert(schema.stores).values({id:otherId,organizationId:a.organizationId,name:"Sibling",importSince:new Date()});const sibling={...a,storeId:otherId};await analysis(sibling);
+ const result=await service().prepare(a,command());expect(result.context).not.toHaveProperty("styleIntelligence");
+ await saveSellerProfile(db,sibling,{displayName:"Sibling writer",shortBio:""});const siblingDraft=await editStyle(db,sibling);await applyStyle(db,sibling,siblingDraft.id,siblingDraft.revision,style);
+ const {pinStyleIntelligenceInTransaction}=await import("../src/modules/seller-style/analysis-generation");const [foreign]=await db.select().from(schema.styleVersions).where(tenantWhere(schema.styleVersions,sibling));
+ await expect(db.transaction(tx=>pinStyleIntelligenceInTransaction(tx,a,foreign.id))).rejects.toThrow();
+ await expect(service().prepare(a,{...command(),analysisVersionId:randomUUID()})).rejects.toThrow();
+});
+it("pinned snapshot changes canonical hash and exact gateway reservation bytes, without extra dispatch",async()=>{
+ const {assembleInstructions}=await import("../src/modules/generation/instructions");const {stableJson}=await import("../src/modules/intake/contracts");const {createHash}=await import("node:crypto");
+ const original=await context();await analysis();const fake=new FakeGenerationProvider(),pricing=pricingFor("google","gemini-3.5-flash-lite"),gateway=new CentralAIGateway(db,{provider:{name:"google",generate:r=>fake.generate(r)},model:"gemini-3.5-flash-lite",pricing,maxOutputTokens:8192,dailyBudgetNanos:1000000000n,attemptBudgetNanos:1000000000n});
+ const admit=vi.spyOn(gateway,"admit"),fetch=vi.spyOn(globalThis,"fetch");const result=await new GenerationService(db,gateway).prepare(a,command());
+ const prompt=assembleInstructions(result.context),oldPrompt=assembleInstructions(original);expect(admit.mock.calls[0][2].inputBytes).toBe(Buffer.byteLength(prompt.system+prompt.data));expect(admit.mock.calls[0][2].inputBytes).toBeGreaterThan(Buffer.byteLength(oldPrompt.system+oldPrompt.data));
+ expect(result.contextHash).toBe(createHash("sha256").update(stableJson(result.context)).digest("hex"));expect(result.contextHash).not.toBe(createHash("sha256").update(stableJson(original)).digest("hex"));
+ const {reserveCost}=await import("../src/infrastructure/ai/pricing");const request=(await generationAccounting(db,a,result.id)).attempts[0];
+ expect(request.reservedNanos).toBe(reserveCost(Buffer.byteLength(prompt.system+prompt.data),8192,pricing));expect(request.reservedNanos).toBeGreaterThan(reserveCost(Buffer.byteLength(oldPrompt.system+oldPrompt.data),8192,pricing));
+ expect(fetch).not.toHaveBeenCalled();expect(fake.calls).toBe(1);
+ const pinned=result.context.styleIntelligence!;const changed={...result.context,styleIntelligence:{...pinned,analysisVersionId:randomUUID(),versionNumber:pinned.versionNumber+1}};expect(stableJson(changed)).not.toBe(stableJson(result.context));
+ await expect(db.update(schema.generations).set({context:changed}).where(eq(schema.generations.id,result.id))).rejects.toThrow();
+});
+it("concurrent duplicate enriched admission pins one immutable snapshot and creates one dispatch",async()=>{
+ const ready=await analysis();let release!:()=>void;const fake=new FakeGenerationProvider({delay:new Promise<void>(r=>{release=r;})}),s=service(fake),c=command();const first=s.prepare(a,c),second=s.prepare(a,c);
+ await vi.waitFor(()=>expect(fake.calls).toBe(1));await analysis(a,"READY","Later during dispatch");release();const results=await Promise.all([first,second]);expect(results[0].id).toBe(results[1].id);expect(results[0].context.styleIntelligence?.analysisVersionId).toBe(ready.id);expect(fake.calls).toBe(1);
+});
+
+it("analysis READY between admission and execution cannot enrich a previously manual context",async()=>{
+ const p=new FakeGenerationProvider(),gateway=new CentralAIGateway(db,{provider:p,model:"deterministic-v1",pricing:pricingFor("fake","deterministic-v1"),maxOutputTokens:8192,dailyBudgetNanos:0n,attemptBudgetNanos:0n}),original=gateway.execute.bind(gateway);
+ vi.spyOn(gateway,"execute").mockImplementation(async(...args)=>{await analysis();return original(...args);});
+ const result=await new GenerationService(db,gateway).prepare(a,command());expect(result.status).toBe("SUCCEEDED");expect(result.context).not.toHaveProperty("styleIntelligence");expect(p.calls).toBe(1);
+});

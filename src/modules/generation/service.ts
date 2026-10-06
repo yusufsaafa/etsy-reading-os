@@ -7,6 +7,7 @@ import { verifyScope, tenantWhere } from "../intake/service";
 import { stableJson, type Scope } from "../intake/contracts";
 import { AccessDenied } from "../identity/service";
 import { CentralAIGateway } from "../../infrastructure/ai/gateway";
+import { pinStyleIntelligenceInTransaction } from "../seller-style/analysis-generation";
 import { assembleInstructions } from "./instructions";
 import { buildGenerationContext, buildProductionContextForStoreInTransaction } from "./context";
 import { commandSchema, AdmissionError, OPERATION, validateCanonical, MAX_GENERATION_ATTEMPTS } from "./contracts";
@@ -56,9 +57,11 @@ export class GenerationService {
    }else{
     // This slice does not offer regeneration. Another command cannot replace existing work.
     if(generation)throw new AdmissionError("COMMAND_CONFLICT");
+    const styleIntelligence=await pinStyleIntelligenceInTransaction(tx,scope,current.style.id);
+    const admitted=styleIntelligence?{...current,styleIntelligence}:current;
     [generation]=await tx.insert(generations).values({organizationId:scope.organizationId,storeId:scope.storeId,unitId:current.unitId,
      productVersionId:current.product.id,styleVersionId:current.style.id,sellerProfileId:current.seller.id,customerRevision:current.customer.revision,
-     context:current,contextHash:hash(current)}).returning();
+     context:admitted,contextHash:hash(admitted)}).returning();
    }
    if(isProductionAuthority(scope)){
     const bound=await tx.update(productionQueue).set({generationId:generation.id,updatedAt:new Date()}).where(and(tenantWhere(productionQueue,scope),eq(productionQueue.id,scope.queueId),eq(productionQueue.claimToken,scope.claimToken),eq(productionQueue.state,"EXECUTING"))).returning({id:productionQueue.id});

@@ -146,7 +146,7 @@ it("settled results/accounting survive owner revocation after authorized dispatc
  await vi.waitFor(()=>expect(provider.calls).toBe(1),{timeout:3000,interval:5});await db.delete(s.memberships).where(and(eq(s.memberships.organizationId,a.organizationId),eq(s.memberships.userId,a.userId)));release();await expect(running).rejects.toThrow();
  const [version]=await db.select().from(s.styleAnalysisVersions).where(eq(s.styleAnalysisVersions.commandKey,c.commandKey));const {request,usage}=await accounting(version.id);expect(version.status).toBe("READY");expect(request.status).toBe("SUCCEEDED");expect(usage.costState).toBe("known_zero");
 });
-it("real customer generation context/hash/prompt remain identical after executable style analysis",async()=>{
+it("eligibility context stays manual after executable analysis; only new admission enriches it",async()=>{
  const {ingestListing,ingestOrder,workspaceData}=await import("../src/modules/intake/service");
  const {fixtureListings,fixtureOrders}=await import("../src/modules/etsy/fixtures");
  const {beginListingDraft,productData,activateProduct}=await import("../src/modules/products/service");
@@ -164,8 +164,13 @@ it("real customer generation context/hash/prompt remain identical after executab
  await ingestOrder(db,a,{...fixtureOrders[0],externalId:"9901",lines:[{...fixtureOrders[0].lines[0],externalId:"9991",listingId:"101",quantity:1,answers:[{label:"Name",value:"Synthetic Recipient",kind:"text"}]}]});
  const unitId=(await workspaceData(db,a)).units[0].id;
  const before=await db.transaction(tx=>buildGenerationContext(tx,a,unitId)),hash=sha256(stableJson(before)),prompt=assembleInstructions(before);
- await setup().service.execute(a,command());await setup(new FakeGenerationProvider({output:"bad"})).service.execute(a,command());
+ const ready=await setup().service.execute(a,command());await setup(new FakeGenerationProvider({output:"bad"})).service.execute(a,command());
  const after=await db.transaction(tx=>buildGenerationContext(tx,a,unitId));expect(after).toEqual(before);expect(sha256(stableJson(after))).toBe(hash);expect(assembleInstructions(after)).toEqual(prompt);expect(await db.select().from(s.productionQueue)).toHaveLength(0);
+ const {GenerationService}=await import("../src/modules/generation/service");let sent!:ProviderRequest;const fake=new FakeGenerationProvider();
+ const {gateway}=setup({name:"fake",generate:r=>{sent=r;return fake.generate(r);}});const generated=await new GenerationService(db,gateway).prepare(a,{unitId,commandKey:randomUUID()});
+ expect(generated.status).toBe("SUCCEEDED");expect(generated.context.styleIntelligence).toEqual({analysisVersionId:ready.id,versionNumber:ready.versionNumber,contractVersion:ready.contractVersion,payload:ready.payload});
+ expect(JSON.parse(sent.data).styleIntelligence).toEqual(ready.payload);expect(sent.data).not.toContain("Synthetic evidence");expect(sent.data).not.toContain("inputManifest");expect(generated.context).not.toHaveProperty("sources");
+ expect(fake.calls).toBe(1);expect(await db.select().from(s.aiRequests)).toHaveLength(3);expect(await db.select().from(s.usageEvents)).toHaveLength(3);
 });
 it("same-organization cross-Store sources fail; operators cannot initiate paid analysis",async()=>{
  const storeId=randomUUID();await db.insert(s.stores).values({id:storeId,organizationId:a.organizationId,name:"Second Store",importSince:new Date()});

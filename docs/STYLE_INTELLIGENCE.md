@@ -1,8 +1,8 @@
-# Style Intelligence — Parts 1–2
+# Style Intelligence — Parts 1–3
 
-Part 1 delivered durable domain/data. Part 2 now implements explicit bounded analysis execution through CentralAIGateway. Seller UI, customer generation integration, automatic triggers and analysis workflow/queues remain unimplemented. The Part 1 sections below record its foundation; the Part 2 section defines current execution behavior.
+Part 1 delivered durable domain/data. Part 2 now implements explicit bounded analysis execution through CentralAIGateway. Part 3 pins completed intelligence into new customer generations. Seller UI, automatic triggers and analysis workflow/queues remain unimplemented. The Part 1 sections below record its foundation; the Part 2 and Part 3 sections define current execution and generation behavior.
 
-Historical StyleSources → **future bounded analysis** → immutable StyleAnalysisVersion → **future GenerationContext**.
+Historical StyleSources → bounded analysis → immutable READY StyleAnalysisVersion → new generation admission → pinned snapshot → immutable GenerationContext → CentralAIGateway → customer reading.
 
 ## Ownership and representation
 
@@ -52,7 +52,7 @@ No caller can attach foreign sources, change another Store's analysis or obtain 
 
 `0010_boring_thundra.sql` adds the two tables, unique/version/provenance constraints, latest/reverse indexes, strict payload validator, transition/history/source guards and deferred sealing validation. Retain handwritten functions/triggers when generating later migrations; Drizzle snapshots do not encode them.
 
-At the Part 1 boundary, Parts 2–4 were unimplemented. The Part 2 section below supersedes analysis/execution deferrals; Part 3 generation consumption and Part 4 seller workflow remain deferred. Exact subdivision will follow their supplied requirements. No chunking/sampling/token budgeting, exemplars, uploads, RAG, embeddings, fine-tuning, review/PDF/delivery or other infrastructure is included.
+At the Part 1 boundary, Parts 2–4 were unimplemented. The Part 2 section below supersedes analysis/execution deferrals; At that boundary Part 3 generation consumption and Part 4 seller workflow remained deferred; Part 3 below supersedes the generation deferral. Exact subdivision will follow their supplied requirements. No chunking/sampling/token budgeting, exemplars, uploads, RAG, embeddings, fine-tuning, review/PDF/delivery or other infrastructure is included.
 
 After Part 1, GenerationContext, instructions, hashes, default model (`gemini-3.5-flash-lite`), production orchestration, seller navigation and onboarding behavior remain unchanged. Neither StyleSources nor Style Intelligence is injected into generation.
 
@@ -123,4 +123,31 @@ A failed attempt never overwrites the previous latest usable READY version. A cr
 
 `0011_dusty_madrox.sql` adds three execution fields on analysis versions and one optional analysis reference on AIRequest; no new table. It expands bounded safe failure codes and adds ownership/uniqueness, immutable command/manifest/attribution, manifest/provenance verification and deferred request binding guards. Null execution metadata preserves existing Part 1 domain versions and historical generation accounting. Retain these handwritten guards in future migrations.
 
-Customer GenerationContext, reading prompts/hashes, production queue/scheduling and seller navigation/onboarding/UI remain unchanged. Analysis is not consumed by generation; no exemplars or sources are injected. Part 3 generation integration and Part 4 seller workflow/UX were not started.
+At the Part 2 boundary customer GenerationContext, reading prompts/hashes, production queue/scheduling and seller navigation/onboarding/UI remained unchanged. Analysis was not consumed by generation. Part 3 below supersedes only the generation deferral; no exemplars or sources are injected and seller workflow/UI remains Part 4.
+
+
+## Part 3: admission-time generation pinning
+
+`GenerationService` resolves intelligence exactly once in the **new Generation insertion** branch, after owner or trusted production authority verification and under the existing Store row lock. `pinStyleIntelligenceInTransaction` resolves the stable StyleProfile through the admitted published StyleProfileVersion and an owned profile join; filters organization, Store, profile and READY; then orders by independent analysis version number descending. No command accepts a caller-selected analysis ID. Same-organization sibling stores remain isolated. This trusted transaction reader is not a standalone public authorization API.
+
+The existing context receives optional `styleIntelligence: {analysisVersionId, versionNumber, contractVersion, payload}`. The strict Zod snapshot requires `style-intelligence/v1` and validates its complete bounded payload. No input manifest, source membership or source text enters the snapshot. No new table/relation/migration is needed: existing immutable Generation JSONB is authoritative, including after later source/analysis retention changes. An invalid persisted READY payload fails closed before paid dispatch rather than sending invalid guidance.
+
+### Compatibility, hashes and admission semantics
+
+This is an additive optional extension of `personalized-content-v1`, not a new engine contract. Existing fields and canonical section/output semantics are unchanged. Missing means admitted without intelligence; the property is omitted, never backfilled or resolved during execution. Historical JSON/hashes are not rewritten; old contexts execute with the exact previous system instruction and envelope. Contexts with intelligence include both snapshot metadata and payload in existing stable canonical JSON/SHA-256, so another pinned version changes the hash even if its payload matches.
+
+No READY version → manual style path, without waiting or errors caused merely by absence. Newer PENDING/ANALYZING/FAILED → latest older READY. Analysis completing after admission cannot enrich an existing Generation. A later new reading can use the later READY. Existing command replay returns retained state; Store locking serializes concurrent admission and analysis completion. Queue waiting admission/scheduler eligibility is not Generation admission and does not select intelligence. The snapshot is selected when the actual new Generation is durably created.
+
+Manual retries, production retries and undispatched production command resume retain the original context/hash. Current eligibility checks still validate customer/product revisions but never select latest intelligence. Pre-dispatch validation, GenerationService execution and prompt assembly do not read StyleAnalysis or StyleSources. There is no automatic analysis or extra AI call for selection, and no change to ambiguity/recovery/retry limits.
+
+### Prompt priority and trust
+
+For enriched contexts only, a fixed platform-owned rule explains priority: platform safety/output contract → configured product sections and requirements → explicit seller style configuration → analyzed writing tendencies. Current customer answers supply the sole customer evidence; they remain untrusted data, not instruction authority. Intelligence supplements seller settings (for example explicit concise detail beats learned verbose tendencies), cannot change product sections, and is never historical customer truth.
+
+The existing JSON data envelope adds only `styleIntelligence: payload`. IDs, version metadata, source bodies, source titles/identifiers, analysis input manifests and reading exemplars are not sent. The payload stays untrusted configuration/data; embedded instructions cannot supersede platform rules. Zod is authoritative for structure/bounds; Part 2 contamination guards remain a conservative admission policy, not a guarantee against every semantic leak. Exact configured section IDs/titles still pass existing canonical output validation.
+
+### Cost and remaining scope
+
+Existing gateway admission receives UTF-8 bytes of the exact assembled system plus data request, including added intelligence and priority instruction. Central pricing/reservation, input byte cap (256,000), output allowance, budget checks and actual usage settlement remain unchanged. No fixed assumed intelligence-token cost or second ledger is introduced. Existing Generation context hash covers the snapshot; command hashes retain their original command identity semantics. Generation has no new separate provider-request hash field.
+
+Seller-facing workflow/UI remains **Part 4**, unimplemented: no analyze button, preview/status, onboarding step or navigation change. Source/exemplar injection, automatic/recurring analysis, fallback, uploads, embeddings/RAG/fine-tuning remain excluded. Real Gemini calls during Part 3 validation: zero; only fake providers or mocked transports.

@@ -31,8 +31,8 @@ it("source selections reject empty, duplicate and oversized sets", () => {
  const id = "3bbf1d53-08fa-45a4-9578-548325a734c4";
  for (const sourceIds of [[], [id, id], Array(101).fill(id)]) expect(analysisSelection.safeParse({ styleProfileId: id, sourceIds }).success).toBe(false);
 });
-it("style intelligence foundation has no AI execution or generation/UI entry points", () => {
+it("style persistence and eligibility readers do not execute AI or auto-select intelligence", () => {
  const service = readFileSync("src/modules/seller-style/analysis-service.ts", "utf8");
  expect(service).not.toMatch(/infrastructure\/ai|fetch\(|gateway|\.generate\(/);
- for (const file of ["src/modules/generation/context.ts", "src/modules/generation/instructions.ts", "src/modules/seller-style/context.ts"]) expect(readFileSync(file, "utf8")).not.toMatch(/styleAnalysis|styleIntelligence|analysis-service/);
+ for (const file of ["src/modules/generation/context.ts", "src/modules/seller-style/context.ts"]) expect(readFileSync(file, "utf8")).not.toMatch(/styleAnalysis|styleIntelligence|analysis-service/);
 });
