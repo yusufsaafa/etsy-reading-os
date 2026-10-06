@@ -27,4 +27,4 @@ export const analysisSelection = z.object({
 }).strict();
 // No duplicate usage ledger: provider/model provenance is obtained from this owned AIRequest.
 export const analysisCompletion = z.object({ payload: styleIntelligence, aiRequestId: z.string().uuid().nullable() }).strict();
-export const analysisFailure = z.enum(["INVALID_RESULT", "PROVIDER_FAILURE", "CANCELED", "INTERNAL_FAILURE"]);
+export const analysisFailure = z.enum(["INVALID_RESULT", "PROVIDER_FAILURE", "CANCELED", "INTERNAL_FAILURE", "POLICY_REJECTED", "BUDGET_REJECTED", "AMBIGUOUS_EXECUTION"]);

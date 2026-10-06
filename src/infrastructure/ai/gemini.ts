@@ -16,8 +16,8 @@ export class GeminiGenerationProvider implements GenerationProvider {
    response=await this.transport("https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(request.model)+":generateContent",{
     method:"POST",redirect:"error",headers:{"Content-Type":"application/json","x-goog-api-key":this.apiKey},signal:AbortSignal.timeout(120000),
     body:JSON.stringify({systemInstruction:{parts:[{text:request.system}]},contents:[{role:"user",parts:[{text:request.data}]}],generationConfig:{
-     candidateCount:1,maxOutputTokens:request.maxOutputTokens,responseMimeType:"application/json",
-     responseSchema:{type:"OBJECT",properties:{sections:{type:"ARRAY",items:{type:"OBJECT",properties:{sectionId:{type:"STRING",enum:request.sections.map(s=>s.sectionId)},title:{type:"STRING"},content:{type:"STRING"}},required:["sectionId","title","content"]}}},required:["sections"]},
+     candidateCount:1,maxOutputTokens:request.maxOutputTokens,
+     ...(request.structuredOutput ? {responseFormat:{text:{mimeType:"application/json",schema:request.structuredOutput.jsonSchema}}} : {responseMimeType:"application/json",responseSchema:{type:"OBJECT",properties:{sections:{type:"ARRAY",items:{type:"OBJECT",properties:{sectionId:{type:"STRING",enum:request.sections.map(s=>s.sectionId)},title:{type:"STRING"},content:{type:"STRING"}},required:["sectionId","title","content"]}}},required:["sections"]}}),
     }}),
    });
   } catch(error) {throw new ProviderFailure(error instanceof Error&&["TimeoutError","AbortError"].includes(error.name)?"TIMEOUT":"NETWORK",{},undefined,true,undefined,safeTransportCause(error));}

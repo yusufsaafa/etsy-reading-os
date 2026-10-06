@@ -78,6 +78,13 @@
       "when": 1791291073556,
       "tag": "0010_boring_thundra",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791293454308,
+      "tag": "0011_dusty_madrox",
+      "breakpoints": true
     }
   ]
 }

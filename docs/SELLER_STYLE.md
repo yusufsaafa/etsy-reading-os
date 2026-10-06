@@ -94,3 +94,7 @@ The first generation uses the transaction-compatible seller production-context r
 ## Style Intelligence Part 1 follow-up
 
 [STYLE_INTELLIGENCE.md](STYLE_INTELLIGENCE.md) supersedes the four-table-only description for the newly authorized foundation: the same domain now also owns `style_analysis_versions` and `style_analysis_sources`, tied to existing StyleProfile ownership. No source text is analyzed. Frozen memberships prevent deletion of referenced sources; unreferenced sources retain existing permanent deletion. Completed/failed analysis history is immutable, and failure never replaces the latest usable READY result. These services have no seller UI or automatic source trigger. Generation still consumes only explicit published style configuration, with no analysis/source injection.
+
+## Style Intelligence Part 2 follow-up
+
+Explicit previous-work analysis can now execute through the existing CentralAIGateway with deterministic source limits and immutable truncation/input metadata. See [STYLE_INTELLIGENCE.md](STYLE_INTELLIGENCE.md) for exact bounds, prompt/data separation, contamination guards, accounting, idempotency and failure semantics. There is no automatic analysis on paste and no seller-facing control. This is not training/fine-tuning. Analysis results remain separate from customer generation; Part 3 generation integration and Part 4 seller workflow are not implemented.

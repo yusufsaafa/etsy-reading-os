@@ -1,7 +1,9 @@
+import { createHash } from "node:crypto";
+import { stableJson } from "../../modules/intake/contracts";
 import { logTransportFailure } from "./transport-diagnostic";
 import { and, eq, gte, or } from "drizzle-orm";
 import type { Database, DbExecutor } from "../../db/client";
-import { aiRequests, usageEvents, stores } from "../../db/schema";
+import { aiRequests, usageEvents, stores, styleAnalysisVersions } from "../../db/schema";
 import { tenantWhere } from "../../modules/intake/service";
 import { verifyGenerationAuthority,type GenerationAuthority } from "../../modules/generation/authority";
 import { AdmissionError } from "../../modules/generation/contracts";
@@ -10,10 +12,16 @@ import { ProviderFailure, type GenerationProvider, type ProviderRequest, type Pr
 export type GatewayPolicy={provider:GenerationProvider;model:string;pricing:Pricing;maxOutputTokens:number;dailyBudgetNanos:bigint;attemptBudgetNanos:bigint};
 export class CentralAIGateway {
  constructor(private readonly db:Database,private readonly policy:GatewayPolicy) {}
+ get model() {return this.policy.model;}
  get maxOutputTokens() {return this.policy.maxOutputTokens;}
  // Called under the Store lock. Intent + provisional UNKNOWN accounting exist before any dispatch.
- async admit(tx:DbExecutor,scope:GenerationAuthority,input:{generationId?:string;attemptNumber:number;commandKey:string;commandHash:string;parentRequestId?:string;operation:string;inputBytes:number}) {
+ async admit(tx:DbExecutor,scope:GenerationAuthority,input:{generationId?:string;styleAnalysisVersionId?:string;attemptNumber:number;commandKey:string;commandHash:string;parentRequestId?:string;operation:string;inputBytes:number}) {
   await verifyGenerationAuthority(tx,scope);
+  if(input.operation==="style-analysis/v1") {
+   if(input.generationId||!input.styleAnalysisVersionId||input.attemptNumber!==1||input.parentRequestId||"queueId" in scope)throw new Error("INVALID_ANALYSIS_ATTRIBUTION");
+   const [analysis]=await tx.select().from(styleAnalysisVersions).where(and(tenantWhere(styleAnalysisVersions,scope),eq(styleAnalysisVersions.id,input.styleAnalysisVersionId)));
+   if(!analysis||analysis.status!=="PENDING"||analysis.commandKey!==input.commandKey||analysis.commandHash!==input.commandHash||analysis.operationVersion!==input.operation||analysis.inputManifest?.inputBytes!==input.inputBytes)throw new Error("INVALID_ANALYSIS_ATTRIBUTION");
+  } else if(input.styleAnalysisVersionId)throw new Error("INVALID_ANALYSIS_ATTRIBUTION");
   const [store]=await tx.select({source:stores.source}).from(stores).where(and(eq(stores.organizationId,scope.organizationId),eq(stores.id,scope.storeId))).for("update");
   if(this.policy.provider.name==="fake"&&store.source!=="fixtures")throw new AdmissionError("READING_HOLD");
   const {pricing,model,provider,maxOutputTokens}=this.policy;
@@ -37,6 +45,10 @@ export class CentralAIGateway {
    await verifyGenerationAuthority(tx,scope);
    const [row]=await tx.select().from(aiRequests).where(and(tenantWhere(aiRequests,scope),eq(aiRequests.id,requestId))).for("update");
    if(!row||row.status!=="CLAIMED")return undefined;
+   if(row.styleAnalysisVersionId) {
+    const [analysis]=await tx.select().from(styleAnalysisVersions).where(and(tenantWhere(styleAnalysisVersions,scope),eq(styleAnalysisVersions.id,row.styleAnalysisVersionId)));
+    if(!analysis||analysis.aiRequestId!==row.id||analysis.status!=="ANALYZING"||analysis.inputManifest?.requestHash!==analysisRequestHash(input))throw new Error("GATEWAY_ANALYSIS_INPUT_MISMATCH");
+   }
    if(row.provider!==this.policy.provider.name||row.model!==input.model||input.maxOutputTokens!==this.policy.maxOutputTokens)throw new Error("GATEWAY_POLICY_MISMATCH");
    try{await preflight(tx);}catch{
     await tx.update(aiRequests).set({status:"FAILED",failureCode:"ADMISSION_CHANGED",costState:"known_zero",estimatedNanos:0n,finishedAt:new Date()}).where(eq(aiRequests.id,row.id));
@@ -49,7 +61,7 @@ export class CentralAIGateway {
   const started=performance.now();let response:ProviderResponse|undefined,result:T|undefined,failure:ProviderFailure|undefined;
   try {
    response=await this.policy.provider.generate(input);
-   try{result=accept(response);}catch{failure=new ProviderFailure("INVALID_OUTPUT",response.usage,response.requestId);}
+   try{result=accept(response);}catch(error){failure=new ProviderFailure(error instanceof ProviderFailure&&error.code==="POLICY_REJECTED"?"POLICY_REJECTED":"INVALID_OUTPUT",response.usage,response.requestId,false,response.resolvedModel);}
   }catch(error){failure=error instanceof ProviderFailure?error:new ProviderFailure("PROVIDER_ERROR",{},undefined,true);}
   if(failure&&["TIMEOUT","NETWORK"].includes(failure.code)&&!failure.ambiguous)failure=new ProviderFailure(failure.code,failure.usage,failure.requestId,true,failure.resolvedModel,failure.transportCause);
   if(failure)logTransportFailure(failure);
@@ -68,3 +80,5 @@ export class CentralAIGateway {
   });
  }
 }
+
+function analysisRequestHash(input:ProviderRequest) {return createHash("sha256").update(stableJson(input)).digest("hex");}

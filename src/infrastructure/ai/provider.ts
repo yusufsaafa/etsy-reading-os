@@ -1,8 +1,8 @@
 import type { TransportCause } from "./transport-diagnostic";
 export type TokenUsage = { inputTokens?:number; outputTokens?:number; totalTokens?:number; reasoningTokens?:number; cachedTokens?:number };
-export type ProviderRequest = { model:string; system:string; data:string; sections:{sectionId:string;title:string}[]; maxOutputTokens:number };
+export type ProviderRequest = { model:string; system:string; data:string; sections:{sectionId:string;title:string}[]; maxOutputTokens:number; structuredOutput?:{contract:string;jsonSchema:Record<string,unknown>} };
 export type ProviderResponse = { output:string; usage:TokenUsage; requestId?:string; resolvedModel?:string };
-export type FailureCode = "TIMEOUT"|"NETWORK"|"RATE_LIMIT"|"AUTH"|"PROVIDER_ERROR"|"INVALID_OUTPUT"|"BLOCKED";
+export type FailureCode = "TIMEOUT"|"NETWORK"|"RATE_LIMIT"|"AUTH"|"PROVIDER_ERROR"|"INVALID_OUTPUT"|"BLOCKED"|"POLICY_REJECTED";
 export class ProviderFailure extends Error {
  constructor(public readonly code:FailureCode,public readonly usage:TokenUsage={},public readonly requestId?:string,public readonly ambiguous=false,public readonly resolvedModel?:string,public readonly transportCause?:TransportCause) { super(code); }
 }

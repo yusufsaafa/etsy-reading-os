@@ -49,3 +49,7 @@ GenerationContext construction, prompts, hashes, model configuration, production
 Parts 2–4 were not started. Future authorized briefs must add bounded analysis/semantic contamination policy, accounted CentralAIGateway execution and asynchronous workflow, seller controls and explicit version-pinned generation integration. Source budgeting/sampling, retries/recovery, exemplar selection, Review Workspace, PDF/delivery, uploads, embeddings/RAG/fine-tuning and infrastructure remain absent.
 
 Work is committed locally only. No push or deployment. Final clean Git status and exact ending hash are supplied after committing.
+
+## Part 2 continuation
+
+Part 1 remains the historical foundation report above. The subsequent bounded execution milestone is documented separately in [STYLE_INTELLIGENCE_PART2_REPORT.md](STYLE_INTELLIGENCE_PART2_REPORT.md). Its current architecture is the Part 2 section of STYLE_INTELLIGENCE.md; generation consumption and seller UI remain deferred to Parts 3–4.

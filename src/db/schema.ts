@@ -153,7 +153,7 @@ export const generations = pgTable("generations", {
  check("generation_context_hash",sql`${t.contextHash} ~ '^[a-f0-9]{64}$'`)]);
 export const aiRequests = pgTable("ai_requests", {
  id:id(),organizationId:org(),storeId:store(),generationId:uuid("generation_id"),attemptNumber:integer("attempt_number").notNull(),
- commandKey:uuid("command_key").notNull(),commandHash:text("command_hash").notNull(),parentRequestId:uuid("parent_request_id"),
+ commandKey:uuid("command_key").notNull(),commandHash:text("command_hash").notNull(),styleAnalysisVersionId:uuid("style_analysis_version_id"),parentRequestId:uuid("parent_request_id"),
  operation:text("operation").notNull(),provider:text("provider").notNull(),model:text("model").notNull(),resolvedModel:text("resolved_model"),
  providerRequestId:text("provider_request_id"),status:text("status").notNull().default("CLAIMED"),failureCode:text("failure_code"),ambiguous:boolean("ambiguous").notNull().default(false),
  inputTokens:integer("input_tokens"),outputTokens:integer("output_tokens"),totalTokens:integer("total_tokens"),reasoningTokens:integer("reasoning_tokens"),cachedTokens:integer("cached_tokens"),
@@ -161,6 +161,9 @@ export const aiRequests = pgTable("ai_requests", {
  reservedNanos:bigint("reserved_nanos",{mode:"bigint"}).notNull(),estimatedNanos:bigint("estimated_nanos",{mode:"bigint"}),actualNanos:bigint("actual_nanos",{mode:"bigint"}),
  costState:text("cost_state").notNull().default("unknown"),createdAt:time("created_at").defaultNow().notNull(),startedAt:time("started_at"),finishedAt:time("finished_at"),
 },t=>[unique("ai_request_owned_identity").on(t.organizationId,t.storeId,t.id),
+ foreignKey({name:"request_owned_analysis_fk",columns:[t.organizationId,t.storeId,t.styleAnalysisVersionId],foreignColumns:analysisIdentityColumns()}),
+ uniqueIndex("one_request_per_style_analysis").on(t.organizationId,t.storeId,t.styleAnalysisVersionId).where(sql`${t.styleAnalysisVersionId} is not null`),
+ check("analysis_request_attribution",sql`${t.styleAnalysisVersionId} is null or (${t.operation}='style-analysis/v1' and ${t.generationId} is null and ${t.attemptNumber}=1 and ${t.parentRequestId} is null)`),
  unique("ai_command_unique").on(t.organizationId,t.storeId,t.commandKey),
  unique("generation_attempt_number").on(t.organizationId,t.storeId,t.generationId,t.attemptNumber),
  foreignKey({columns:[t.organizationId,t.storeId],foreignColumns:[stores.organizationId,stores.id]}),
@@ -224,11 +227,15 @@ export const productionTick=pgTable("production_tick",{
 export const styleAnalysisVersions = pgTable("style_analysis_versions", {
  id:id(), organizationId:org(), storeId:store(), styleProfileId:uuid("style_profile_id").notNull(),
  versionNumber:integer("version_number").notNull(), status:text("status").notNull().default("DRAFT"),
+ commandKey:uuid("command_key"), commandHash:text("command_hash"),
+ inputManifest:jsonb("input_manifest").$type<import("../modules/seller-style/analysis-input").AnalysisInputManifest>(),
  contractVersion:text("contract_version").notNull(), operationVersion:text("operation_version").notNull(),
  payload:jsonb("payload").$type<import("../modules/seller-style/analysis-contracts").StyleIntelligence>(),
  aiRequestId:uuid("ai_request_id"), failureCode:text("failure_code"),
  createdAt:time("created_at").defaultNow().notNull(), startedAt:time("started_at"), completedAt:time("completed_at"),
 },t=>[unique("analysis_owned_identity").on(t.organizationId,t.storeId,t.id),
+ unique("analysis_command_unique").on(t.organizationId,t.storeId,t.commandKey),
+ check("analysis_execution_metadata",sql`(${t.commandKey} is null and ${t.commandHash} is null and ${t.inputManifest} is null) or (${t.commandKey} is not null and ${t.commandHash} is not null and ${t.commandHash} ~ '^[a-f0-9]{64}$' and ${t.inputManifest} is not null)`),
  unique("analysis_profile_version_number").on(t.organizationId,t.storeId,t.styleProfileId,t.versionNumber),
  foreignKey({name:"analysis_owned_profile_fk",columns:[t.organizationId,t.storeId,t.styleProfileId],foreignColumns:[styleProfiles.organizationId,styleProfiles.storeId,styleProfiles.id]}),
  foreignKey({name:"analysis_owned_request_fk",columns:[t.organizationId,t.storeId,t.aiRequestId],foreignColumns:[aiRequests.organizationId,aiRequests.storeId,aiRequests.id]}),
@@ -238,7 +245,7 @@ export const styleAnalysisVersions = pgTable("style_analysis_versions", {
  ((${t.status} in ('READY','FAILED'))=(${t.completedAt} is not null)) and
  ((${t.status}='READY')=(${t.payload} is not null)) and ((${t.status}='FAILED')=(${t.failureCode} is not null)) and
  (${t.status}<>'ANALYZING' or ${t.startedAt} is not null) and
- (${t.failureCode} is null or ${t.failureCode} in ('INVALID_RESULT','PROVIDER_FAILURE','CANCELED','INTERNAL_FAILURE'))`),
+ (${t.failureCode} is null or ${t.failureCode} in ('INVALID_RESULT','PROVIDER_FAILURE','CANCELED','INTERNAL_FAILURE','POLICY_REJECTED','BUDGET_REJECTED','AMBIGUOUS_EXECUTION'))`),
  index("analysis_latest_attempt").on(t.organizationId,t.storeId,t.styleProfileId,t.versionNumber),
  index("analysis_latest_usable").on(t.organizationId,t.storeId,t.styleProfileId,t.versionNumber).where(sql`${t.status}='READY'`),
 ]);
@@ -249,3 +256,5 @@ export const styleAnalysisSources = pgTable("style_analysis_sources", {
  foreignKey({name:"analysis_source_owned_source_fk",columns:[t.organizationId,t.storeId,t.sourceId],foreignColumns:[styleSources.organizationId,styleSources.storeId,styleSources.id]}),
  index("analysis_source_reverse_lookup").on(t.organizationId,t.storeId,t.sourceId),
 ]);
+
+function analysisIdentityColumns():[AnyPgColumn,AnyPgColumn,AnyPgColumn] {return [styleAnalysisVersions.organizationId,styleAnalysisVersions.storeId,styleAnalysisVersions.id];}
