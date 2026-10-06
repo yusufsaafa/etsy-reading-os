@@ -53,7 +53,7 @@ try {
  assert.equal((await db.select().from(schema.productionQueue)).length,0);
  assert.equal((await db.select().from(schema.aiRequests)).length,0);
  // Instantiate the EXISTING runtime, without invocation during pre-flight.
- const runtime=generationRuntime(db);
+ if(!live)generationRuntime(db);
  const preflight={provider:'google',model:process.env.AI_GENERATION_MODEL,keyPresent:true,budgetsParsed:true,budgetReservationFits:true,isolatedDatabase:'file-backed PGlite at temporary synthetic-only directory; DATABASE_URL never read',admission:'PASS',queueItems:0,pricing,expectedSections:sections.map(({id,title})=>({sectionId:id,title})),system:instructions.system,userData:JSON.parse(instructions.data)};
  if(!live){console.log(stringify({preflight,providerAttempts:0}));}
  else {
@@ -69,7 +69,7 @@ try {
    return response;
   };
   let result:typeof schema.generations.$inferSelect|undefined,failure:string|undefined;
-  try{result=await runtime.prepare(scope,{unitId:unit.id,commandKey:randomUUID()});}catch(e){failure=e instanceof Error&&/^[A-Z_]+$/.test(e.message)?e.message:'APPLICATION_ERROR';}
+  try{result=await generationRuntime(db).prepare(scope,{unitId:unit.id,commandKey:randomUUID()});}catch(e){failure=e instanceof Error&&/^[A-Z_]+$/.test(e.message)?e.message:'APPLICATION_ERROR';}
   const requests=await db.select().from(schema.aiRequests),usage=await db.select().from(schema.usageEvents),audit=await db.select().from(schema.auditLogs);
   const secret=process.env.GEMINI_API_KEY!;
   assert.ok(!stringify({result,requests,usage,audit,payload,rawResponse}).includes(secret),'SECRET_LEAK');
