@@ -90,3 +90,7 @@ No multi-reader support, assignments, seller style analysis, AI/provider SDK or 
 ## Generation follow-up
 
 The first generation uses the transaction-compatible seller production-context reader and authoritative exact published StyleProfileVersion. It snapshots only seller ID/name/bio and customer revision/answers. StyleSources are deliberately unused and retain their existing independent deletion behavior; there is no production source-binding claim. GENERATION_ENGINE.md supersedes earlier no-generation statements for this authorized milestone without adding multi-reader/style analysis.
+
+## Style Intelligence Part 1 follow-up
+
+[STYLE_INTELLIGENCE.md](STYLE_INTELLIGENCE.md) supersedes the four-table-only description for the newly authorized foundation: the same domain now also owns `style_analysis_versions` and `style_analysis_sources`, tied to existing StyleProfile ownership. No source text is analyzed. Frozen memberships prevent deletion of referenced sources; unreferenced sources retain existing permanent deletion. Completed/failed analysis history is immutable, and failure never replaces the latest usable READY result. These services have no seller UI or automatic source trigger. Generation still consumes only explicit published style configuration, with no analysis/source injection.

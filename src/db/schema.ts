@@ -219,3 +219,33 @@ export const productionQueue = pgTable("production_queue", {
 export const productionTick=pgTable("production_tick",{
  id:text("id").primaryKey(),token:uuid("token"),expiresAt:time("expires_at"),
 },t=>[check("production_tick_singleton",sql`${t.id}='production'`),check("production_tick_owner",sql`(${t.token} is null)=(${t.expiresAt} is null)`)]);
+
+// Independent analysis history on the existing stable StyleProfile; never generation context in Part 1.
+export const styleAnalysisVersions = pgTable("style_analysis_versions", {
+ id:id(), organizationId:org(), storeId:store(), styleProfileId:uuid("style_profile_id").notNull(),
+ versionNumber:integer("version_number").notNull(), status:text("status").notNull().default("DRAFT"),
+ contractVersion:text("contract_version").notNull(), operationVersion:text("operation_version").notNull(),
+ payload:jsonb("payload").$type<import("../modules/seller-style/analysis-contracts").StyleIntelligence>(),
+ aiRequestId:uuid("ai_request_id"), failureCode:text("failure_code"),
+ createdAt:time("created_at").defaultNow().notNull(), startedAt:time("started_at"), completedAt:time("completed_at"),
+},t=>[unique("analysis_owned_identity").on(t.organizationId,t.storeId,t.id),
+ unique("analysis_profile_version_number").on(t.organizationId,t.storeId,t.styleProfileId,t.versionNumber),
+ foreignKey({name:"analysis_owned_profile_fk",columns:[t.organizationId,t.storeId,t.styleProfileId],foreignColumns:[styleProfiles.organizationId,styleProfiles.storeId,styleProfiles.id]}),
+ foreignKey({name:"analysis_owned_request_fk",columns:[t.organizationId,t.storeId,t.aiRequestId],foreignColumns:[aiRequests.organizationId,aiRequests.storeId,aiRequests.id]}),
+ check("analysis_version_positive",sql`${t.versionNumber}>0`),
+ check("analysis_contract",sql`${t.contractVersion}='style-intelligence/v1' and ${t.operationVersion}='style-analysis/v1'`),
+ check("analysis_lifecycle",sql`${t.status} in ('DRAFT','PENDING','ANALYZING','READY','FAILED') and
+ ((${t.status} in ('READY','FAILED'))=(${t.completedAt} is not null)) and
+ ((${t.status}='READY')=(${t.payload} is not null)) and ((${t.status}='FAILED')=(${t.failureCode} is not null)) and
+ (${t.status}<>'ANALYZING' or ${t.startedAt} is not null) and
+ (${t.failureCode} is null or ${t.failureCode} in ('INVALID_RESULT','PROVIDER_FAILURE','CANCELED','INTERNAL_FAILURE'))`),
+ index("analysis_latest_attempt").on(t.organizationId,t.storeId,t.styleProfileId,t.versionNumber),
+ index("analysis_latest_usable").on(t.organizationId,t.storeId,t.styleProfileId,t.versionNumber).where(sql`${t.status}='READY'`),
+]);
+export const styleAnalysisSources = pgTable("style_analysis_sources", {
+ organizationId:org(), storeId:store(), analysisVersionId:uuid("analysis_version_id").notNull(), sourceId:uuid("source_id").notNull(),
+},t=>[unique("analysis_source_unique").on(t.organizationId,t.storeId,t.analysisVersionId,t.sourceId),
+ foreignKey({name:"analysis_source_owned_version_fk",columns:[t.organizationId,t.storeId,t.analysisVersionId],foreignColumns:[styleAnalysisVersions.organizationId,styleAnalysisVersions.storeId,styleAnalysisVersions.id]}),
+ foreignKey({name:"analysis_source_owned_source_fk",columns:[t.organizationId,t.storeId,t.sourceId],foreignColumns:[styleSources.organizationId,styleSources.storeId,styleSources.id]}),
+ index("analysis_source_reverse_lookup").on(t.organizationId,t.storeId,t.sourceId),
+]);
