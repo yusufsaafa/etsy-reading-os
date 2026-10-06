@@ -119,3 +119,7 @@ Eligible version-bound readings can be manually prepared from order detail using
 ## Production orchestration — Part 1
 
 Manual starts preparation through the seller action. Assisted automatically admits eligible individual readings to durable waiting work; it never means automatic delivery. Standard/Express and optional purchase-relative target minutes are version-owned. Automatic execution is unavailable in this part. Mixed carts and quantities stay independent. See PRODUCTION_ORCHESTRATION.md.
+
+## Production scheduling — Part 2
+
+Backend waiting work now supports deterministic deadline/Express/aging selection, cross-Store fairness and bounded durable claims. Scheduling does not prepare or deliver a Reading yet. Manual preparation remains unchanged; generation state prevents duplicate automatic selection. No seller-facing infrastructure states or new screens are introduced.

@@ -8,7 +8,7 @@ import { orders, lineItems, units, customerInputs, listings, mappings, stores, c
 import { authorizeStore, AccessDenied } from "../identity/service";
 import { orderSchema, listingSchema, triage, stableJson, type Scope, type Answer, type ExternalOrder } from "./contracts";
 
-export function tenantWhere(table: { organizationId: AnyPgColumn; storeId: AnyPgColumn }, scope: Scope) {
+export function tenantWhere(table: { organizationId: AnyPgColumn; storeId: AnyPgColumn }, scope: Pick<Scope, "organizationId" | "storeId">) {
   return and(eq(table.organizationId, scope.organizationId), eq(table.storeId, scope.storeId));
 }
 export async function verifyScope(db: DbExecutor, scope: Scope, owner = false) {

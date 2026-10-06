@@ -71,3 +71,74 @@ Deferred to Parts 2–4: execution lifecycle/schema migration, GenerationService
 ## Exact Part 2 handoff
 
 Use production/service.ts admission and reconciliation; production_queue rows are waiting intents with immutable recipe/urgency, not execution authorizations. Preserve one initial intent per reading and composite ownership. Add only the next explicitly authorized execution slice: first design lifecycle changes as an additive migration, coordinate manual preparation and prior waiting intents, derive a durable commandKey for GenerationService, and revalidate ownership/current eligibility. Keep GenerationService/gateway accounting and unknown-result protections. Style/seller/customer snapshots belong to Generation at actual preparation admission. Do not copy lease/retry behavior from Etsy sync or infer that those later parts were authorized here.
+
+
+## PART 2 — SCHEDULING + CLAIMING
+
+Implemented on the Part 1 base `8d6238972d40b871ea37d3cb4fbbae3517f62d2b`. This section supersedes Part 1's QUEUED-only and no-claim statements. No queue work executes in Part 2: no GenerationService/gateway/provider call, AIRequest or UsageEvent is created by scheduling. Manual generation stays available and authoritative.
+
+### Lifecycle and additive migration
+
+`0007_unknown_dreadnoughts.sql` preserves the existing table/rows/bindings and adds six nullable fields plus two indexes:
+
+| Field | Meaning |
+| --- | --- |
+| claim_token | Random opaque UUID for the current claim, globally unique when present |
+| claimed_at | Latest claim time; retained when an expired claim is skipped |
+| claim_expires_at | Claim deadline; cleared on terminal resolution |
+| scheduling_ordinal | Durable monotonic fairness turn, advanced on a claim or stale resolution |
+| resolved_at, resolution_code | Terminal stale-work resolution time and bounded application reason |
+
+Lifecycle: QUEUED → CLAIMED; QUEUED → SKIPPED; expired CLAIMED → new CLAIMED token or SKIPPED after revalidation. No COMPLETED or execution/retry state exists because no work executes. Queued metadata is initially null. Claimed metadata is complete with positive ordinal and expiration after claim time. Skipped records have no usable token/expiry, a resolution code/time and a fairness ordinal; prior claimedAt is retained if present. Null-sensitive CHECK constraints explicitly require fields rather than allowing SQL's unknown truth value to admit incomplete claims.
+
+Existing reading/version/urgency uniqueness, ownership FKs and the Part 1 policy trigger remain intact. An additional handwritten transition trigger rejects terminal mutation, reset to QUEUED, claim token reuse and claim replacement before prior expiration, and retains claim-time history on resolution. Database checks/indexes reinforce the scheduler transaction protocol; they are not a substitute for running that protocol. Drizzle snapshots do not encode either trigger; preserve both in future migrations. No historical ProductVersion/Generation is changed and existing QUEUED rows remain QUEUED with null added fields.
+
+### Exact deterministic scheduling order
+
+Configuration is centralized in production/scheduling.ts. Defaults: claim batch 4, claim duration 120 seconds, aging threshold 120 minutes, urgent deadline window 15 minutes, inspection budget 100. `PRODUCTION_CLAIM_BATCH_SIZE` is the server environment override (validated integer 1..100); the trusted worker may pass a validated configuration. No per-call browser limit or concurrency control is exposed.
+
+Within each Store compare ascending:
+1. Priority band: aged waiting work (age ≥ 120 minutes), then near/overdue deadline (deadline ≤ now + 15 minutes), then EXPRESS, then STANDARD.
+2. For the deadline band, earlier deadline first (most overdue first).
+3. Earlier queue createdAt.
+4. Lexicographically smaller queue UUID for stable ties.
+
+A distant deadline does not bypass class/age. At the aging threshold even Standard/no-deadline work moves ahead of fresh urgent/Express work. Aged work is FIFO, so newer arrivals cannot perpetually overtake it. This deliberately trades some immediate urgency preference for progress on old waiting work. Claims/reclaims keep original queue age. Fairness assumes a finite older backlog and eventual progress; repeated expiration of the same unexecuted oldest work can delay siblings until later lifecycle/recovery parts resolve it. No throughput or completion-time SLA is promised.
+
+Across Stores, use least-recently-served first: each Store's latest `max(scheduling_ordinal)` across its retained queue history, with no prior turn treated as zero. Ties use that Store's best candidate comparator above, then Store UUID. Give at most one claim per Store per cycle. Both claims and stale resolutions advance the global monotonic ordinal under the scheduler transaction lock. This keeps fairness durable across processes/restarts and works even when batch size is one or the clock does not advance. It also prevents a repeatedly stale Store from retaining an unserved zero-turn position forever. Fairness takes precedence over global deadline optimization; urgency orders a Store's work and breaks equal Store turns.
+
+Candidate inspection is bounded too: at most inspectionLimit overall and at most `max(1, floor(inspectionLimit / candidateStoreCount))` per Store. A stale high-volume Store cannot consume the whole budget before others are checked. If more Stores than inspection slots exist, durable turns on processed work rotate remaining Stores into subsequent cycles. Finite continuously actionable Stores progress across cycles; endlessly arriving new Stores and an unbounded system backlog cannot have an absolute latency bound.
+
+### Claim transaction and internal authority
+
+`ProductionScheduler.forInternalWorker(serverDatabase, {configuration?, clock?})` creates the trusted in-process scheduler. `claimProductionWork()` accepts no seller/user/tenant/token payload. Possession of the server Database is the internal authority; there is no HTTP route, server action, remote worker authentication endpoint or browser export. The scheduler imports node:crypto and cannot be bundled as browser code. A deployment must run only trusted server code with DB credentials; this API does not sandbox arbitrary server code. Actual paid-operation worker authorization is deferred to Part 3.
+
+Transaction:
+1. Acquire the dedicated PostgreSQL advisory transaction lock (namespace key in scheduling.ts). This serializes short scheduling cycles across application processes; it is not a process-local mutex or an external-execution lock.
+2. Read DB clock once (tests can inject a deterministic trusted clock), waiting/expired queue metadata and durable Store turns; calculate ordering/bounds.
+3. For each selected Store, lock the owned persisted Store row before locking its selected queue row. This matches existing intake/manual generation/configuration lock order. Recheck queue state and expiration after acquiring locks.
+4. Revalidate current domain eligibility. Resolve stale work or write CLAIMED/new token/times/ordinal atomically. Return the claimed metadata only after commit.
+
+Each update is scoped by organization/store/item. Store ownership comes from retained queue FKs plus an actual owned Store lookup; no seller session is fabricated. Multiple workers return disjoint active work because cycles serialize in PostgreSQL and rows are durably claimed before the next cycle sees them. No transaction waits on generation or other external work. Batch and inspection bounds control work per cycle, not total outstanding claims or future model concurrency. Single advisory-lock serialization favors simple correctness over throughput; no SKIP LOCKED optimizer is needed for this pilot slice.
+
+Queue metadata is scanned in memory; the DB scan itself is not paginated/bounded, although expensive eligibility inspections and returned claims are bounded. Query/index/pagination tuning is a future scaling concern. Unexpected DB/domain errors roll back the entire cycle rather than publishing partial claims.
+
+### Revalidation, stale work and manual coordination
+
+The existing generation context checks are shared without copying product/customer/style validators. `buildGenerationContext` retains its seller authorization wrapper (owner by default); the trusted `buildProductionContextForStoreInTransaction` reader operates on persisted organization/store identity under the Store lock, without inventing an actor. Seller/style reads use the same split authorized-wrapper/internal-reader pattern. Seller-facing scoped reads/mutations keep their membership/owner checks.
+
+Any existing Generation (SUCCEEDED, PROCESSING or FAILED) resolves the waiting/expired claim as SKIPPED/EXISTING_GENERATION. Missing/malformed product, customer revision/required input/allocation, current operational holds, missing/unusable seller/style also resolve as SKIPPED using normalized admission codes. Valid customer corrections are read afresh, not rejected merely because they differ from queue admission; Generation snapshots belong to actual preparation later. No private context or source content is stored in claim metadata or returned by the scheduler.
+
+Successful manual preparation after queue admission therefore prevents a later duplicate claim. Manual preparation can still begin after a Part 2 claim commits; Part 3 must recheck/coordinate before execution, and cannot treat the claim as permission to pay. SKIPPED is retained terminal history. Part 1 reconciliation returns existing intents and does not resurrect skipped work after a later hold correction; an explicit future resume/adoption policy is required. This part chooses durable terminal stale resolution as requested rather than silently requeuing held work.
+
+Only meaningful stale resolution creates an AuditLog row (`reading_preparation_skipped`, null system actor, Store/resource metadata). Polls, ordinary claims and safe claim rotation create no seller audit noise. No personalization, style, prompts or generated bodies are logged.
+
+### Expiration and Part 3 safety boundary
+
+Expiration comparison is inclusive (`claimExpiresAt ≤ now`). An expired Part 2-only claim is revalidated under the same transaction/Store lock and may receive a fresh token/time/ordinal. An unexpired claim is never returned or rotated. Old tokens become obsolete; no execution/acknowledgment method is provided here. Retained fairness ordinals are scheduling metadata, not AI attempt numbers or provider retries.
+
+Any Generation fences safe reclaim, including abandoned/ambiguous PROCESSING or FAILED work. The scheduler never resets generation/AI accounting or infers that a timeout means no request happened. Part 3 must bind queue intent to a stable generation command, enforce token fencing and paid-operation authorization immediately before dispatch, and integrate Generation Engine's durable accounting/unknown-outcome rules. It must distinguish queue claims that never dispatched from work that crossed the external boundary; claim expiry alone can never authorize another paid invocation.
+
+### Exact PART 3 handoff
+
+Preserve waiting policy bindings, per-reading uniqueness, Store lock order, claim token/expiration and scheduling turns. Add only the next expressly authorized execution layer. Design an additive execution transition that fences expired workers; coordinate already-started manual Generation; persist a stable queue-to-generation command relationship before external work; establish explicit trusted worker authorization for GenerationService while leaving seller security intact. Revalidate immediately before any accounted gateway request and run external work after commit. Resolve successful/manual work without paying twice; retain ambiguous AI outcome/accounting and prohibit blind redispatch after lease expiry. Do not infer provider retry/backoff, full abandoned execution recovery, documents, delivery or Part 4 authorization from Part 2.

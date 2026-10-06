@@ -17,6 +17,10 @@ async function audit(tx:DbExecutor,scope:Scope,action:string,resourceId:string) 
 }
 export async function sellerStyleData(db:DbExecutor,scope:Scope) {
   await verifyScope(db,scope);
+  return sellerStyleDataForStoreInTransaction(db,scope);
+}
+// Trusted server orchestration only; caller verifies/locks persisted Store ownership.
+export async function sellerStyleDataForStoreInTransaction(db:DbExecutor,scope:Pick<Scope,"organizationId"|"storeId">) {
   const [seller]=await db.select().from(sellerProfiles).where(tenantWhere(sellerProfiles,scope));
   const [profile]=await db.select().from(styleProfiles).where(tenantWhere(styleProfiles,scope));
   const versions=profile ? await db.select().from(styleVersions).where(and(tenantWhere(styleVersions,scope),eq(styleVersions.styleProfileId,profile.id))).orderBy(desc(styleVersions.versionNumber)):[];

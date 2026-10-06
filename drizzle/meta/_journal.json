@@ -50,6 +50,13 @@
       "when": 1791230782812,
       "tag": "0006_small_rattler",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791278086270,
+      "tag": "0007_unknown_dreadnoughts",
+      "breakpoints": true
     }
   ]
 }

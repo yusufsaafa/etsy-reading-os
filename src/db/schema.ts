@@ -178,16 +178,25 @@ export const usageEvents=pgTable("usage_events",{
  foreignKey({columns:[t.organizationId,t.storeId,t.aiRequestId],foreignColumns:[aiRequests.organizationId,aiRequests.storeId,aiRequests.id]}),
  check("usage_cost",sql`${t.currency}='USD' and ${t.costState} in ('estimated','known_zero','unknown') and ((${t.costState}='unknown')=(${t.amountNanos} is null)) and ${t.amountNanos}>=0`)]);
 
-// Waiting production work only. Execution lifecycle is intentionally deferred.
+// Durable scheduling claims only. External execution remains deferred.
 export const productionQueue = pgTable("production_queue", {
   id: id(), organizationId: org(), storeId: store(), unitId: uuid("unit_id").notNull(),
   productVersionId: uuid("product_version_id").notNull(), state: text("state").notNull().default("QUEUED"),
   priorityClass: text("priority_class").notNull(), targetCompletionMinutes: integer("target_completion_minutes"),
   targetDeadline: time("target_deadline"), createdAt: time("created_at").defaultNow().notNull(),
   updatedAt: time("updated_at").defaultNow().notNull(),
+  claimToken: uuid("claim_token"), claimedAt: time("claimed_at"), claimExpiresAt: time("claim_expires_at"),
+  schedulingOrdinal: bigint("scheduling_ordinal",{mode:"bigint"}), resolvedAt: time("resolved_at"), resolutionCode: text("resolution_code"),
 }, t => [unique("production_queue_one_per_reading").on(t.organizationId,t.storeId,t.unitId),
   foreignKey({columns:[t.organizationId,t.storeId,t.unitId],foreignColumns:[units.organizationId,units.storeId,units.id]}),
   foreignKey({columns:[t.organizationId,t.storeId,t.productVersionId],foreignColumns:[productVersions.organizationId,productVersions.storeId,productVersions.id]}),
-  check("production_queue_waiting",sql`${t.state}='QUEUED'`),
+  check("production_queue_waiting",sql`${t.state} in ('QUEUED','CLAIMED','SKIPPED')`),
+  uniqueIndex("production_claim_token_unique").on(t.claimToken).where(sql`${t.claimToken} is not null`),
+  index("production_waiting_scan").on(t.state,t.claimExpiresAt),
+  check("production_claim_metadata",sql`(
+    (${t.state}='QUEUED' and ${t.claimToken} is null and ${t.claimedAt} is null and ${t.claimExpiresAt} is null and ${t.schedulingOrdinal} is null and ${t.resolvedAt} is null and ${t.resolutionCode} is null)
+    or (${t.state}='CLAIMED' and ${t.claimToken} is not null and ${t.claimedAt} is not null and ${t.claimExpiresAt} is not null and ${t.claimExpiresAt}>${t.claimedAt} and ${t.schedulingOrdinal} is not null and ${t.schedulingOrdinal}>0 and ${t.resolvedAt} is null and ${t.resolutionCode} is null)
+    or (${t.state}='SKIPPED' and ${t.claimToken} is null and ${t.claimExpiresAt} is null and ${t.resolvedAt} is not null and ${t.resolutionCode} is not null and ${t.schedulingOrdinal} is not null and ${t.schedulingOrdinal}>0)
+  )`),
   check("production_queue_urgency",sql`${t.priorityClass} in ('STANDARD','EXPRESS') and (${t.targetCompletionMinutes} is null or ${t.targetCompletionMinutes} between 1 and 525600) and ((${t.targetCompletionMinutes} is null)=(${t.targetDeadline} is null))`),
 ]);

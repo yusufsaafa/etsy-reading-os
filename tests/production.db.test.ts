@@ -129,7 +129,7 @@ it("additive queue migration preserves existing rows and performs no migration-t
    await legacy.insert(schema.units).values({organizationId:scope.organizationId,storeId:scope.storeId,lineItemId:line.id,unitIndex:1,productVersionId:version,configurationState:"versioned",issues:[]});
    const before={units:await legacy.select().from(schema.units),versions:await legacy.select().from(schema.productVersions),orders:await legacy.select().from(schema.orders)};
    await acceptance.exec(readFileSync("drizzle/0006_small_rattler.sql","utf8"));
-   expect(await legacy.select().from(schema.units)).toEqual(before.units);expect(await legacy.select().from(schema.productVersions)).toEqual(before.versions);expect(await legacy.select().from(schema.orders)).toEqual(before.orders);expect(await legacy.select().from(schema.productionQueue)).toHaveLength(0);expect(await legacy.select().from(schema.generations)).toHaveLength(0);
+   expect(await legacy.select().from(schema.units)).toEqual(before.units);expect(await legacy.select().from(schema.productVersions)).toEqual(before.versions);expect(await legacy.select().from(schema.orders)).toEqual(before.orders);expect(await legacy.select({id:schema.productionQueue.id}).from(schema.productionQueue)).toHaveLength(0);expect(await legacy.select().from(schema.generations)).toHaveLength(0);
  } finally {await acceptance.close();}
 });
 it("authorized intake operator can admit waiting work without receiving paid-command permission",async()=>{

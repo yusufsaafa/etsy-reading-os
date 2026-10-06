@@ -53,3 +53,7 @@ Official Etsy assumptions are time-sensitive. Sources and verification dates are
 ## Production orchestration — Part 1
 
 Version-owned Manual/Assisted production and Standard/Express fulfillment targets now support durable automatic admission of eligible ASSISTED readings. Waiting work does not execute yet. See [architecture](docs/PRODUCTION_ORCHESTRATION.md) and [Part 1 report](docs/PRODUCTION_ORCHESTRATION_REPORT.md). Existing manual preparation remains available.
+
+## Production orchestration — Part 2
+
+Durable waiting readings can now be scheduled and claimed using deadline/Express/aging rules, persistent Store fairness and bounded claim cycles. Stale work is retained as skipped; safe unexecuted expired claims can be reclaimed. No queued generation executes. See the Part 2 sections in [architecture](docs/PRODUCTION_ORCHESTRATION.md) and [report](docs/PRODUCTION_ORCHESTRATION_REPORT.md).

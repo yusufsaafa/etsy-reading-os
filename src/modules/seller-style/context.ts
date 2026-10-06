@@ -1,6 +1,6 @@
 import type { Database, DbExecutor } from "../../db/client";
 import type { Scope } from "../intake/contracts";
-import { sellerStyleData, previousWorkContent } from "./service";
+import { sellerStyleData, sellerStyleDataForStoreInTransaction, previousWorkContent } from "./service";
 // Server-only domain data, never a provider prompt. No network calls or generation records.
 // Repeatable read keeps identity, pointer and source metadata from the same committed snapshot.
 export async function sellerProductionContext(db:Database,scope:Scope,styleVersionId?:string) {
@@ -8,7 +8,13 @@ export async function sellerProductionContext(db:Database,scope:Scope,styleVersi
 }
 // Generation admission already holds the Store lock; reuse its transaction instead of nesting one.
 export async function sellerProductionContextInTransaction(tx:DbExecutor,scope:Scope,styleVersionId?:string) {
-    const data=await sellerStyleData(tx,scope);
+    return productionContext(await sellerStyleData(tx,scope),styleVersionId);
+}
+// Internal worker reader; no fabricated seller actor/session. Caller holds Store lock.
+export async function sellerProductionContextForStoreInTransaction(tx:DbExecutor,scope:Pick<Scope,"organizationId"|"storeId">) {
+    return productionContext(await sellerStyleDataForStoreInTransaction(tx,scope));
+}
+function productionContext(data:Awaited<ReturnType<typeof sellerStyleData>>,styleVersionId?:string) {
     const style=styleVersionId ? data.versions.find(v=>v.id===styleVersionId&&v.status!=="DRAFT"):data.active;
     if(styleVersionId&&!style)throw new Error("STYLE_VERSION_UNAVAILABLE");
     if(!data.seller||!style)return {ready:false as const,missing:[...(!data.seller?["profile"]:[]),...(!style?["style"]:[])]};

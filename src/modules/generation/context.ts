@@ -5,7 +5,7 @@ import { tenantWhere, verifyScope } from "../intake/service";
 import { triage, type Scope } from "../intake/contracts";
 import { AccessDenied } from "../identity/service";
 import { activationErrors, configurationSchema, inputPolicy } from "../products/contracts";
-import { sellerProductionContextInTransaction } from "../seller-style/context";
+import { sellerProductionContextForStoreInTransaction } from "../seller-style/context";
 import { sellerIdentity, styleConfiguration, publishErrors } from "../seller-style/contracts";
 import { AdmissionError, ENGINE_VERSION, type GenerationContext } from "./contracts";
 // Caller holds the Store lock; standalone reads use a repeatable-read transaction.
@@ -13,6 +13,12 @@ import { AdmissionError, ENGINE_VERSION, type GenerationContext } from "./contra
 // only: it creates waiting work and never grants permission for provider dispatch.
 export async function buildGenerationContext(tx: DbExecutor, scope: Scope, unitId: string, owner = true): Promise<GenerationContext> {
   await verifyScope(tx, scope, owner);
+  return buildProductionContextForStoreInTransaction(tx,scope,unitId);
+}
+// Internal server boundary shared by trusted scheduler and authorized generation.
+// Caller derives ownership from persisted Store state and holds that Store lock.
+// Returns private domain context; scheduler never persists or returns its body.
+export async function buildProductionContextForStoreInTransaction(tx:DbExecutor,scope:Pick<Scope,"organizationId"|"storeId">,unitId:string):Promise<GenerationContext> {
   const [unit] = await tx.select().from(units).where(and(tenantWhere(units,scope),eq(units.id,unitId)));
   if (!unit) throw new AccessDenied();
   if (!unit.productVersionId || unit.configurationState !== "versioned") throw new AdmissionError("PRODUCT_SETUP");
@@ -27,7 +33,7 @@ export async function buildGenerationContext(tx: DbExecutor, scope: Scope, unitI
   const issues = triage(order.latestSnapshot,line.snapshot,{ required:inputPolicy(parsed.data),paused:mapping?.paused??false },input.answers,unit.contextAllocated,unit.sourceChanged);
   if (issues.some(i=>["missing_input","unusable_input","quantity_context"].includes(i))) throw new AdmissionError("CUSTOMER_INFORMATION");
   if (issues.length || unit.issues.length) throw new AdmissionError("READING_HOLD");
-  const data = await sellerProductionContextInTransaction(tx,scope);
+  const data = await sellerProductionContextForStoreInTransaction(tx,scope);
   if(!data.ready)throw new AdmissionError(data.missing.includes("profile")?"SELLER_SETUP":"STYLE_SETUP");
   const seller = sellerIdentity.safeParse(data.seller && {displayName:data.seller.displayName,shortBio:data.seller.shortBio});
   if (!data.seller || !seller.success) throw new AdmissionError("SELLER_SETUP");

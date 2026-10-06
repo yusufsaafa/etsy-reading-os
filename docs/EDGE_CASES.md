@@ -87,3 +87,7 @@ See GENERATION_ENGINE.md for duplicate/concurrent command exclusion, exact versi
 ## Production admission — Part 1
 
 Repeated/concurrent admission uses one Store/reading unique intent and the existing Store lock. Missing context/setup, holds and any existing Generation prevent new automatic admission. Existing waiting rows survive later holds/manual preparation; later execution must revalidate and skip/resolve stale waiting work. Migration does not auto-adopt or produce historical orders; explicit owner-scoped reconciliation fills eligible ASSISTED gaps without execution. See PRODUCTION_ORCHESTRATION.md.
+
+## Production claims — Part 2
+
+Waiting or safely expired work is revalidated under Store/queue locks. Existing Generation or current holds resolve intent as SKIPPED; history is retained and never silently resurrected. Claim expiration rotates tokens only while no Generation exists. Manual production after a claim still requires Part 3 coordination before any paid dispatch. Fairness advances on stale resolution as well as claim to prevent stale-heavy Stores monopolizing scan cycles. No ambiguous AI outcome is reclaimed.

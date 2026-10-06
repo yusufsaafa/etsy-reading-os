@@ -52,3 +52,7 @@ Read README.md and relevant docs/ before changing behavior. Architectural work r
 ## Authorized production continuation
 
 PRODUCTION_ORCHESTRATION.md Part 1 adds version-owned production/urgency policy, durable PostgreSQL waiting intents and automatic idempotent admission only. Do not execute queue items or add scheduling, claims, leases, retries, recovery, delivery or later-part behavior without explicit authorization.
+
+## Authorized Part 2 boundary
+
+Part 2 adds deterministic scheduling, Store fairness, durable bounded claims and safe pre-execution expiration/stale resolution only. Part 3 execution, GenerationService worker invocation and provider/AI accounting creation from queue remain unauthorized. Retain the production policy and claim-transition migration triggers. Never reclaim paid work merely because a queue claim expired.

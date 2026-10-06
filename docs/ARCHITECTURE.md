@@ -198,3 +198,7 @@ Generation is now implemented by the three-table, version-bound pipeline in [GEN
 ## Production orchestration — Part 1 foundation
 
 `production_queue` stores one tenant-owned waiting intent per Reading with its exact retained ProductVersion and urgency policy. Mutation-driven transactional admission reuses generation context eligibility; Store locks and unique constraints protect replay/concurrency. Queue execution, claims, scheduling and recovery are deferred. See PRODUCTION_ORCHESTRATION.md for policy, transaction integration and Part 2 handoff.
+
+## Production scheduling — Part 2
+
+ProductionScheduler is a trusted server-DB application boundary with no seller session or HTTP exposure. PostgreSQL advisory transaction serialization plus Store/queue row locks commit bounded claims; deadline/class/aging order combines with durable least-recently-served Store turns. Shared production context readers revalidate stale work without duplicating admission rules. No queued external execution occurs. See PRODUCTION_ORCHESTRATION.md for exact ordering, schema, authorization and Part 3 fencing requirements.
