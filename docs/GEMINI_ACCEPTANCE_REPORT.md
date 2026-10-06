@@ -260,3 +260,24 @@ Six mocked/fake tests added: DNS cause redaction/no retry, safe allowlist loggin
 Final pnpm typecheck PASS; pnpm test 65 tests/13 files PASS; pnpm test:db 195 tests/9 files PASS; pnpm build PASS; 260 total tests, zero failures. Six new tests use mocked/fake transport only. Diagnostic logger failure cannot prevent durable accounting settlement. Next-generated unrelated configuration restored; final typecheck rerun PASS. git diff --check PASS.
 
 Exact files changed: docs/GEMINI_ACCEPTANCE_REPORT.md; src/infrastructure/ai/provider.ts; src/infrastructure/ai/gemini.ts; src/infrastructure/ai/gateway.ts; src/infrastructure/ai/transport-diagnostic.ts; tests/transport-diagnostic.test.ts; tests/generation.db.test.ts. No schema, migration, environment, model, budgets, production policy or historical accounting changes. Locally committed; no push/deployment. Historical live acceptance remains failed/ambiguous, not retrospectively reclassified. REAL GEMINI GENERATION ATTEMPTS DURING THIS TASK = 0.
+
+## Explicit host acceptance identity — 2026-10-06
+
+Starting checkpoint 7e675ef1b45d02df562211c6d282f24a91e5f5cb. User reports host DNS/HTTPS works, host pre-flight passed and old live invocation failed EEXIST. That is expected: original harness used one fixed immutable marker in the shared macOS temporary directory. Marker creation precedes observer installation and GenerationService invocation, so that EEXIST invocation made **zero provider calls**. Historical ambiguous Generation/accounting are unchanged.
+
+Original harness had no explicit run/attempt-ID mechanism. Live invocation now requires `--attempt-id <explicit-id>`, 1..64 lowercase letters/digits/hyphens. No implicit ID/date/time fallback. A new ID creates `reading-os-gemini-acceptance.<id>.dispatched` via atomic exclusive open, mode0600, containing ID, Generation command UUID and creation time; file is fsynced before provider dispatch. Command UUID is generated only for a successfully claimed explicit identity and persisted before use. Replays of the same ID fail EEXIST, including concurrent duplicate invocations. Another explicitly authorized ID can claim its own marker, never overwriting an older marker or retrying a historical Generation. Normal synthetic fixture and provider pipeline unchanged; no configuration/model/budget edits.
+
+Old real marker remains at its original path; not deleted, renamed or edited. Original contents SHA256: 71a41fa88a7ba58c4bc86c2a00a7b446ea18c1f96942e2caf53880c76f7b3615. Only isolated temporary test fixtures are cleaned up by unit tests. No cleanup/bypass flag or automatic retry added. Markers remain local to the existing temporary-directory scope and depend on that storage being retained; do not change TMPDIR or remove markers to evade duplicate protection.
+
+Manual command for this NEW explicitly authorized host-side attempt (agent did not execute it):
+
+```bash
+cd /Users/yusufsafakilic/.codex/.chatgpt-projects/g-p-6ac38d2133b08191a7f586ecfca5ff59/etsy-reading-os
+node --env-file=.env.local --import tsx scripts/synthetic-gemini-acceptance.ts --live --attempt-id host-20261006-02
+```
+
+Run once. Do not invent another ID automatically if this attempt fails. Summary includes attemptId/status/normalizedFailure/providerAttempts/canonicalValidated/resultFile. Copy the summary back; no environment/key output. This new acceptance uses a fresh synthetic DB, not a retry command for the old failed Generation.
+
+Five offline tests: first explicit marker persists before mocked dispatch, duplicate blocked without overwrite, legacy marker remains unchanged and does not authorize implicit live mode, distinct explicit IDs reach separate mocked boundaries, live missing/invalid/duplicate CLI identity rejected. Test code never contacts Gemini. **REAL GEMINI GENERATION ATTEMPTS DURING THIS TASK = 0.** No network diagnostic request, push/deploy or subsequent milestone.
+
+Validation: pnpm typecheck PASS (rerun after restoring unrelated Next-generated config); pnpm test 70 tests/14 files PASS; pnpm test:db 195 tests/9 files PASS; pnpm build PASS. Total265, zero failures; five new offline tests, no live harness invocation/network request. Original real marker hash reverified unchanged after tests. Exact files changed: scripts/synthetic-gemini-acceptance.ts, scripts/lib/acceptance-attempt.ts, tests/acceptance-attempt.test.ts, docs/GEMINI_ACCEPTANCE_REPORT.md. git diff --check PASS. Safe changes committed locally; no push/deploy. REAL GEMINI GENERATION ATTEMPTS DURING THIS TASK = 0.

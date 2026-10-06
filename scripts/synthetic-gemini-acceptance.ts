@@ -4,7 +4,7 @@ import { drizzle } from 'drizzle-orm/pglite';
 import { readFileSync,readdirSync,mkdtempSync,writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { acceptanceArguments,claimAcceptanceAttempt } from './lib/acceptance-attempt';
 import assert from 'node:assert/strict';
 import * as schema from '../src/db/schema';
 import type { Database } from '../src/db/client';
@@ -23,7 +23,7 @@ assert.equal(process.env.AI_PROVIDER,'google');assert.equal(process.env.AI_GENER
 assert.ok(process.env.GEMINI_API_KEY);
 const budget=(n:string)=>{const v=process.env[n];assert.ok(v&&/^\d+$/.test(v),n+' invalid');return BigInt(v);};
 const daily=budget('AI_DAILY_BUDGET_NANOS'),attempt=budget('AI_ATTEMPT_BUDGET_NANOS');
-const live=process.argv.includes('--live');
+const {live,attemptId}=acceptanceArguments(process.argv.slice(2));
 const location=mkdtempSync(join(tmpdir(),'reading-os-synthetic-gemini-'));
 const pg=new PGlite(join(location,'database'));
 let calls=0,payload:unknown,rawResponse:unknown,httpStatus:number|undefined;
@@ -57,8 +57,8 @@ try {
  const preflight={provider:'google',model:process.env.AI_GENERATION_MODEL,keyPresent:true,budgetsParsed:true,budgetReservationFits:true,isolatedDatabase:'file-backed PGlite at temporary synthetic-only directory; DATABASE_URL never read',admission:'PASS',queueItems:0,pricing,expectedSections:sections.map(({id,title})=>({sectionId:id,title})),system:instructions.system,userData:JSON.parse(instructions.data)};
  if(!live){console.log(stringify({preflight,providerAttempts:0}));}
  else {
-  // Durable global one-shot marker before any dispatch, never removed automatically.
-  writeFileSync(join(tmpdir(),'reading-os-gemini-acceptance-2026-10-06.dispatched'),'single authorized acceptance intent\n',{flag:'wx',mode:0o600});
+  // A new explicit authorization identity creates a separate immutable one-shot marker.
+  const acceptance=claimAcceptanceAttempt(attemptId!);
   globalThis.fetch=async(input,init)=>{
    assert.equal(calls,0,'Second network invocation forbidden');
    assert.ok(String(input).startsWith('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent'));
@@ -69,7 +69,7 @@ try {
    return response;
   };
   let result:typeof schema.generations.$inferSelect|undefined,failure:string|undefined;
-  try{result=await generationRuntime(db).prepare(scope,{unitId:unit.id,commandKey:randomUUID()});}catch(e){failure=e instanceof Error&&/^[A-Z_]+$/.test(e.message)?e.message:'APPLICATION_ERROR';}
+  try{result=await generationRuntime(db).prepare(scope,{unitId:unit.id,commandKey:acceptance.commandKey});}catch(e){failure=e instanceof Error&&/^[A-Z_]+$/.test(e.message)?e.message:'APPLICATION_ERROR';}
   const requests=await db.select().from(schema.aiRequests),usage=await db.select().from(schema.usageEvents),audit=await db.select().from(schema.auditLogs);
   const secret=process.env.GEMINI_API_KEY!;
   assert.ok(!stringify({result,requests,usage,audit,payload,rawResponse}).includes(secret),'SECRET_LEAK');
@@ -82,8 +82,8 @@ try {
    assert.equal(calculateCost({inputTokens:requests[0].inputTokens??undefined,outputTokens:requests[0].outputTokens??undefined,cachedTokens:requests[0].cachedTokens??undefined},requests[0].pricing).nanos,requests[0].estimatedNanos);
    assert.equal(usage[0].amountNanos,requests[0].estimatedNanos);
   }
-  const output={preflight,intentionalProviderAttempts:calls,httpStatus,status:result?.status??'REJECTED',normalizedFailure:requests[0]?.failureCode??failure??null,canonicalValidated,requestPayload:payload??null,rawProviderResponse:rawResponse??null,generation:result??null,aiRequests:requests,usageEvents:usage,security:{secretAbsent:true,redactedAudit: true,auditFields:Object.keys(audit[0]??{})},databaseLocation:location};
+  const output={acceptance,preflight,intentionalProviderAttempts:calls,httpStatus,status:result?.status??'REJECTED',normalizedFailure:requests[0]?.failureCode??failure??null,canonicalValidated,requestPayload:payload??null,rawProviderResponse:rawResponse??null,generation:result??null,aiRequests:requests,usageEvents:usage,security:{secretAbsent:true,redactedAudit: true,auditFields:Object.keys(audit[0]??{})},databaseLocation:location};
   writeFileSync(join(location,'acceptance-result.json'),stringify(output),{mode:0o600});
-  console.log(stringify({status:output.status,normalizedFailure:output.normalizedFailure,providerAttempts:calls,canonicalValidated,resultFile:join(location,'acceptance-result.json')}));
+  console.log(stringify({attemptId:acceptance.attemptId,status:output.status,normalizedFailure:output.normalizedFailure,providerAttempts:calls,canonicalValidated,resultFile:join(location,'acceptance-result.json')}));
  }
 }finally{globalThis.fetch=originalFetch;await pg.close();}
