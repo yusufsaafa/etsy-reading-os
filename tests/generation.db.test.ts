@@ -338,3 +338,72 @@ it("analysis READY between admission and execution cannot enrich a previously ma
  vi.spyOn(gateway,"execute").mockImplementation(async(...args)=>{await analysis();return original(...args);});
  const result=await new GenerationService(db,gateway).prepare(a,command());expect(result.status).toBe("SUCCEEDED");expect(result.context).not.toHaveProperty("styleIntelligence");expect(p.calls).toBe(1);
 });
+
+// Review reads and admission reuse real synthetic generation fixtures; no new provider operation.
+it("review pins exact successful evidence, frozen answers, labels and section order without new dispatch",async()=>{
+ const {openReadingReview,reviewAvailable}=await import("../src/modules/review/service");
+ const {result,provider}=await prepare();const orderId=result.context.orderId;
+ expect(await reviewAvailable(db,a,orderId,unitId)).toBe(true);expect(await db.select().from(schema.readingReviews)).toHaveLength(0);
+ const original=await readGeneration(db,a,result.id);
+ const views=await Promise.all([openReadingReview(db,a,orderId,unitId),openReadingReview(db,a,orderId,unitId)]);
+ expect(views[0]).toEqual(views[1]);expect(views[0].details).toEqual([{label:"Name",value:"Synthetic recipient"}]);expect(views[0].sections.map(s=>s.title)).toEqual(["Introduction","Guidance"]);
+ const [review]=await db.select().from(schema.readingReviews);expect(review).toMatchObject({unitId,generationId:result.id,state:"PENDING"});expect(provider.calls).toBe(1);
+ expect(await readGeneration(db,a,result.id)).toEqual(original);
+ await expect(db.update(schema.readingReviews).set({generationId:randomUUID()}).where(eq(schema.readingReviews.id,review.id))).rejects.toThrow();
+ await expect(db.delete(schema.readingReviews).where(eq(schema.readingReviews.id,review.id))).rejects.toThrow();
+});
+it("review rejects missing, failed, processing, ambiguous, forged and cross-store readings",async()=>{
+ const {openReadingReview,reviewAvailable}=await import("../src/modules/review/service");
+ const c=await context();expect(await reviewAvailable(db,a,c.orderId,unitId)).toBe(false);
+ await expect(openReadingReview(db,a,c.orderId,randomUUID())).rejects.toThrow();
+ const {result}=await prepare(new FakeGenerationProvider({failure:new ProviderFailure("NETWORK",{},undefined,true)}));
+ expect(await reviewAvailable(db,a,c.orderId,unitId)).toBe(false);
+ await expect(openReadingReview(db,b,c.orderId,unitId)).rejects.toThrow();
+ await expect(openReadingReview(db,a,randomUUID(),unitId)).rejects.toThrow();
+ const [sibling]=await db.insert(schema.stores).values({organizationId:a.organizationId,name:"Sibling",source:"fixtures",importSince:new Date()}).returning();
+ await expect(openReadingReview(db,{...a,storeId:sibling.id},c.orderId,unitId)).rejects.toThrow();
+ await expect(db.insert(schema.readingReviews).values({organizationId:a.organizationId,storeId:a.storeId,unitId,generationId:result.id})).rejects.toThrow();
+ expect(await db.select().from(schema.readingReviews)).toHaveLength(0);
+});
+it("pinned review does not float to a newer successful reading and does not use mutable answers",async()=>{
+ const {openReadingReview}=await import("../src/modules/review/service");const {result}=await prepare();
+ const original=await openReadingReview(db,a,result.context.orderId,unitId);
+ await correctInput(db,a,unitId,0,[{label:"Name",value:"Changed recipient",kind:"text"}],false);
+ const {createHash}=await import("node:crypto"),{stableJson}=await import("../src/modules/intake/contracts");
+ const changed=await context();const [newer]=await db.insert(schema.generations).values({...result,id:randomUUID(),status:"PROCESSING",result:null,completedAt:null,createdAt:new Date(result.createdAt.getTime()+1000),customerRevision:changed.customer.revision,context:changed,contextHash:createHash("sha256").update(stableJson(changed)).digest("hex")}).returning();
+ expect(await (await import("../src/modules/review/service")).reviewAvailable(db,a,result.context.orderId,unitId)).toBe(false);
+ await db.update(schema.generations).set({status:"SUCCEEDED",result:result.result,completedAt:new Date()}).where(eq(schema.generations.id,newer.id));
+ const retained=await openReadingReview(db,a,result.context.orderId,unitId);expect(retained).toEqual(original);
+ expect((await db.select().from(schema.readingReviews))[0].generationId).toBe(result.id);
+});
+it("review mixed-cart and quantity readings remain independently owned and pinned",async()=>{
+ const {openReadingReview,reviewAvailable}=await import("../src/modules/review/service");
+ const order:ExternalOrder={...fixtureOrders[0],externalId:"9910",lines:[{...fixtureOrders[0].lines[0],externalId:"9998",listingId:"101",quantity:2,answers:[{label:"Name",value:"First",kind:"text"}]},{...fixtureOrders[0].lines[0],externalId:"9999",listingId:"101",quantity:1,answers:[{label:"Name",value:"Other line",kind:"text"}]}]};
+ await ingestOrder(db,a,order);const data=await workspaceData(db,a),o=data.orders.find(o=>o.externalId==="9910")!,ls=data.lines.filter(l=>l.orderId===o.id),us=data.units.filter(u=>ls.some(l=>l.id===u.lineItemId));
+ for(const [i,u]of us.entries()){
+  await correctInput(db,a,u.id,u.revision,[{label:"Name",value:`Person ${i}`,kind:"text"}],true);
+  const generated=await service().prepare(a,command(u.id));const view=await openReadingReview(db,a,o.id,u.id);
+  expect(view.details[0].value).toBe(`Person ${i}`);expect(view.quantity).toBe(ls.find(l=>l.id===u.lineItemId)!.quantity);expect(view.index).toBe(u.unitIndex);
+  expect(generated.context.unitId).toBe(u.id);
+ }
+ expect(await db.select().from(schema.readingReviews)).toHaveLength(3);
+ expect(await reviewAvailable(db,a,(await context()).orderId,us[0].id)).toBe(false);
+});
+it("review blocks production attention and active preparation without relying on queued intent",async()=>{
+ const {reviewAvailable}=await import("../src/modules/review/service");const {result}=await prepare();
+ const [queue]=await db.select().from(schema.productionQueue).where(eq(schema.productionQueue.unitId,unitId));
+ expect(queue.state).toBe("QUEUED");expect(await reviewAvailable(db,a,result.context.orderId,unitId)).toBe(true);
+ // Isolated corruption/operational fixtures; do not bypass production triggers in application code.
+ await pg.exec("BEGIN; SET LOCAL session_replication_role=replica");
+ await pg.query("UPDATE production_queue SET state='ATTENTION',generation_command_key=id,execution_started_at=now(),claim_token=gen_random_uuid(),claimed_at=now(),scheduling_ordinal=1,resolved_at=now(),resolution_code='INCONSISTENT_STATE' WHERE id=$1",[queue.id]);
+ await pg.exec("SET LOCAL session_replication_role=origin; COMMIT");
+ expect(await reviewAvailable(db,a,result.context.orderId,unitId)).toBe(false);
+});
+it("review corrupt canonical data fails closed at the owned read boundary",async()=>{
+ const {reviewAvailable,openReadingReview}=await import("../src/modules/review/service");const {result}=await prepare();
+ await pg.exec("BEGIN; SET LOCAL session_replication_role=replica");
+ await pg.query("UPDATE generations SET result=$1 WHERE id=$2",[JSON.stringify({sections:[]}),result.id]);
+ await pg.exec("SET LOCAL session_replication_role=origin; COMMIT");
+ expect(await reviewAvailable(db,a,result.context.orderId,unitId)).toBe(false);
+ await expect(openReadingReview(db,a,result.context.orderId,unitId)).rejects.toThrow("REVIEW_UNAVAILABLE");expect(await db.select().from(schema.readingReviews)).toHaveLength(0);
+});

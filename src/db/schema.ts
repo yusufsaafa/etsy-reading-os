@@ -142,6 +142,7 @@ export const generations = pgTable("generations", {
  status:text("status").notNull().default("PROCESSING"),result:jsonb("result").$type<import("../modules/generation/contracts").CanonicalResult>(),
  createdAt:time("created_at").defaultNow().notNull(),completedAt:time("completed_at"),
 },t=>[unique("generation_owned_identity").on(t.organizationId,t.storeId,t.id),
+ unique("generation_owned_reading_identity").on(t.organizationId,t.storeId,t.unitId,t.id),
  foreignKey({columns:[t.organizationId,t.storeId,t.unitId],foreignColumns:[units.organizationId,units.storeId,units.id]}),
  foreignKey({columns:[t.organizationId,t.storeId,t.productVersionId],foreignColumns:[productVersions.organizationId,productVersions.storeId,productVersions.id]}),
  foreignKey({columns:[t.organizationId,t.storeId,t.styleVersionId],foreignColumns:[styleVersions.organizationId,styleVersions.storeId,styleVersions.id]}),
@@ -259,3 +260,12 @@ export const styleAnalysisSources = pgTable("style_analysis_sources", {
 ]);
 
 function analysisIdentityColumns():[AnyPgColumn,AnyPgColumn,AnyPgColumn] {return [styleAnalysisVersions.organizationId,styleAnalysisVersions.storeId,styleAnalysisVersions.id];}
+
+// Seller workflow identity; original generated evidence is never edited here.
+export const readingReviews=pgTable("reading_reviews",{
+ id:id(),organizationId:org(),storeId:store(),unitId:uuid("unit_id").notNull(),generationId:uuid("generation_id").notNull(),
+ state:text("state").notNull().default("PENDING"),createdAt:time("created_at").defaultNow().notNull(),
+},t=>[unique("one_review_per_reading").on(t.organizationId,t.storeId,t.unitId),
+ foreignKey({name:"review_owned_reading_fk",columns:[t.organizationId,t.storeId,t.unitId],foreignColumns:[units.organizationId,units.storeId,units.id]}),
+ foreignKey({name:"review_exact_generation_fk",columns:[t.organizationId,t.storeId,t.unitId,t.generationId],foreignColumns:[generations.organizationId,generations.storeId,generations.unitId,generations.id]}),
+ check("review_state",sql`${t.state}='PENDING'`)]);
