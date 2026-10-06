@@ -25,7 +25,18 @@ it.each(['gemini-3.8-flash','gemini-3.5-flash-lite'])('same structured schema go
  expect(transport).toHaveBeenCalledTimes(1);expect(transport.mock.calls[0][0]).toContain('/models/'+model+':generateContent');
  const c=JSON.parse(transport.mock.calls[0][1].body).generationConfig;expect(c).toMatchObject({responseMimeType:'application/json',maxOutputTokens:8192,responseSchema:{required:['sections']}});expect(c.responseSchema.properties.sections.items.properties.sectionId.enum).toEqual(['intro']);
 });
-it('normal runtime retains existing 3.8 default and harness passes selected model explicitly',()=>{
- expect(readFileSync('src/infrastructure/ai/runtime.ts','utf8')).toContain('"gemini-3.8-flash"');
+it('normal runtime retains Flash Lite default and harness passes selected model explicitly',()=>{
+ expect(readFileSync('src/infrastructure/ai/runtime.ts','utf8')).toContain('"gemini-3.5-flash-lite"');
  const source=readFileSync('scripts/synthetic-gemini-acceptance.ts','utf8');expect(source).toContain('generationRuntime(db,{model})');expect(source).toContain('claimAcceptanceAttempt(attemptId!,tmpdir(),model)');
+});
+
+it('runtime defaults to Lite, preserves explicit 3.8 override and rejects unpriced configuration without dispatch',async()=>{
+ const pricing=await import('../src/infrastructure/ai/pricing');const {generationRuntime}=await import('../src/infrastructure/ai/runtime');
+ const spy=vi.spyOn(pricing,'pricingFor'),fetchSpy=vi.spyOn(globalThis,'fetch');
+ try{
+  vi.stubEnv('AI_PROVIDER','google');vi.stubEnv('GEMINI_API_KEY','offline-test-only');vi.stubEnv('AI_DAILY_BUDGET_NANOS','100000000');vi.stubEnv('AI_ATTEMPT_BUDGET_NANOS','50000000');vi.stubEnv('AI_GENERATION_MODEL','');
+  generationRuntime({} as Parameters<typeof generationRuntime>[0]);expect(spy).toHaveBeenLastCalledWith('google','gemini-3.5-flash-lite');
+  vi.stubEnv('AI_GENERATION_MODEL','gemini-3.8-flash');generationRuntime({} as Parameters<typeof generationRuntime>[0]);expect(spy).toHaveBeenLastCalledWith('google','gemini-3.8-flash');
+  vi.stubEnv('AI_GENERATION_MODEL','unpriced');expect(()=>generationRuntime({} as Parameters<typeof generationRuntime>[0])).toThrow('UNPRICED_MODEL');expect(fetchSpy).not.toHaveBeenCalled();
+ }finally{vi.unstubAllEnvs();spy.mockRestore();fetchSpy.mockRestore();}
 });

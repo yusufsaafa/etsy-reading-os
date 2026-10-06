@@ -362,3 +362,12 @@ Recommendation B (decision pending): switch the default to the now pipeline-veri
 Scope of PASS: one real request, structured output, canonical persistence/validation, usage/accounting settlement and one dispatch through the existing generation path. Does not validate queue live execution, recovery, load, repeated reliability, invoices, or reading quality beyond structural plausibility. No later milestone begun, push or deployment.
 
 Final verification validations rerun: pnpm typecheck PASS; pnpm test 76/76 (15 files); pnpm test:db 195/195 (9 files); pnpm build PASS; git diff --check PASS. Total 271 tests, zero failures. Automated providers remained offline/fake/mocked. Model-compatibility implementation plus acceptance documentation committed locally with message feat(ai): verify controlled Gemini acceptance; only explicit code/test/docs paths staged. No env, marker, artifact or database files included.
+
+
+## Authorized default-model decision — 2026-10-06
+
+User explicitly selected recommendation B. Runtime DEFAULT is now gemini-3.5-flash-lite; SUPPORTED models remain gemini-3.5-flash-lite and gemini-3.8-flash in the unchanged centralized pricing registry. Explicit AI_GENERATION_MODEL configuration overrides the code default. No automatic fallback, retries or failure-driven model switching were added; unpriced overrides fail closed. Historical 3.8 HTTP503 responses and successful Lite acceptance remain recorded above. Provider contracts, canonical validation, accounting and reservation formulas are unchanged.
+
+The active ignored .env.local still explicitly sets AI_GENERATION_MODEL=gemini-3.8-flash. It was not edited; local execution continues to select 3.8 until the user manually changes/removes that override. No secret values were displayed or staged. This switch task made ZERO real Gemini generation attempts and did not run the acceptance harness.
+
+Default-switch validation: typecheck PASS; unit 77/77 (15 files); database 195/195 (9 files); build PASS; total 272 tests, zero failures. Tests verify no-override Lite selection, explicit 3.8 selection, both existing priced models, unpriced rejection and zero runtime dispatch/no fallback. No migrations or provider/accounting changes. Committed locally as chore(ai): default generation to Gemini Flash Lite; no push/deploy.
