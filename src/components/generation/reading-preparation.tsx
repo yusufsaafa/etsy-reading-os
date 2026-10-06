@@ -12,7 +12,7 @@ export async function ReadingPreparation({scope,unitId,eligible,currentRevision,
   return <div className="reading-preparation">
    {latest.customerRevision!==currentRevision&&<p className="small muted">This saved reading uses the earlier customer information. Review the updated information before continuing.</p>}
    {latest.status==="PROCESSING"&&<p role="status" className="small muted">{productionStatus==="FAILED"?"This preparation needs attention. Contact support before another attempt.":"Preparing. Refresh to check progress."}</p>}
-   {latest.status==="FAILED"&&<><p className="small muted">We couldn’t prepare this reading.</p>{attempts.at(-1)?.ambiguous?<p className="small muted">Contact support before another attempt.</p>:eligible&&<PrepareForm unitId={unitId} retryGenerationId={latest.id}/>}</>}
+   {latest.status==="FAILED"&&(productionStatus==="WAITING"||productionStatus==="PROCESSING")?<p role="status" className="small muted">Preparation is waiting to continue.</p>:latest.status==="FAILED"&&<><p className="small muted">We couldn’t prepare this reading.</p>{attempts.at(-1)?.ambiguous?<p className="small muted">Contact support before another attempt.</p>:eligible&&<PrepareForm unitId={unitId} retryGenerationId={latest.id}/>}</>}
    {latest.result&&<details open><summary>Prepared reading</summary>{latest.result.sections.map(s=><section key={s.sectionId}><h4>{s.title}</h4><p dir="auto" style={{whiteSpace:"pre-wrap",overflowWrap:"anywhere"}}>{s.content}</p></section>)}</details>}
   </div>;
  }

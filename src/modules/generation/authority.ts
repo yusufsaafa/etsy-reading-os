@@ -7,7 +7,7 @@ import { AccessDenied } from "../identity/service";
 // Process-local capability membership authenticates internal code, NOT concurrency.
 // All ownership/state/concurrency correctness remains in PostgreSQL.
 const capabilities=new WeakSet<object>();
-export type ProductionAuthority=Readonly<{organizationId:string;storeId:string;userId?:never;queueId:string;claimToken:string;unitId:string;commandKey:string}>;
+export type ProductionAuthority=Readonly<{organizationId:string;storeId:string;userId?:never;queueId:string;claimToken:string;unitId:string;commandKey:string;retryGenerationId?:string}>;
 export type GenerationAuthority=Scope|ProductionAuthority;
 export function isProductionAuthority(value:unknown):value is ProductionAuthority {
  return typeof value==="object"&&value!==null&&capabilities.has(value);
@@ -20,7 +20,7 @@ export async function databaseTime(tx:DbExecutor) {
 export async function issueProductionAuthority(tx:DbExecutor,queueId:string,claimToken:string) {
  const [row]=await tx.select().from(productionQueue).where(eq(productionQueue.id,queueId));
  if(!row||row.state!=="EXECUTING"||row.claimToken!==claimToken||row.generationCommandKey!==row.id)throw new AccessDenied();
- const authority=Object.freeze({organizationId:row.organizationId,storeId:row.storeId,queueId:row.id,claimToken,unitId:row.unitId,commandKey:row.generationCommandKey});
+ const authority=Object.freeze({organizationId:row.organizationId,storeId:row.storeId,queueId:row.id,claimToken,unitId:row.unitId,commandKey:row.retryCommandKey??row.generationCommandKey,...(row.retryCommandKey&&row.generationId?{retryGenerationId:row.generationId}:{})});
  capabilities.add(authority);await verifyGenerationAuthority(tx,authority);return authority;
 }
 export async function verifyGenerationAuthority(tx:DbExecutor,authority:GenerationAuthority) {
@@ -31,5 +31,5 @@ export async function verifyGenerationAuthority(tx:DbExecutor,authority:Generati
  }
  const [queue]=await tx.select().from(productionQueue).where(and(tenantWhere(productionQueue,authority),eq(productionQueue.id,authority.queueId)));
  const now=await databaseTime(tx);
- if(!queue||queue.state!=="EXECUTING"||queue.claimToken!==authority.claimToken||queue.unitId!==authority.unitId||queue.generationCommandKey!==authority.commandKey||!queue.claimExpiresAt||queue.claimExpiresAt<=now)throw new AccessDenied();
+ if(!queue||queue.state!=="EXECUTING"||queue.claimToken!==authority.claimToken||queue.unitId!==authority.unitId||(queue.retryCommandKey??queue.generationCommandKey)!==authority.commandKey||authority.retryGenerationId!==(queue.retryCommandKey?queue.generationId:undefined)||!queue.claimExpiresAt||queue.claimExpiresAt<=now)throw new AccessDenied();
 }

@@ -1,13 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
 import type { Database, DbExecutor } from "../../db/client";
-import { productionQueue, stores, generations, auditLogs } from "../../db/schema";
+import { productionQueue, stores, auditLogs } from "../../db/schema";
 import { tenantWhere } from "../intake/service";
-import { buildProductionContextForStoreInTransaction } from "../generation/context";
-import { AdmissionError } from "../generation/contracts";
-import { productionPolicy } from "../products/contracts";
 import { compareProductionWork, schedulingConfiguration, schedulingConfigurationFromEnvironment,
   PRODUCTION_SCHEDULER_LOCK, type SchedulingConfiguration } from "./scheduling";
+import { productionEligibility } from "./recovery-state";
 type QueueItem=typeof productionQueue.$inferSelect;
 
 // Trusted server process boundary: possession of the server Database is required.
@@ -32,7 +30,7 @@ export class ProductionScheduler {
       for(const q of history){
         const key=q.storeId;
         if(q.schedulingOrdinal!==null&&q.schedulingOrdinal>(turns.get(key)??0n))turns.set(key,q.schedulingOrdinal);
-        if(q.state==="QUEUED"||(q.state==="CLAIMED"&&q.claimExpiresAt!==null&&q.claimExpiresAt<=now)){
+        if(q.state==="QUEUED"||(q.state==="RETRY_WAIT"&&q.availableAt!==null&&q.availableAt<=now)||(q.state==="CLAIMED"&&q.claimExpiresAt!==null&&q.claimExpiresAt<=now)){
           const group=groups.get(key)??[];group.push(q);groups.set(key,group);
         }
       }
@@ -52,16 +50,16 @@ export class ProductionScheduler {
         for(const candidate of candidates.slice(0,perStoreInspectionLimit)){
           if(inspected>=this.config.inspectionLimit)break;
           const [item]=await tx.select().from(productionQueue).where(and(tenantWhere(productionQueue,scope),eq(productionQueue.id,candidate.id))).for("update");
-          if(!item||!(item.state==="QUEUED"||(item.state==="CLAIMED"&&item.claimExpiresAt!==null&&item.claimExpiresAt<=now)))continue;
+          if(!item||!(item.state==="QUEUED"||(item.state==="RETRY_WAIT"&&item.availableAt!==null&&item.availableAt<=now)||(item.state==="CLAIMED"&&item.claimExpiresAt!==null&&item.claimExpiresAt<=now)))continue;
           inspected++;
           const reason=await staleReason(tx,scope,item);
           if(reason){
-            await tx.update(productionQueue).set({state:"SKIPPED",claimToken:null,claimExpiresAt:null,resolvedAt:now,resolutionCode:reason,schedulingOrdinal:++ordinal,updatedAt:now}).where(and(tenantWhere(productionQueue,scope),eq(productionQueue.id,item.id)));
+            await tx.update(productionQueue).set({state:"SKIPPED",availableAt:null,claimToken:null,claimExpiresAt:null,resolvedAt:now,resolutionCode:reason,schedulingOrdinal:++ordinal,updatedAt:now}).where(and(tenantWhere(productionQueue,scope),eq(productionQueue.id,item.id)));
             await tx.insert(auditLogs).values({...scope,action:"reading_preparation_skipped",resourceId:item.id});
             skipped++;continue;
           }
           const [claim]=await tx.update(productionQueue).set({state:"CLAIMED",claimToken:randomUUID(),claimedAt:now,
-            claimExpiresAt:new Date(now.getTime()+this.config.claimDurationMs),schedulingOrdinal:++ordinal,updatedAt:now,
+            availableAt:null,resolvedAt:null,resolutionCode:null,claimExpiresAt:new Date(now.getTime()+this.config.claimDurationMs),schedulingOrdinal:++ordinal,updatedAt:now,
           }).where(and(tenantWhere(productionQueue,scope),eq(productionQueue.id,item.id))).returning();
           claimed.push(claim);break;
         }
@@ -71,12 +69,5 @@ export class ProductionScheduler {
   }
 }
 async function staleReason(tx:DbExecutor,scope:{organizationId:string;storeId:string},item:QueueItem) {
-  const [generation]=await tx.select({id:generations.id}).from(generations).where(and(tenantWhere(generations,scope),eq(generations.unitId,item.unitId))).limit(1);
-  // Any Generation fences reclaim too: an unknown/processing AI operation is NEVER redispatched.
-  if(generation)return "EXISTING_GENERATION";
-  try{
-    const context=await buildProductionContextForStoreInTransaction(tx,scope,item.unitId);
-    if(context.product.id!==item.productVersionId||productionPolicy(context.product.configuration).automation!=="ASSISTED")return "PRODUCT_SETUP";
-    return undefined;
-  }catch(error){if(error instanceof AdmissionError)return error.code;throw error;}
+  return productionEligibility(tx,item);
 }

@@ -164,3 +164,73 @@ Date: 2026-10-06. Branch: `codex/ui-ux-design-lock`. Verified clean starting HEA
 - src/modules/production/runtime.ts
 - tests/production-boundary.test.ts
 - tests/production-execution.db.test.ts
+
+## PART 4 — RECOVERY + RETRY + RUNTIME
+
+Date: 2026-10-06. Production Orchestration milestone complete within its bounded Parts 1–4 scope. No push/deployment or later milestone started.
+
+1. **Branch:** `codex/ui-ux-design-lock`, verified before editing.
+2. **Base:** clean HEAD `7d53924c763ef3c5bd6352603b2dda323b45c03f`; required Part 3 commit confirmed in `git log --oneline -8`.
+3. **Final commit:** local completion commit contains this report; full hash is supplied in the final response and available from local Git history. No self-referential hash is fabricated inside its own commit.
+4. **Working tree:** completion changes committed locally; clean status verified after commit.
+5. **MRH:** available read-only at `/Users/yusufsafakilic/Codex/medium-reading-platform`, checkout HEAD `9d58e2cb308f6ea552527fa74a6bba99bde2f37b`. Relevant provider, creation/retry services, Reading Prisma model and retry tests inspected; no MRH file edited. Provider default 60-second AbortController timeout, memory delays 1/2 seconds and up to three calls; timeout/network mapped retryable UNAVAILABLE. FAILED→PROCESSING CAS operator retry reused Reading identity/context and incremented retryCount. That solves concurrent operator claiming, not lost provider response. No completion webhook/status reconciliation or immutable AI attempt/accounting/ambiguity primitive appeared in the inspected execution path. It was not copied. Canonical-first persistence and CAS claiming are sound ideas already present in Reading OS. Detailed file-level findings are in PRODUCTION_ORCHESTRATION.md.
+6. **Classifications:** PRE_DISPATCH_SAFE, KNOWN_RETRYABLE, KNOWN_NON_RETRYABLE, AMBIGUOUS, ALREADY_COMPLETED, IN_PROGRESS and INCONSISTENT. Normalized provider-neutral evidence, ownership/command/accounting/canonical checks; no Gemini error-message parsing.
+7. **Retry policy:** automatic retry only for durable nonambiguous RATE_LIMIT or compatible known pre-dispatch rejection/resume. AUTH, invalid output, blocked/other known failures and inconsistent state remain attention. Timeout/network always ambiguous. Budget rejection is held for explicit safe owner recovery, not an automatic admission loop.
+8. **Maximum:** central existing engine maximum three admitted attempts—initial plus at most two new retries. No conflicting production maximum. Third failure records MAX_ATTEMPTS attention. Known-zero preflight attempts still use the engine's admitted-attempt ordinals.
+9. **Identity:** initial queue UUID/command immutable. Next retry command is deterministic SHA-256-derived UUID of versioned namespace + queue UUID + next engine ordinal, persisted before dispatch. Original Generation retained; retryGenerationId, parentRequestId and ordinal remain engine-owned. Safe undispatched command resumes same identity/request/ledger, not a second accounting attempt.
+10. **Backoff:** RETRY_WAIT + persisted availableAt; first 30 seconds, second 120 seconds from scheduling transaction clock. Restart/replay of waiting work never resets timer. Scheduler cannot claim before due. No sleeping, busy-loop or retry inside a provider exception handler.
+11. **CLAIMED:** Part 2 safe expired pre-execution reclaim remains; token rotates only on valid reclaim and this is not an AI retry. Existing scheduler tests retained unchanged.
+12. **EXECUTING:** bounded reconciliation inspects referenced Generation/latest attempt/UsageEvent/lineage/canonical state. Proven success adopts; known eligible failure schedules retry; definitely undispatched work resumes; RUNNING/unknown/inconsistent work is quarantined. Expiration alone is never paid retry permission.
+13. **Timeout/ambiguity:** CentralAIGateway normalizes post-invocation TIMEOUT/NETWORK ambiguous even for an erroneous false flag. Unknown cost stays null/unknown and conservative reservation remains. RUNNING crash records are not rewritten into fabricated failures. No ordinary seller or automatic retry for ambiguous outcomes.
+14. **Settlement adoption:** successful canonical Generation + durable matching success/accounting settles unfinished queue COMPLETED without a provider call. Replays converge; authentic late success after quarantine can also be adopted. Wrong/stale token cannot acknowledge a newer retry claim.
+15. **Accounting:** every retry/resume stays Production→GenerationService→CentralAIGateway→provider. No parallel accounting path. Requests/parent ordinals/pricing/usage/ledger survive failures and recovery. Synthetic paid-model rate-limit attempt retains 825000 estimated integer USD nanos; successful linked retry yields total 1650000 nanos, with the first attempt unchanged. These are fake-provider pricing tests, not live paid calls.
+16. **Reconciliation:** trusted ProductionRecovery.reconcileProductionWork; indexed SQL selects bounded expired/due/attention work, default 50, allowed 1..1000; deterministic updatedAt/UUID order, Store→queue locking and state recheck per transaction. Repeated/concurrent reconciliation does not duplicate retries or reset waiting identities. Compact internal metrics; no private text or noisy poll audit.
+17. **Runtime:** productionRuntime(db).runProductionTick performs reconciliation, bounded scheduling and sequential execution. Existing runCycle remains trusted low-level compatibility. No page visit dependency, infinite loop, setInterval, cron installation or platform choice. Production requires a future external recurring trigger.
+18. **Overlap:** PostgreSQL production_tick singleton + short advisory/row-lock transactions, 15-minute token lease renewed before claims/each dispatch; ordinary overlap returns BUSY. Fenced release/renewal cannot overwrite newer ownership. Stale expiry enables reconciliation, not blind AI retry. No transaction during provider execution. This is not full provider-wide/global rate/concurrency limiting; manual/low-level execution and exceptional requests outliving ownership remain hardening boundaries.
+19. **Seller state:** retry backoff is Waiting; active preparation Preparing; canonical success Ready for review; ambiguity/nonpermitted failure Problem with support copy. Waiting retry does not advertise a misleading immediate manual retry. Holds/revised customer warnings remain. No raw infrastructure IDs/states exposed, UI redesign or new retry route.
+20. **Security:** existing tenant/composite ownership, Store-first locks, current claim-token fencing, nonserializable worker authority and owner seller checks preserved. Internal identity derives from queue, not browser-supplied Store/Generation/request payload. requestProductionRetry accepts an owned Reading ID under normal owner scope; cross-tenant/nonpermitted/ambiguous work fails. Explicit owner audit records actor; trusted worker actor remains null. No secrets/prompts/customer/style/canonical bodies logged.
+21. **Schema/migration:** additive 0009_funny_shooting_star.sql + snapshot/journal. Queue gains execution_attempt default1, retry_command_key nullable, available_at nullable; RETRY_WAIT and indexed retry/recovery scans, current retry identity uniqueness, null-sensitive checks and guarded safe-retry transitions. New three-column production_tick infrastructure singleton. 26 tables total. Prior migrations and historical configuration/generation/accounting remain untouched.
+22. **Exact files:** complete 27-file list below. No dependencies, lockfile, provider/model/pricing/prompt, product configuration or deployment changes.
+23. **Tests added:** 32 isolated PostgreSQL-engine recovery/runtime tests + five unit/policy/boundary tests (37 new). Cover all required Part 4 safety categories, including the MRH timeout/lost-response regression, wrong flags, immutable accounting, durable identities/timers/parents/max, no early retry, blocked budget, zero-cost preflight, undispatched resume, existing-success adoption, active/stale/inconsistent execution, ownership/actor/token races, overlapping ticks, bounded reconciliation/ticks, mixed-cart/quantity retries and populated historical migration. No prior assertions weakened.
+24. **Total:** 254 tests: 60 unit/security across 12 files + 194 database/integration across 9 files. All prior 217 Part 1–3 tests remain green.
+25. **Typecheck:** pnpm typecheck PASS, including original configuration after restoring Next-generated next-env/tsconfig churn.
+26. **Unit:** pnpm test PASS, 60 tests, 12 files, zero failures.
+27. **Database:** pnpm test:db PASS, 194 tests, 9 files, zero failures. PGlite concurrent application calls validate DB semantics but do not constitute native multi-process/socket acceptance.
+28. **Build:** pnpm build PASS: optimized Next.js webpack compile, TypeScript, pages/routes and build traces. Generated unrelated config edits restored.
+29. **Migration/replay:** PGlite Drizzle migration runner application and replay PASS through 0009. Populated Part 3 canonical completion/request/ledger/configuration snapshot preservation PASS. The isolated migration fixture restores actual synthetic engine-produced historical rows with transition triggers bypassed ONLY during snapshot restoration, then restores normal triggers before migration; application safety tests run with guards active. Drizzle generate reports no pending schema changes.
+30. **Fixture replay:** existing equivalent fixture seed/replay PASS, six orders/seven lines/ten independent readings, #2002 Love×2 + Career×1 retained. New mixed-cart retries create three independent Generations and six linked AIRequests without collapsing quantity/order ownership. No production DB used.
+31. **Native PostgreSQL:** attempted isolated initdb at `/tmp/reading-os-part4-pg`; bootstrap FAILED with `could not create shared memory segment: Operation not permitted`, `shmget(key=76909504, size=56, 03600)`. initdb removed partial cluster. Native migrations/replay/socket/multi-process acceptance could not run. PGlite is not reported as native acceptance.
+32. **Limitations:** external recurring deployment trigger still required; native acceptance blocked; scheduler's older metadata-history scan remains unpaginated; no full provider-wide rate/concurrency limiter, operational dashboard/support tooling, reservation/invoice reconciliation, retention/deployment/live-intake hardening or browser/live-provider journey. Corrupt or incompatible/unknown work fails closed; safe undispatched incompatible intents may retain conservative liabilities pending explicit later resolution. Tick lease does not prove provider execution ended. No remote provider webhook/status polling was assumed or added.
+33. **Zero live Gemini calls:** explicitly confirmed. All generation/provider test calls use deterministic fakes or mocked transport; synthetic Google-named wrappers only exercise centralized pricing. No GEMINI_API_KEY read/printed/committed by acceptance, no real-provider smoke, no production database, no push/deploy.
+34. **Milestone complete:** PRODUCTION ORCHESTRATION = COMPLETE for Parts 1–4 bounded functionality. This is not a production-launch certification. Style Intelligence, Review Workspace, PDF, delivery, Telegram, billing and Production Hardening were not started.
+35. **Next bounded milestone:** CONTROLLED REAL GEMINI ACCEPTANCE — ONE SYNTHETIC GENERATION, separately authorized with locally configured GEMINI_API_KEY; verify structured/canonical output and accounting once. No key in prompts/docs/repository. Review Workspace may follow under separate scope. Roadmap also preserves compact versioned Style Intelligence via gateway and mandatory current official Etsy delivery-capability reverification/manual fallback; neither is implemented now.
+
+### Exact Part 4 files changed
+
+- AGENTS.md
+- README.md
+- docs/ARCHITECTURE.md
+- docs/EDGE_CASES.md
+- docs/GENERATION_ENGINE.md
+- docs/PRODUCTION_ORCHESTRATION.md
+- docs/PRODUCTION_ORCHESTRATION_REPORT.md
+- drizzle/0009_funny_shooting_star.sql
+- drizzle/meta/0009_snapshot.json
+- drizzle/meta/_journal.json
+- src/components/generation/reading-preparation.tsx
+- src/db/schema.ts
+- src/infrastructure/ai/gateway.ts
+- src/modules/generation/authority.ts
+- src/modules/generation/contracts.ts
+- src/modules/generation/limits.ts
+- src/modules/generation/service.ts
+- src/modules/intake/service.ts
+- src/modules/production/execution.ts
+- src/modules/production/recovery-policy.ts
+- src/modules/production/recovery-state.ts
+- src/modules/production/recovery.ts
+- src/modules/production/runtime.ts
+- src/modules/production/scheduler.ts
+- src/modules/production/tick.ts
+- tests/production-recovery.db.test.ts
+- tests/production-recovery.test.ts

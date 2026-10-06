@@ -203,3 +203,86 @@ Seller projection uses scoped queue metadata: QUEUED/CLAIMED → Waiting, EXECUT
 ### Exact PART 4 handoff
 
 Keep the stable queue UUID→command binding and same-Reading/ProductVersion reference. Never rotate/reclaim EXECUTING or infer retry safety from expiration. Part 4 must define explicit known-failure retry/resume/adoption rules and durable command identities for any new paid attempt; do not silently reuse an ATTENTION command as a fresh invocation. Preserve every AIRequest/UsageEvent and unknown-cost liability. Investigate abandoned EXECUTING/PROCESSING/RUNNING work conservatively before any operator-approved recovery. Retain token-fenced acknowledgement, Store-first locking, bounded claims and shared engine admission. Decide runtime/deployment, global concurrency/rate controls and reconciliation independently; none is provided here. SKIPPED and ATTENTION history remains terminal until an explicit future policy/migration is designed. PDF/delivery/Telegram/billing/review remain outside this slice.
+
+## PART 4 — RECOVERY + RETRY + RUNTIME
+
+Production Orchestration Parts 1–4 are complete within the bounded scope. This section supersedes earlier retry/recovery deferrals. No deployment daemon, provider status polling/webhook, full distributed rate limiter, review/document/delivery/style-analysis work is included.
+
+### Recovery classification and conservative policy
+
+| Classification | Durable evidence | Action |
+| --- | --- | --- |
+| PRE_DISPATCH_SAFE | No admitted request, or CLAIMED request with null startedAt, or known preflight rejection | Resume only with compatible eligibility; never assume expired lease alone proves safety |
+| KNOWN_RETRYABLE | FAILED Generation + FAILED, nonambiguous RATE_LIMIT request + matching ledger | Persist explicit linked retry and backoff |
+| KNOWN_NON_RETRYABLE | Known AUTH/BLOCKED/INVALID_OUTPUT/other provider failure | ATTENTION; automatic policy does not repair configuration or output |
+| AMBIGUOUS | TIMEOUT/NETWORK regardless of supplied flag, ambiguous request, or unresolved RUNNING request | ATTENTION/OUTCOME_UNCERTAIN; no automatic or ordinary seller retry |
+| ALREADY_COMPLETED | Valid canonical SUCCEEDED Generation + SUCCEEDED request + matching ledger | Adopt success with zero provider calls |
+| IN_PROGRESS | Current unexpired execution or unfinished passive acknowledgement | Leave running; do not redispatch |
+| INCONSISTENT | Missing/mismatched ownership, canonical result, command lineage or accounting | Fail closed to ATTENTION/INCONSISTENT_STATE |
+
+`recovery-policy.ts` owns provider-neutral policy. There is no Gemini string parsing in orchestration. CentralAIGateway forces post-dispatch TIMEOUT/NETWORK ambiguity even if a provider supplied an unsafe false flag; Gemini already marks these ambiguous. HTTP 5xx remain conservative ambiguous failures under the existing adapter. No provider retry loop or prompt/model/pricing change was introduced.
+
+Unknown cost and unknown external outcome are separate: a durable known nonambiguous rate-limit failure may have unavailable usage/cost. Its null amount and reserved liability remain preserved even when a safe new attempt is permitted. Gateway budgets still include that liability.
+
+### Attempt identities, maximum and durable backoff
+
+The existing engine maximum is one central `MAX_GENERATION_ATTEMPTS = 3` (initial plus at most two retries). Queue schema and policy use that same maximum. Engine ordinals include admitted zero-cost preflight failures, consistent with its existing retry model. Production does not maintain a second paid-attempt counter or a second Generation history.
+
+Queue's initial `generationCommandKey` remains its UUID forever. `executionAttempt`, nullable `retryCommandKey` and `availableAt` are the only added per-queue retry fields. A real retry's UUID is deterministically derived from a versioned SHA-256 namespace, queue UUID and next **engine** attempt ordinal; it is persisted before claim/dispatch. Initial command and original executionStartedAt remain immutable. Every admitted retry uses existing GenerationService's retryGenerationId, original Generation/context, parentRequestId and next ordinal; AIRequest retains every paid command and UsageEvent remains one ledger record per attempt. IDs do not imply provider-side idempotency.
+
+Known retryable failure → RETRY_WAIT, first delay 30 seconds, second delay 120 seconds. Delay starts when retry scheduling is durably committed. Restart/reconciliation of an existing valid waiting retry does not reset its timer or identity. No retry runs inside the provider exception handler; the already claimed cycle does not claim newly scheduled retries. Reaching attempt 3 failure gives ATTENTION/MAX_ATTEMPTS. Budget rejection is held as ATTENTION/BUDGET_LIMIT instead of repeatedly rescheduling the earlier rate-limit error; explicit owner recovery is required after configuration/budget remedy.
+
+A crash before admission created no AIRequest: safe compatible recovery retains the SAME initial command/ordinal. An admitted but definitely undispatched CLAIMED request resumes the SAME request/command/accounting intent (not a new paid retry). GenerationService permits this only on the internal capability path with null startedAt and no ambiguity. Gateway atomically changes CLAIMED→RUNNING before dispatch, rechecking worker authority after acquiring the Store lock. Normal seller command replay remains unchanged. A durable FAILED preflight request requires a **new** linked retry command, preserving its known-zero history.
+
+### Lifecycle, schema and history
+
+RETRY_WAIT joins the existing queue lifecycle. It retains prior token/history/reference and has a nonnull durable availableAt; a due scheduler claim rotates token, clears waiting resolution/availability and retains initial command/Generation bindings. Retry claim/dispatch uses the same scheduling/fairness, Store-first locking and final eligibility fence. New claims cannot run before availableAt. SKIPPED/COMPLETED remain immutable; ATTENTION can be reclassified by validated recovery or explicit safe retry, and late proven canonical success can become COMPLETED. Stale-token acknowledgements cannot overwrite newer attempts.
+
+Additive migration 0009 preserves existing rows with executionAttempt=1 and null new fields. It adds retry/recovery indexes, retry command uniqueness, coherent null-sensitive lifecycle constraints and guarded transition expansion. Database retry transitions require a provably undispatched request or a known nonambiguous permitted failure; RUNNING, timeout/network and ambiguous requests cannot become runnable through this transition. Existing Generation/AIRequest/UsageEvent records are not rewritten to fabricate success/failure or cost.
+
+Meaningful retry scheduling/completion/attention changes are audited without private data. Owner retry records the real actor; internal operations have a null system actor. Repeated scans/unchanged retry waits generate no audit noise. Initial and subsequent admitted execution histories remain in the queue, AIRequest/UsageEvent and audit actions rather than a redundant retry-attempt table.
+
+### Bounded reconciliation and abandoned work
+
+`ProductionRecovery.forInternalWorker(db, {limit?, clock?}).reconcileProductionWork()` is an explicit trusted server boundary. Default limit 50, validated range 1..1000. Indexed SQL selects only bounded expired EXECUTING, ATTENTION and due RETRY_WAIT work, ordered by updatedAt then UUID. Each transaction derives owned identity from persisted queue, locks Store→queue, rechecks current state and inspects exact Generation/request/ledger/canonical data. Unchanged attention checks advance metadata scan age without creating audit noise, so bounded scans rotate through older attention rows. Scheduler's older all-history metadata scan remains a separate scaling limitation.
+
+- Expired CLAIMED with no execution remains Part 2 safe reclaim; it is not an AI retry.
+- Expired EXECUTING with valid local canonical success adopts COMPLETED without provider calls.
+- Durable known failure schedules only an eligible bounded retry or attention.
+- Definitely undispatched compatible work can resume its persisted identity.
+- RUNNING/ambiguous/unknown or inconsistent work is quarantined without dispatch, deletion or fabricated accounting. RUNNING/PROCESSING remain historically unfinished; queue records attention. If the original authorized worker later durably supplies authentic success, acknowledgement/reconciliation can adopt it without a second call.
+- Changed customer revision blocks retry under old context; bound ProductVersion stays exact. Retry keeps original seller/style snapshots under existing engine rules, while requiring usable current profile/style and current holds to permit admission. Product edits never rebind historical readings.
+- Safe abandoned work that has become ineligible is held/skipped, not recreated under a new customer request. Undispatched incompatible accounting intent may remain conservative until explicit later resolution; no guessed zero-cost cleanup or regeneration is performed.
+
+`requestProductionRetry(db, sellerScope, readingId)` provides owner-authorized domain recovery for policy-permitted safe attention work. It verifies the normal seller scope, looks up only the owned Reading's queue, locks Store→queue, rechecks safety/context/max and schedules durable backoff. Replay of an existing waiting retry converges. Cross-tenant or ambiguous/nonpermitted work is rejected. No browser action, trusted-worker route or large retry UI is added. Existing Manual preparation remains independent; waiting retries suppress misleading manual retry prompts. Problem/ambiguous work uses support-oriented copy.
+
+### Bounded runtime, overlap and deployment boundary
+
+`productionRuntime(db).runProductionTick()` obtains one DB-backed tick owner, reconciles bounded work, claims a bounded cycle and executes sequentially. It returns compact metrics/outcomes. It never needs a page visit. Existing runCycle remains a low-level trusted compatibility API; external recurring deployment should invoke runProductionTick, not bypass its coordination.
+
+The three-column `production_tick` singleton is coordination metadata only: token + expiry, no customer/tenant content. Short advisory/row-lock transactions acquire an owner or return BUSY. Lease is 15 minutes, renewed before claims and each execution. Token-fenced release cannot clear a newer owner; a superseded/expired tick stops before further dispatch. No transaction is held across provider execution. Crash/stale tick expiry permits a new **reconciliation tick**, never authorizes a second ambiguous paid request. Queue/request state and engine fences remain the paid-operation authority.
+
+This prevents ordinary overlapping ticks from multiplying retry/execution calls. It is not full provider-wide distributed rate limiting: seller manual execution and trusted low-level cycles are separate, and an exceptionally delayed external request may outlive tick ownership. Such work remains quarantined, not redispatched; late authentic results remain accountable. Existing Gemini transport bounds requests to 120 seconds. Total provider concurrency/rate policy, process monitoring and native multi-process acceptance remain Production Hardening.
+
+A real deployment must install an external recurring trigger for this bounded callable operation. Platform selection, cron binding, infinite loops and setInterval workers are deliberately absent.
+
+### MRH reference inspection
+
+Available read-only reference: `/Users/yusufsafakilic/Codex/medium-reading-platform`, checkout HEAD `9d58e2cb308f6ea552527fa74a6bba99bde2f37b`. Findings describe inspected source, not a live MRH incident reconstruction.
+
+- `src/llm/gemini/gemini-llm.provider.ts`: Fetch/AbortController with configurable default 60-second timeout, memory delays 1/2 seconds and at most three calls per complete(). Network/timeout exceptions map to retryable UNAVAILABLE; 429 and 5xx may be retried inside the provider. A timeout does not distinguish whether Gemini received/executed the request. This is not a reliable lost-response solution and is NOT copied.
+- `src/readings/application/create-reading.service.ts`: persists PROCESSING before generation and catches failures into FAILED; persists successful content before later report handling. Saving canonical content before downstream work is a sound idea already implemented in Reading OS.
+- `src/readings/application/reading-retry.service.ts`: CAS updateMany FAILED→PROCESSING, increments retryCount/lastRetriedAt, retains previous failure and reuses Reading identity/context; then invokes orchestrator again. This provides concurrent operator retry exclusion, not proof that a timed-out provider did not complete. Inspected code does not persist an immutable separate provider-attempt/command identity or ambiguity/usage liability for each hidden provider retry.
+- `prisma/schema.prisma` Reading model has retryCount/time/failure/result, not Reading OS's AIRequest/UsageEvent architecture. Relevant provider/readings code exposed no completion webhook/status-query or lost-response reconciliation primitive. No claim is made about uninspected unrelated MRH systems or current Google API capabilities.
+- FulfillmentRetryPolicyService has durable-oriented delay/batch concepts for fulfillment; delivery/PDF architecture is outside this inspection and was not copied.
+
+Regression tests explicitly reproduce timeout after dispatch, upstream false ambiguity flags, lost response/accounting settlement and restart: exactly one fake provider call, retained request/ledger, null unknown liability and attention—not automatic retry.
+
+### Remaining gates and next bounded work — document only
+
+Production Orchestration is complete for this milestone, not a production launch certification. Native PostgreSQL acceptance is blocked by shared-memory permissions. No real Gemini/Etsy/customer data call or deployment was executed. Native multi-process contention, deployment/recurring trigger, global rate/concurrency controls, operator diagnostics, reservation/cost reconciliation, pagination, retention and live-intake gates remain separate Production Hardening.
+
+1. **Controlled real Gemini acceptance:** a later separately authorized task may make ONE synthetic generation using locally configured GEMINI_API_KEY to verify request/structured output/canonical validation/usage/AIRequest/UsageEvent/cost compatibility. Never paste keys into prompts/repo/docs. Zero such calls occur in Part 4. This is the recommended next bounded acceptance task; Review Workspace can follow under its own authorization.
+2. **Style Intelligence / Previous Work Analysis:** stored StyleSources remain unanalyzed. Later controlled historical-reading analysis should produce compact versioned voice/tone/structure/tendencies/preferred/avoided phrases/detail/opening/closing attributes and possibly a small bounded exemplar set. Never inject the whole library. Every later analysis call must use CentralAIGateway/accounting. Not implemented here.
+3. **Etsy delivery capability reverification:** when Delivery begins, recheck current official Etsy documentation for order PDF upload, buyer-conversation attachments and dynamic post-purchase delivery. Do not invent endpoints. If unsupported, design a truthful manual-delivery workflow. No delivery/chat operation is implemented here.
+4. Review Workspace, approval/editing, PDF/documents, delivery, Telegram and billing remain separate future milestones. None begins automatically after Part 4.

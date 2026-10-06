@@ -33,6 +33,7 @@ export class CentralAIGateway {
   const claimed=await this.db.transaction(async tx=>{
    await verifyGenerationAuthority(tx,scope);
    await tx.select({id:stores.id}).from(stores).where(and(eq(stores.organizationId,scope.organizationId),eq(stores.id,scope.storeId))).for("update");
+   await verifyGenerationAuthority(tx,scope);
    const [row]=await tx.select().from(aiRequests).where(and(tenantWhere(aiRequests,scope),eq(aiRequests.id,requestId))).for("update");
    if(!row||row.status!=="CLAIMED")return undefined;
    if(row.provider!==this.policy.provider.name||row.model!==input.model||input.maxOutputTokens!==this.policy.maxOutputTokens)throw new Error("GATEWAY_POLICY_MISMATCH");
@@ -49,6 +50,7 @@ export class CentralAIGateway {
    response=await this.policy.provider.generate(input);
    try{result=accept(response);}catch{failure=new ProviderFailure("INVALID_OUTPUT",response.usage,response.requestId);}
   }catch(error){failure=error instanceof ProviderFailure?error:new ProviderFailure("PROVIDER_ERROR",{},undefined,true);}
+  if(failure&&["TIMEOUT","NETWORK"].includes(failure.code)&&!failure.ambiguous)failure=new ProviderFailure(failure.code,failure.usage,failure.requestId,true,failure.resolvedModel);
   const usage=normalizedUsage(response?.usage??failure?.usage??{});
   const cost=calculateCost(usage,claimed.pricing);
   const durationMs=Math.min(2147483647,Math.round(performance.now()-started));

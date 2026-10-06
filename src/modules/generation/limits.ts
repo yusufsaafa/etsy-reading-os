@@ -1,0 +1,1 @@
+export const MAX_GENERATION_ATTEMPTS = 3;

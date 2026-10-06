@@ -9,7 +9,7 @@ import { AccessDenied } from "../identity/service";
 import { CentralAIGateway } from "../../infrastructure/ai/gateway";
 import { assembleInstructions } from "./instructions";
 import { buildGenerationContext, buildProductionContextForStoreInTransaction } from "./context";
-import { commandSchema, AdmissionError, OPERATION, validateCanonical } from "./contracts";
+import { commandSchema, AdmissionError, OPERATION, validateCanonical, MAX_GENERATION_ATTEMPTS } from "./contracts";
 const hash=(data:unknown)=>createHash("sha256").update(stableJson(data)).digest("hex");
 async function audit(tx:DbExecutor,scope:GenerationAuthority,action:string,resourceId:string) {
  await tx.insert(auditLogs).values({organizationId:scope.organizationId,storeId:scope.storeId,actorId:scope.userId,action,resourceId});
@@ -20,15 +20,25 @@ export class GenerationService {
  // Internal capability only; no client-selected command, unit or Store.
  async prepareProduction(authority:ProductionAuthority) {
   if(!isProductionAuthority(authority))throw new AccessDenied();
-  return this.run(authority,{unitId:authority.unitId,commandKey:authority.commandKey});
+  return this.run(authority,{unitId:authority.unitId,commandKey:authority.commandKey,...(authority.retryGenerationId?{retryGenerationId:authority.retryGenerationId}:{})});
  }
  private async run(scope:GenerationAuthority,raw:unknown) {
   const command=commandSchema.parse(raw),commandHash=hash(command);
   const claim=await this.db.transaction(async tx=>{
    await verifyGenerationAuthority(tx,scope);
    await tx.select({id:stores.id}).from(stores).where(and(eq(stores.organizationId,scope.organizationId),eq(stores.id,scope.storeId))).for("update");
+   await verifyGenerationAuthority(tx,scope);
    const [replay]=await tx.select().from(aiRequests).where(and(tenantWhere(aiRequests,scope),eq(aiRequests.commandKey,command.commandKey)));
-   if(replay){if(replay.commandHash!==commandHash)throw new AdmissionError("COMMAND_CONFLICT");return {id:replay.generationId!,run:false};}
+   if(replay){
+    if(replay.commandHash!==commandHash)throw new AdmissionError("COMMAND_CONFLICT");
+    if(isProductionAuthority(scope)&&replay.status==="CLAIMED"&&replay.startedAt===null&&!replay.ambiguous){
+     const [retained]=await tx.select().from(generations).where(and(tenantWhere(generations,scope),eq(generations.id,replay.generationId!),eq(generations.unitId,command.unitId)));
+     const current=await contextForAuthority(tx,scope,command.unitId);
+     if(!retained||retained.status!=="PROCESSING"||retained.customerRevision!==current.customer.revision||retained.productVersionId!==current.product.id)throw new AdmissionError("CONTEXT_CHANGED");
+     return {id:retained.id,run:true,request:replay,context:retained.context,instructions:assembleInstructions(retained.context)};
+    }
+    return {id:replay.generationId!,run:false};
+   }
    const current=await contextForAuthority(tx,scope,command.unitId);
    const existing=await tx.select().from(generations).where(and(tenantWhere(generations,scope),eq(generations.unitId,command.unitId))).orderBy(desc(generations.createdAt));
    if(existing.some(g=>g.status==="PROCESSING"))throw new AdmissionError("ACTIVE_OPERATION");
@@ -41,7 +51,7 @@ export class GenerationService {
     const attempts=await tx.select().from(aiRequests).where(and(tenantWhere(aiRequests,scope),eq(aiRequests.generationId,generation.id))).orderBy(desc(aiRequests.attemptNumber));
     parent=attempts[0];attemptNumber=parent.attemptNumber+1;
     if(parent.ambiguous)throw new AdmissionError("RETRY_UNCERTAIN");
-    if(attemptNumber>3)throw new AdmissionError("BUDGET_LIMIT");
+    if(attemptNumber>MAX_GENERATION_ATTEMPTS)throw new AdmissionError("BUDGET_LIMIT");
     const [updated]=await tx.update(generations).set({status:"PROCESSING",completedAt:null}).where(and(tenantWhere(generations,scope),eq(generations.id,generation.id))).returning();generation=updated;
    }else{
     // This slice does not offer regeneration. Another command cannot replace existing work.

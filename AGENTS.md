@@ -60,3 +60,7 @@ Part 2 adds deterministic scheduling, Store fairness, durable bounded claims and
 ## Authorized Part 3 boundary
 
 Part 3 explicitly authorizes trusted token-fenced queue execution through existing GenerationService, stable durable command identity, canonical/accounting persistence and outcome settlement. No production route/browser worker capability is authorized. Preserve queue transition guards and seller owner authorization; never reclaim EXECUTING work or retry an ambiguous AI operation because a claim expired. Continuous worker deployment, automatic retries/backoff/recovery, rate limiting and Part 4 remain excluded.
+
+## Completed Part 4 boundary
+
+Part 4 authorizes and completes conservative reconciliation, linked bounded retry/backoff, undispatched-command resume and DB-coordinated bounded production ticks. Preserve central engine maximum, original context/attempt/ledger history, Store-first/token fences and ambiguity quarantine. Never turn timeout/lease expiry into safe paid retry or unknown liability into zero. Future recurring deployment, full rate/concurrency hardening, live-provider acceptance, Style Intelligence, Review Workspace, PDF/delivery/Telegram/billing require separate tasks; none is implicitly authorized.

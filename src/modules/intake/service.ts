@@ -85,7 +85,7 @@ export async function workspaceData(db: Database, scope: Scope) {
   return { orders: orderRows, lines, units: unitRows.map(unit=>{
     const generation=generationRows.find(g=>g.unitId===unit.id),queue=queueRows.find(q=>q.unitId===unit.id);
     const productionStatus=generation?.status==="SUCCEEDED"?(generation.customerRevision!==unit.revision?"STALE":"SUCCEEDED"):
-      queue?.state==="ATTENTION"?"FAILED":generation?.status??(queue?.state==="EXECUTING"?"PROCESSING":queue?.state==="QUEUED"||queue?.state==="CLAIMED"?"WAITING":undefined);
+      queue?.state==="ATTENTION"?"FAILED":queue?.state==="RETRY_WAIT"||queue?.state==="CLAIMED"?"WAITING":queue?.state==="EXECUTING"?"PROCESSING":generation?.status??(queue?.state==="EXECUTING"?"PROCESSING":queue?.state==="QUEUED"||queue?.state==="CLAIMED"?"WAITING":undefined);
     return {...unit,productionStatus,productionRevision:generation?.customerRevision};
   }), inputs: inputRows, listings: listingRows, mappings: mappingRows, versions:versionRows };
 }

@@ -101,3 +101,13 @@ Waiting or safely expired work is revalidated under Store/queue locks. Existing 
 - Canonical success committed but queue acknowledgement interrupted: replay acknowledges persisted success without re-entering GenerationService. Wrong token cannot overwrite terminal state.
 - Sequential bounded cycle: later claims may expire during earlier provider work and are not dispatched; global multi-cycle concurrency/rate limiting is not implemented.
 - Terminal failure/skip is not automatically resurrected by reconciliation. Future explicit retry/resume/adoption policy must preserve accounting, snapshots and durable new-attempt identities.
+
+## Final production recovery — Part 4
+
+- Timeout/network after dispatch is ambiguous even if an adapter incorrectly marks it retryable/nonambiguous. No automatic or ordinary seller retry; retain request/usage/unknown liability and show Problem/support guidance.
+- Known nonambiguous rate-limit failure may schedule a new linked engine command after durable 30/120-second backoff, stopping at the shared three-attempt maximum. Unknown cost remains unknown even for a safely retryable known failure.
+- Abandoned CLAIMED pre-execution remains safe claim recovery. Abandoned EXECUTING requires persisted Generation/request/accounting evidence; expiry itself never permits paid redispatch.
+- Undispatched admitted CLAIMED request resumes the same command/request, not a new accounting attempt. Changed customer revision or other incompatibility blocks it; no old snapshot is silently replaced.
+- Success persisted before queue acknowledgement is adopted without a model call, including authentic late success after attention quarantine. Inconsistent lineage/canonical/accounting fails closed.
+- Budget/configuration attention does not busy-loop automatic paid admission. Explicit safe seller recovery is normally owner-scoped and rejects cross-tenant/ambiguous work.
+- Tick ownership is DB-backed, expiring and token-fenced. Ordinary overlapping ticks return BUSY; expired ownership allows reconciliation, not an assumption that external execution failed. No transaction spans provider work; no global provider rate limiter or recurring deployment is installed.

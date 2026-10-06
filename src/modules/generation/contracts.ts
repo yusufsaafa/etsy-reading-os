@@ -3,6 +3,7 @@ import type { Configuration } from "../products/contracts";
 import type { StyleConfiguration } from "../seller-style/contracts";
 import type { Answer } from "../intake/contracts";
 export const OPERATION = "PERSONALIZED_CONTENT_GENERATION" as const;
+export { MAX_GENERATION_ATTEMPTS } from "./limits";
 export const ENGINE_VERSION = "personalized-content-v1";
 export type GenerationContext = {
   version: typeof ENGINE_VERSION;
