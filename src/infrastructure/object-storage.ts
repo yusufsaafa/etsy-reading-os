@@ -4,3 +4,9 @@ export interface PrivateObjectStorage {
   get(input: { organizationId: string; key: string }): Promise<Uint8Array>;
   remove(input: { organizationId: string; key: string }): Promise<void>;
 }
+
+/** Platform namespace in the same S3-compatible storage architecture. No tenant fiction,
+ * URL resolution, upload flow or provider implementation. Implementations read exact keys. */
+export interface PlatformAssetStorage {
+  read(input: Readonly<{ objectKey: string }>): Promise<Uint8Array>;
+}

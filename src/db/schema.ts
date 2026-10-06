@@ -318,3 +318,24 @@ export const documentSnapshots = pgTable("document_snapshots", {
   index("document_snapshot_reading").on(t.organizationId,t.storeId,t.readingId,t.createdAt),
   check("document_snapshot_bounds",sql`${t.designRevision}>=0 and ${t.snapshotHash} ~ '^[a-f0-9]{64}$' and jsonb_typeof(${t.payload})='object' and (${t.payload}->>'contractVersion') is not distinct from 'document-snapshot/v1' and octet_length(${t.payload}::text)<=650000`),
 ]);
+
+// Platform media has no Store/organization ownership. All asset bytes/metadata are immutable.
+export const platformAssets=pgTable("platform_assets",{
+ id:id(),objectKey:text("object_key").notNull().unique(),metadata:jsonb("metadata").$type<import("../modules/media/contracts").PlatformAsset>().notNull(),
+},t=>[check("platform_asset_metadata",sql`jsonb_typeof(${t.metadata})='object' and octet_length(${t.metadata}::text)<=8192 and ${t.metadata}->>'id'=${t.id}::text and ${t.metadata}->>'objectKey'=${t.objectKey}`)]);
+export const tarotDecks=pgTable("tarot_decks",{
+ key:text("key").primaryKey(),name:text("name").notNull(),description:text("description").notNull(),
+},t=>[check("tarot_deck_bounds",sql`${t.key} ~ '^[a-z][a-z0-9-]{0,63}$' and length(trim(${t.name})) between 1 and 100 and length(${t.description})<=300`)]);
+// Mapping JSON is one atomic, immutable version-owned manifest, not a mutable mapping table.
+export const tarotDeckVersions=pgTable("tarot_deck_versions",{
+ deckKey:text("deck_key").notNull().references(()=>tarotDecks.key),version:integer("version").notNull(),status:text("status").notNull(),
+ manifest:jsonb("manifest").$type<import("../modules/media/contracts").DeepReadonly<import("zod").infer<typeof import("../modules/media/contracts").deckVersionSchema>>>().notNull(),
+},t=>[unique("tarot_deck_version_identity").on(t.deckKey,t.version),
+ uniqueIndex("tarot_one_selectable_version").on(t.deckKey).where(sql`${t.status}='PUBLISHED'`),
+ check("tarot_version_bounds",sql`${t.version}>0 and ${t.status} in ('DRAFT','PUBLISHED','RETIRED') and jsonb_typeof(${t.manifest})='object' and octet_length(${t.manifest}::text)<=20000 and ${t.manifest}->>'deckKey'=${t.deckKey} and (${t.manifest}->>'version')::integer=${t.version} and ${t.manifest}->>'status'=${t.status}`)]);
+export const storeTarotPreferences=pgTable("store_tarot_preferences",{
+ organizationId:org(),storeId:store(),deckKey:text("deck_key").notNull(),deckVersion:integer("deck_version").notNull(),revision:integer("revision").notNull(),
+},t=>[unique("store_tarot_preference_identity").on(t.organizationId,t.storeId),
+ foreignKey({name:"tarot_preference_owned_store",columns:[t.organizationId,t.storeId],foreignColumns:[stores.organizationId,stores.id]}),
+ foreignKey({name:"tarot_preference_exact_version",columns:[t.deckKey,t.deckVersion],foreignColumns:[tarotDeckVersions.deckKey,tarotDeckVersions.version]}),
+ check("tarot_preference_revision",sql`${t.revision}>0`)]);
