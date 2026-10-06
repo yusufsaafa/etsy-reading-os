@@ -245,3 +245,16 @@ it("referenced examples return a safe deletion reason while unreferenced example
  await expect(removePreviousWork(db,a,ids[0])).rejects.toThrow("STYLE_SOURCE_RETAINED");expect(await styleAnalysisSourceProvenance(db,a,(await latestUsableStyleAnalysis(db,a,profile))!.id)).toHaveLength(2);
  const extra=await addPreviousWork(db,a,{title:"Unused",text:"Synthetic unused",commandKey:randomUUID()});await removePreviousWork(db,a,extra);expect(await db.select().from(s.styleSources).where(eq(s.styleSources.id,extra))).toHaveLength(0);
 });
+it("persists only bounded HTTP rejection diagnostics and preserves unknown accounting on replay",async()=>{
+ const {GeminiGenerationProvider}=await import("../src/infrastructure/ai/gemini");
+ const transport=vi.fn().mockResolvedValue(new Response(JSON.stringify({error:{status:"INVALID_ARGUMENT",message:"secret-provider-body"}}),{status:400}));
+ const provider=new GeminiGenerationProvider("secret-key",transport),{service}=setup(provider),c=command();
+ const result=await service.execute(a,c);await service.execute(a,c);
+ const {request,usage}=await accounting(result.id);
+ expect(request).toMatchObject({status:"FAILED",failureCode:"PROVIDER_ERROR",ambiguous:false,providerHttpStatus:400,googleErrorStatus:"INVALID_ARGUMENT",costState:"unknown",estimatedNanos:null});
+ expect(usage).toMatchObject({costState:"unknown",amountNanos:null});
+ expect(JSON.stringify(request,(_,v)=>typeof v==="bigint"?v.toString():v)).not.toMatch(/secret-provider-body|secret-key/);
+ expect(transport).toHaveBeenCalledTimes(1);expect(await db.select().from(s.aiRequests)).toHaveLength(1);expect(await db.select().from(s.usageEvents)).toHaveLength(1);
+ await migrate(drizzle(pg,{schema:s}),{migrationsFolder:"drizzle"});
+ expect((await accounting(result.id)).request).toEqual(request);
+});

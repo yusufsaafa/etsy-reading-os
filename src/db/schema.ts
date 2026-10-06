@@ -155,6 +155,7 @@ export const aiRequests = pgTable("ai_requests", {
  id:id(),organizationId:org(),storeId:store(),generationId:uuid("generation_id"),attemptNumber:integer("attempt_number").notNull(),
  commandKey:uuid("command_key").notNull(),commandHash:text("command_hash").notNull(),styleAnalysisVersionId:uuid("style_analysis_version_id"),parentRequestId:uuid("parent_request_id"),
  operation:text("operation").notNull(),provider:text("provider").notNull(),model:text("model").notNull(),resolvedModel:text("resolved_model"),
+ providerHttpStatus:integer("provider_http_status"),googleErrorStatus:text("google_error_status"),
  providerRequestId:text("provider_request_id"),status:text("status").notNull().default("CLAIMED"),failureCode:text("failure_code"),ambiguous:boolean("ambiguous").notNull().default(false),
  inputTokens:integer("input_tokens"),outputTokens:integer("output_tokens"),totalTokens:integer("total_tokens"),reasoningTokens:integer("reasoning_tokens"),cachedTokens:integer("cached_tokens"),
  durationMs:integer("duration_ms"),pricing:jsonb("pricing").$type<import("../infrastructure/ai/pricing").Pricing>().notNull(),

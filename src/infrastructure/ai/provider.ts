@@ -4,6 +4,6 @@ export type ProviderRequest = { model:string; system:string; data:string; sectio
 export type ProviderResponse = { output:string; usage:TokenUsage; requestId?:string; resolvedModel?:string };
 export type FailureCode = "TIMEOUT"|"NETWORK"|"RATE_LIMIT"|"AUTH"|"PROVIDER_ERROR"|"INVALID_OUTPUT"|"BLOCKED"|"POLICY_REJECTED";
 export class ProviderFailure extends Error {
- constructor(public readonly code:FailureCode,public readonly usage:TokenUsage={},public readonly requestId?:string,public readonly ambiguous=false,public readonly resolvedModel?:string,public readonly transportCause?:TransportCause) { super(code); }
+ constructor(public readonly code:FailureCode,public readonly usage:TokenUsage={},public readonly requestId?:string,public readonly ambiguous=false,public readonly resolvedModel?:string,public readonly transportCause?:TransportCause,public readonly rejection?:{httpStatus:number;googleErrorStatus?:string}) { super(code); }
 }
 export interface GenerationProvider { readonly name:string; generate(request:ProviderRequest):Promise<ProviderResponse> }

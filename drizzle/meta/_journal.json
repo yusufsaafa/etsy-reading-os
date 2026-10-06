@@ -85,6 +85,13 @@
       "when": 1791293454308,
       "tag": "0011_dusty_madrox",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791321186238,
+      "tag": "0012_smooth_grandmaster",
+      "breakpoints": true
     }
   ]
 }

@@ -65,9 +65,11 @@ it("Gemini analysis uses structured JSON schema, single mocked dispatch, no gene
  const request=analysisInstructions("gemini-3.5-flash-lite",boundedAnalysisSources([candidate(1,"Example")]));
  await new GeminiGenerationProvider("test-only",transport).generate(request);
  const configuration=JSON.parse(transport.mock.calls[0][1].body).generationConfig;
- expect(configuration.responseFormat.text.mimeType).toBe("application/json");expect(configuration.responseFormat.text.schema).toEqual(STYLE_ANALYSIS_JSON_SCHEMA);expect(configuration).not.toHaveProperty("responseSchema");expect(transport).toHaveBeenCalledTimes(1);
- expect(configuration.responseFormat.text.schema.additionalProperties).toBe(false);expect(configuration.responseFormat.text.schema.properties.structure.additionalProperties).toBe(false);
- expect(configuration.responseFormat.text.schema.properties.tone.maxItems).toBe(6);
+ expect(configuration.responseMimeType).toBe("application/json");expect(configuration).not.toHaveProperty("responseFormat");expect(transport).toHaveBeenCalledTimes(1);
+ expect(configuration.responseSchema.type).toBe("OBJECT");expect(configuration.responseSchema.properties.structure.type).toBe("OBJECT");
+ expect(configuration.responseSchema).not.toHaveProperty("additionalProperties");
+ expect(configuration.responseSchema.properties.contractVersion.enum).toEqual(["style-intelligence/v1"]);
+ expect(configuration.responseSchema.properties.tone.maxItems).toBe("6");
 });
 it("normalized command hash ignores candidate order but detects incompatible selections",()=>{
  const command={styleProfileId:id(1),commandKey:id(2),sourceIds:[id(3),id(4)]};

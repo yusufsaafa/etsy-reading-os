@@ -74,6 +74,7 @@ export class CentralAIGateway {
    if(row?.status!=="RUNNING")throw new Error("AI_REQUEST_STATE_CHANGED");
    await tx.update(aiRequests).set({status:failure?"FAILED":"SUCCEEDED",failureCode:failure?.code??null,ambiguous:failure?.ambiguous??false,
     ...usage,providerRequestId:response?.requestId??failure?.requestId??null,resolvedModel:response?.resolvedModel??failure?.resolvedModel??null,
+    providerHttpStatus:failure?.rejection?.httpStatus??null,googleErrorStatus:failure?.rejection?.googleErrorStatus??null,
     durationMs,costState:cost.state,estimatedNanos:cost.nanos,finishedAt:new Date()}).where(and(tenantWhere(aiRequests,scope),eq(aiRequests.id,requestId)));
    await tx.update(usageEvents).set({costState:cost.state,amountNanos:cost.nanos}).where(and(tenantWhere(usageEvents,scope),eq(usageEvents.aiRequestId,requestId)));
    await finalize(tx,{result,failure});

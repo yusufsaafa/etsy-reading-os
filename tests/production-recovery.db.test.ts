@@ -227,7 +227,7 @@ it("Part 4 migration preserves populated Part 3 queue, Generation and accounting
   await acceptance.exec("BEGIN; SET LOCAL session_replication_role=replica");
   for(const table of ["app_users","organizations","memberships","stores","listings","listing_selections","products","product_versions","listing_mappings","seller_profiles","style_profiles","style_profile_versions","orders","order_line_items","fulfillment_units","customer_inputs","generations","ai_requests","usage_events","production_queue"]){
    const rows=(await pg.query<Record<string,unknown>>(`SELECT * FROM ${table}`)).rows;
-   for(const row of rows){const filtered=Object.fromEntries(Object.entries(row).filter(([key])=>!(table==="production_queue"&&["execution_attempt","retry_command_key","available_at"].includes(key))&&!(table==="ai_requests"&&key==="style_analysis_version_id")));const keys=Object.keys(filtered);await acceptance.query(`INSERT INTO ${table} (${keys.map(k=>'"'+k+'"').join(',')}) VALUES (${keys.map((_,i)=>'$'+(i+1)).join(',')})`,keys.map(k=>filtered[k]));}
+   for(const row of rows){const filtered=Object.fromEntries(Object.entries(row).filter(([key])=>!(table==="production_queue"&&["execution_attempt","retry_command_key","available_at"].includes(key))&&!(table==="ai_requests"&&["style_analysis_version_id","provider_http_status","google_error_status"].includes(key))));const keys=Object.keys(filtered);await acceptance.query(`INSERT INTO ${table} (${keys.map(k=>'"'+k+'"').join(',')}) VALUES (${keys.map((_,i)=>'$'+(i+1)).join(',')})`,keys.map(k=>filtered[k]));}
   }
   await acceptance.exec("SET LOCAL session_replication_role=origin; COMMIT");
   const history:Record<string,Record<string,unknown>[]>={};for(const table of ["generations","ai_requests","usage_events","products","product_versions","style_profile_versions"] )history[table]=(await acceptance.query<Record<string,unknown>>(`SELECT * FROM ${table}`)).rows;
@@ -238,7 +238,7 @@ it("Part 4 migration preserves populated Part 3 queue, Generation and accounting
   // Replay later additive style migrations too: no generation/accounting history is rebound.
   for(const file of readdirSync("drizzle").filter(f=>f.endsWith(".sql")&&f>="0010").sort())await acceptance.exec(readFileSync("drizzle/"+file,"utf8"));
   for(const table of Object.keys(history))expect((await acceptance.query(`SELECT * FROM ${table}`)).rows).toMatchObject(history[table]);
-  expect((await acceptance.query("SELECT style_analysis_version_id FROM ai_requests")).rows).toEqual([{style_analysis_version_id:null}]);
+  expect((await acceptance.query("SELECT style_analysis_version_id, provider_http_status, google_error_status FROM ai_requests")).rows).toEqual([{style_analysis_version_id:null,provider_http_status:null,google_error_status:null}]);
   expect((await acceptance.query("SELECT * FROM style_analysis_versions")).rows).toHaveLength(0);
  }finally{await acceptance.close();}
 });
