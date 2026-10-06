@@ -208,3 +208,55 @@ Real Gemini acceptance **cannot be marked PASS**. One authorized application att
 ### Final post-attempt validation
 
 Typecheck PASS (also rerun after restoring unrelated Next-generated config); pnpm test 60 passed across 12 files, zero failures; pnpm test:db 194 passed across 9 files, zero failures; pnpm build PASS. Total 254 tests; normal tests remain fake/mocked and made no additional live provider call. git diff --check PASS. Exact files changed: docs/GEMINI_ACCEPTANCE_REPORT.md and scripts/synthetic-gemini-acceptance.ts only. Environment, temporary database and one-shot marker remain uncommitted. Local report/harness commit only; no push/deploy. Final hash is provided in the completion response, not fabricated in its own report.
+
+## ZERO-GENERATION NETWORK DIAGNOSTIC — 2026-10-06
+
+Starting HEAD a1220e78852b3f02826bf2e8f0f338a18e75c0ef; correct branch, initial working tree clean. **REAL GEMINI GENERATION ATTEMPTS DURING THIS TASK = 0.** No failed Generation retry, no API key used in connectivity checks, no authenticated API request, no configuration/model/budget/retry-policy change. Public API documentation only was consulted.
+
+### Proven evidence
+
+Retained temporary acceptance artifact and actual file-backed synthetic PGlite database both remain available. Read-only selected fields confirm one historical AIRequest: FAILED / NETWORK, ambiguous=true, google, gemini-3.8-flash, resolved model null, duration16ms, startedAt11:52:10.974Z, finishedAt11:52:10.992Z, null input/output/cost, costState unknown. UsageEvent unknown/null USD retained. No response body, HTTP status or original exception cause was stored. Provider dispatch was entered; the existing provider necessarily invoked its captured fetch because NETWORK originates in its transport catch (or stream failure, which has no evidence here). There is no historical observer capture proving remote receipt.
+
+Credential-free diagnostics in the same shell execution surface:
+
+| Check | Actual evidence |
+| --- | --- |
+| Node runtime/fetch | v22.23.1; global fetch is a function |
+| DNS lookup official API hostname | FAILED ENOTFOUND |
+| TCP/TLS connection hostname:443 | FAILED ENOTFOUND before connection/handshake |
+| Unauthenticated HEAD https://generativelanguage.googleapis.com/ | TypeError, cause.code ENOTFOUND; no HTTP status |
+| Proxy/CA environment presence | HTTP_PROXY, HTTPS_PROXY, ALL_PROXY, NO_PROXY, NODE_EXTRA_CA_CERTS, NODE_USE_ENV_PROXY all absent; values not shown |
+| Same config loaded, official hostname lookup | ENOTFOUND in 2ms |
+| External DNS control example.com | ENOTFOUND in 0ms |
+| Localhost lookup control | OK in 3ms |
+| Direct DNS resolve4, one configured resolver, 1-second timeout/one try | FAILED ECONNREFUSED; resolver address not displayed |
+
+The direct DNS ECONNREFUSED pertains to the DNS resolver query, not a Gemini API TCP refusal. Resolver accessibility fails; resolver service versus sandbox policy is not isolated.
+
+The configured ignored .env.local was loaded for a second presence-only/configuration/DNS check, without using its key. Results remain the same. No generated workload endpoint was contacted. Shell environment has restricted network access; public-document retrieval is a separate tool surface and does not prove application-process reachability.
+
+**PROVEN ROOT CAUSE of current reachability failure:** this application's shell execution surface cannot resolve external hostnames (ENOTFOUND); therefore its test TLS/HTTP paths do not reach the server. The original lost underlying exception was not persisted, so its exact historical cause cannot be conclusively recovered. These current failures reproduce a plausible immediate transport rejection, not merely a timing guess.
+
+**POSSIBLE underlying causes:** sandbox/resolver/outbound network policy or host DNS configuration. The evidence does not isolate which policy or resolver produced ENOTFOUND. TLS certificate issues cannot be evaluated because handshake never began; HTTP authorization/model/provider response compatibility cannot be evaluated because no response arrived. No proxy variables were configured in checked environment. No proof of a Gemini API/model/credential defect was found.
+
+### Provider transport and timing
+
+Existing adapter constructor defaults transport to native global fetch and retains that reference. Endpoint is `https://generativelanguage.googleapis.com/v1beta/models/` + encodeURIComponent(request.model) + `:generateContent`. For configured gemini-3.8-flash, new URL validation succeeds; hostname generativelanguage.googleapis.com, path /v1beta/models/gemini-3.8-flash:generateContent, no query. POST, JSON body, redirect:error; key is supplied server-side in a header, never query, and header contents are not reported. No endpoint/request-format change. Official documented endpoint/body matches this static shape: https://ai.google.dev/api/generate-content. This verifies construction, not live acceptance.
+
+Timeout is AbortSignal.timeout(120000), no provider retry loop. TimeoutError/AbortError normalize to TIMEOUT; other thrown transport exceptions collapse to NETWORK, including DNS/TCP/TLS/proxy rejection; response body-read rejection also NETWORK. Unknown failures stay ambiguous. Original messages/causes were discarded completely. The historical16ms NETWORK is not the configured120second timeout and is compatible with immediate DNS rejection; timing alone cannot prove original exact cause. No separate application timeout found in this path.
+
+### Observer root cause and safe improvement
+
+Proven historical observer bug: generationRuntime constructed GeminiGenerationProvider before global fetch patch; provider stored original native fetch. A late observer did not replace that retained reference. Previous commit already moved live runtime construction after observer installation. Mocked regression tests now prove both historical late-observer miss and corrected early-observer capture, with static harness ordering protection. No real Gemini test was used.
+
+Small diagnostic improvement: safeTransportCause extracts only explicit allowlisted Node/Undici DNS/connectivity/certificate codes from code/cause.code, or UNKNOWN. Gemini ProviderFailure retains that bounded code without raw exception/message/cause/URL/header/content. CentralAIGateway emits only `{event:ai_transport_failure,category:NETWORK|TIMEOUT,transportCause:allowlisted-code}` to server diagnostics. Unknown or malicious strings become UNKNOWN. No prompts, IDs, secrets or private content in this event. No schema/migration or raw exception persistence; future codes are in safe logs, historical cause remains unavailable. Ambiguity/cost/retry behavior unchanged.
+
+Six mocked/fake tests added: DNS cause redaction/no retry, safe allowlist logging, timeout and stream reset diagnostics, corrected observer capture, historical observer regression, gateway sanitized logging with retained ambiguous unknown accounting. No original assertion weakened.
+
+**Recommendation:** do not authorize a further real attempt in this execution surface until external DNS and unauthenticated reachability succeed. Resolve environment/network access separately; only then consider a separately authorized single acceptance in a working runtime. Do not assume these diagnostics prove the prior paid outcome safe to retry.
+
+### Diagnostic validation / safe commit
+
+Final pnpm typecheck PASS; pnpm test 65 tests/13 files PASS; pnpm test:db 195 tests/9 files PASS; pnpm build PASS; 260 total tests, zero failures. Six new tests use mocked/fake transport only. Diagnostic logger failure cannot prevent durable accounting settlement. Next-generated unrelated configuration restored; final typecheck rerun PASS. git diff --check PASS.
+
+Exact files changed: docs/GEMINI_ACCEPTANCE_REPORT.md; src/infrastructure/ai/provider.ts; src/infrastructure/ai/gemini.ts; src/infrastructure/ai/gateway.ts; src/infrastructure/ai/transport-diagnostic.ts; tests/transport-diagnostic.test.ts; tests/generation.db.test.ts. No schema, migration, environment, model, budgets, production policy or historical accounting changes. Locally committed; no push/deployment. Historical live acceptance remains failed/ambiguous, not retrospectively reclassified. REAL GEMINI GENERATION ATTEMPTS DURING THIS TASK = 0.

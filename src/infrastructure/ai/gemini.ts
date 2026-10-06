@@ -1,3 +1,4 @@
+import { safeTransportCause } from "./transport-diagnostic";
 import { z } from "zod";
 import { ProviderFailure, type GenerationProvider, type ProviderRequest, type ProviderResponse, type TokenUsage } from "./provider";
 const token=z.number().int().nonnegative().optional();
@@ -19,9 +20,9 @@ export class GeminiGenerationProvider implements GenerationProvider {
      responseSchema:{type:"OBJECT",properties:{sections:{type:"ARRAY",items:{type:"OBJECT",properties:{sectionId:{type:"STRING",enum:request.sections.map(s=>s.sectionId)},title:{type:"STRING"},content:{type:"STRING"}},required:["sectionId","title","content"]}}},required:["sections"]},
     }}),
    });
-  } catch(error) {throw new ProviderFailure(error instanceof Error&&["TimeoutError","AbortError"].includes(error.name)?"TIMEOUT":"NETWORK",{},undefined,true);}
+  } catch(error) {throw new ProviderFailure(error instanceof Error&&["TimeoutError","AbortError"].includes(error.name)?"TIMEOUT":"NETWORK",{},undefined,true,undefined,safeTransportCause(error));}
   // Provider error bodies may contain private data: never propagate their messages.
-  const raw=await response.text().catch(()=>{throw new ProviderFailure("NETWORK",{},undefined,true);});
+  const raw=await response.text().catch(error=>{throw new ProviderFailure("NETWORK",{},undefined,true,undefined,safeTransportCause(error));});
   if(Buffer.byteLength(raw)>1048576)throw new ProviderFailure("PROVIDER_ERROR",{},undefined,true);
   let parsed:z.infer<typeof responseSchema>|undefined;
   try{parsed=responseSchema.parse(JSON.parse(raw));}catch{}

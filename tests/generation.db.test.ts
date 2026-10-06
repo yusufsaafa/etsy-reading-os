@@ -256,3 +256,14 @@ it("an additive migration preserves seeded pre-generation product, seller, style
   expect(await legacy.select().from(schema.units)).toEqual(before.units);expect(await legacy.select().from(schema.productVersions)).toEqual(before.products);expect(await legacy.select().from(schema.styleVersions)).toEqual(before.style);expect(await legacy.select().from(schema.sellerProfiles)).toEqual(before.seller);expect(await legacy.select().from(schema.generations)).toHaveLength(0);
  }finally{await acceptance.close();}
 });
+
+it("gateway logs allowlisted transport diagnostics while retaining ambiguous unknown accounting",async()=>{
+ const warning=vi.spyOn(console,"warn").mockImplementation(()=>{});
+ const provider=new FakeGenerationProvider({failure:new ProviderFailure("NETWORK",{},undefined,true,undefined,"ENOTFOUND")});
+ const result=await service(provider).prepare(a,command());
+ expect(result.status).toBe("FAILED");expect(provider.calls).toBe(1);
+ expect(warning).toHaveBeenCalledExactlyOnceWith(JSON.stringify({event:"ai_transport_failure",category:"NETWORK",transportCause:"ENOTFOUND"}));
+ const accounting=await generationAccounting(db,a,result.id);
+ expect(accounting.attempts[0]).toMatchObject({failureCode:"NETWORK",ambiguous:true,costState:"unknown",estimatedNanos:null});
+ expect((await requestAccounting(db,a,accounting.attempts[0].id)).usage).toMatchObject({costState:"unknown",amountNanos:null});
+});

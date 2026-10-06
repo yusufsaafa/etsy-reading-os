@@ -1,3 +1,4 @@
+import { logTransportFailure } from "./transport-diagnostic";
 import { and, eq, gte, or } from "drizzle-orm";
 import type { Database, DbExecutor } from "../../db/client";
 import { aiRequests, usageEvents, stores } from "../../db/schema";
@@ -50,7 +51,8 @@ export class CentralAIGateway {
    response=await this.policy.provider.generate(input);
    try{result=accept(response);}catch{failure=new ProviderFailure("INVALID_OUTPUT",response.usage,response.requestId);}
   }catch(error){failure=error instanceof ProviderFailure?error:new ProviderFailure("PROVIDER_ERROR",{},undefined,true);}
-  if(failure&&["TIMEOUT","NETWORK"].includes(failure.code)&&!failure.ambiguous)failure=new ProviderFailure(failure.code,failure.usage,failure.requestId,true,failure.resolvedModel);
+  if(failure&&["TIMEOUT","NETWORK"].includes(failure.code)&&!failure.ambiguous)failure=new ProviderFailure(failure.code,failure.usage,failure.requestId,true,failure.resolvedModel,failure.transportCause);
+  if(failure)logTransportFailure(failure);
   const usage=normalizedUsage(response?.usage??failure?.usage??{});
   const cost=calculateCost(usage,claimed.pricing);
   const durationMs=Math.min(2147483647,Math.round(performance.now()-started));
