@@ -1,9 +1,11 @@
 import type { TokenUsage } from "./provider";
 export type Pricing = { version:string; provider:string; model:string; currency:"USD"; inputNanosPerToken:string; outputNanosPerToken:string; cachedNanosPerToken:string; source:string };
 const source="https://ai.google.dev/gemini-api/docs/pricing";
+export const SUPPORTED_GOOGLE_MODELS=["gemini-3.8-flash","gemini-3.5-flash-lite"] as const;
 export function pricingFor(provider:string,model:string,at=new Date()):Pricing {
  if(provider==="fake"&&model==="deterministic-v1") return {version:"fake-v1",provider,model,currency:"USD",inputNanosPerToken:"0",outputNanosPerToken:"0",cachedNanosPerToken:"0",source:"local deterministic fixture"};
- if(provider!=="google"||model!=="gemini-3.8-flash") throw new Error("UNPRICED_MODEL");
+ if(provider!=="google"||!SUPPORTED_GOOGLE_MODELS.includes(model as typeof SUPPORTED_GOOGLE_MODELS[number])) throw new Error("UNPRICED_MODEL");
+ if(model==="gemini-3.5-flash-lite")return {version:"google-standard-flash-lite-2026-10-06",provider,model,currency:"USD",inputNanosPerToken:"300",outputNanosPerToken:"2500",cachedNanosPerToken:"30",source};
  const future=at>=new Date("2027-01-01T00:00:00Z");
  return {version:future?"google-standard-2027-01-01":"google-standard-2026-10-05",provider,model,currency:"USD",
  inputNanosPerToken:future?"1500":"750",outputNanosPerToken:future?"7500":"3750",cachedNanosPerToken:future?"150":"75",source};

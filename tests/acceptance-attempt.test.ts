@@ -9,8 +9,8 @@ it('first explicit identity gets a durable marker and command identity before mo
  expect(JSON.parse(readFileSync(claim.markerPath,'utf8'))).toMatchObject({attemptId:'host-20261006-02',commandKey:claim.commandKey});expect(dispatch).toHaveBeenCalledTimes(1);
 }));
 it('same identity cannot dispatch twice or overwrite its command',()=>isolated(directory=>{
- const first=claimAcceptanceAttempt('host-02',directory),before=readFileSync(first.markerPath,'utf8'),dispatch=vi.fn();
- expect(()=>{dispatch(claimAcceptanceAttempt('host-02',directory));}).toThrow();expect(dispatch).not.toHaveBeenCalled();expect(readFileSync(first.markerPath,'utf8')).toBe(before);
+ const first=claimAcceptanceAttempt('host-02',directory,'gemini-3.8-flash'),before=readFileSync(first.markerPath,'utf8'),dispatch=vi.fn();
+ expect(()=>{dispatch(claimAcceptanceAttempt('host-02',directory,'gemini-3.5-flash-lite'));}).toThrow();expect(dispatch).not.toHaveBeenCalled();expect(readFileSync(first.markerPath,'utf8')).toBe(before);
 }));
 it('legacy marker remains untouched and never authorizes implicit live work',()=>isolated(directory=>{
  const legacy=join(directory,'reading-os-gemini-acceptance-2026-10-06.dispatched');writeFileSync(legacy,'previous ambiguous intent\n');

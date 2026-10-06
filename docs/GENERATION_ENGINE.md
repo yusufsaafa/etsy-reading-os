@@ -119,3 +119,15 @@ Production retries use the existing engine's failed Generation reference, origin
 The internal capability path can resume an already admitted CLAIMED/null-started/nonambiguous request with the SAME command and accounting intent after durable queue recovery. It cannot resume RUNNING or ambiguous requests. Gateway rechecks authority after Store locking, so an expired/replaced worker cannot race new ownership into dispatch. Normal seller replay semantics remain unchanged. TIMEOUT/NETWORK after invocation are always normalized ambiguous, even when an adapter supplies false, preventing a normal seller retry from reproducing the historical MRH lost-response problem.
 
 All retry/resume calls still pass GenerationService→CentralAIGateway→provider; pricing, budgets and UsageEvent accounting remain centralized. Recovery never turns unknown amounts into zero or rewrites unfinished RUNNING as a fabricated known failure. Only authentic stored canonical success is adopted without calling a provider. See PRODUCTION_ORCHESTRATION.md Part 4 for policy/backoff/runtime and remaining hardening.
+
+
+### Explicit second-model support (2026-10-06)
+
+The centralized Google pricing registry supports gemini-3.8-flash (unchanged normal default) and stable gemini-3.5-flash-lite. Flash Lite's verified standard paid rates are 300 input / 2,500 output including thinking / 30 cached-input USD nanos per token, snapshot google-standard-flash-lite-2026-10-06. Source: https://ai.google.dev/gemini-api/docs/pricing . Estimates are paid-rate snapshots, not provider invoices or assertions of Free Tier charges. Unknown models fail closed as UNPRICED_MODEL. No automatic fallback exists.
+
+The isolated synthetic harness can explicitly select `--model gemini-3.5-flash-lite`; preflight shows the choice, pricing and reservation. Runtime model override is server-side; normal callers/configuration are unchanged. The immutable attempt marker includes selected model and remains unique by attempt ID across models. Provider request schema, canonical validation, gateway accounting, ambiguity and retry policy are unchanged. Compatibility preparation uses only offline mocked tests; separate authorization is required for a real acceptance. See GEMINI_ACCEPTANCE_REPORT.md for official capability references and reservation calculation.
+
+
+### Controlled live acceptance verified (2026-10-06)
+
+User-run synthetic host attempt host-20261006-flash-lite-01 passed HTTP200 through GenerationService/CentralAIGateway/GeminiGenerationProvider, with one dispatch, exact three-section canonical validation, successful Generation/AIRequest and settled UsageEvent. Model requested/resolved gemini-3.5-flash-lite; 433 input and 306 output tokens; estimated cost 894,900 USD nanos. This proves bounded pipeline compatibility, not sustained availability or quality. gemini-3.8-flash remains configured/default; two historical host attempts returned HTTP503/UNAVAILABLE/high demand. See GEMINI_ACCEPTANCE_REPORT.md for evidence, cache-normalization caveat and pending default recommendation.

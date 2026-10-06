@@ -29,7 +29,7 @@ it('observer installed before construction sees exactly one mocked call and harn
  const original=vi.fn().mockResolvedValue(response()),observer=vi.fn(async(...args:Parameters<typeof fetch>)=>original(...args));
  vi.stubGlobal('fetch',observer);
  try{const provider=new GeminiGenerationProvider('fake');await provider.generate(request);expect(observer).toHaveBeenCalledTimes(1);expect(original).toHaveBeenCalledTimes(1);
- const source=readFileSync('scripts/synthetic-gemini-acceptance.ts','utf8');expect(source.indexOf('globalThis.fetch=async')).toBeLessThan(source.indexOf('generationRuntime(db).prepare'));
+ const source=readFileSync('scripts/synthetic-gemini-acceptance.ts','utf8');expect(source.indexOf('globalThis.fetch=async')).toBeLessThan(source.indexOf('generationRuntime(db,{model}).prepare'));
  }finally{vi.unstubAllGlobals();}
 });
 it('provider captures earlier fetch and therefore a late observer misses it (historical regression)',async()=>{

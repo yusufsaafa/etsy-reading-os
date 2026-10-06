@@ -309,3 +309,56 @@ Starting repository checkpoint 1856efc2a9ba2e24cd7dd6731d9dcb91d6020ef1, initial
 **NEXT SAFE ACTION:** no request/schema/model/budget correction is justified by this evidence. Preserve uncertain history and reservation. Inspect provider availability/capacity through non-generation operational channels under separate scope before considering any separately authorized new acceptance; do not automatically retry or reinterpret503 as proof no work/billing occurred. Real Gemini end-to-end acceptance remains not PASS.
 
 Report-only change: docs/GEMINI_ACCEPTANCE_REPORT.md. git diff --check PASS; no product/harness code changed, so normal tests/build were not rerun. Previous 70unit/195DB/typecheck/build results are historical, not newly claimed validations. Local report commit only, no push/deploy. Historical artifacts/database/markers remain untouched by domain mutations.
+
+
+## Controlled second-model compatibility preparation — 2026-10-06
+
+Official Google documentation verifies stable `gemini-3.5-flash-lite`, structured output support, input limit 1,048,576 tokens and output limit 65,536 tokens. Sources:
+- https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash-lite
+- https://ai.google.dev/gemini-api/docs/pricing
+- https://ai.google.dev/api/generate-content?hl=en
+
+The Gemini REST v1beta generateContent reference still documents responseMimeType=application/json and responseSchema (deprecated in favor of responseFormat, not removed). Reading OS uses the existing supported object/array/string/enum/required subset. No request/prompt/schema changes. Documentation establishes compatibility, not a successful live acceptance or project availability guarantee.
+
+Standard paid pricing snapshot `google-standard-flash-lite-2026-10-06`: input $0.30/million (300 USD nanos/token), output including thinking $2.50/million (2,500 nanos/token), cached input $0.03/million (30 nanos/token). Explicit cache storage is separately $1/million tokens/hour; this pipeline does not create explicit caches. Free-tier input/output access is listed as free; caching is unavailable on that tier. The application retains a paid-rate estimated snapshot, not an assertion of the project's actual Google invoice or charge. Free-tier data-use terms apply.
+
+Normal/default model remains gemini-3.8-flash. No local environment changes. The acceptance harness accepts an explicit `--model gemini-3.5-flash-lite`, validates the centralized pricing registry, displays selected model in preflight, and supplies that model to the same GenerationService → CentralAIGateway → GeminiGenerationProvider path. No automatic model fallback. Unknown/empty selected models fail closed. Marker records selected model before dispatch; changing model does not permit reusing the same attempt identity. Existing markers, databases and failed attempts remain untouched.
+
+For the current synthetic input (2,115 UTF-8 bytes), schema allowance 8,192 and maximum output 8,192: reservation = (2,115 + 8,192) × 300 + 8,192 × 2,500 = 23,572,100 USD nanos ($0.0235721). Existing 3.8 reservation remains 38,450,250 nanos. Daily and per-attempt budget checks remain enforced by the same gateway. Null/unknown usage and cost remain unknown. No pricing/accounting bypass.
+
+Preparation only. Neither live mode nor the acceptance harness was executed in this task. REAL GEMINI GENERATION ATTEMPTS DURING THIS TASK = 0. A future separately authorized controlled attempt may use:
+
+```sh
+node --env-file=.env.local --import tsx scripts/synthetic-gemini-acceptance.ts --live --attempt-id host-20261006-flash-lite-01 --model gemini-3.5-flash-lite
+```
+
+No live result, tokens, generated content or settled cost is claimed. Structured quality, actual model access/capacity and real usage compatibility still require that separate acceptance.
+
+Offline validation for this preparation: pnpm typecheck PASS; pnpm test 76/76 across 15 files; pnpm test:db 195/195 across 9 files; pnpm build PASS; git diff --check PASS. Total 271 tests, zero failures. Six new model-compatibility tests cover both priced models, unknown model rejection, reservation, explicit selection, mocked structured requests and no fallback; existing marker test now rejects reuse across different models. No migrations, dependencies, provider/prompt/schema or environment files changed. Changes remain local and uncommitted; no push/deploy.
+
+
+## Final controlled real-provider verification — 2026-10-06
+
+**CONTROLLED REAL GEMINI ACCEPTANCE = PASS.** This supersedes earlier not-PASS acceptance conclusions for the supported Flash Lite path only. User separately executed attempt host-20261006-flash-lite-01 on the host. This verification task made ZERO real Gemini generation attempts, created no marker/attempt identity, and did not rerun the harness. Starting branch codex/ui-ux-design-lock, HEAD fcda15bffaff31a3b12abeb3f9a9b645143cc813 with the known uncommitted model-compatibility preparation changes.
+
+Inspected retained result artifact and actual synthetic file-backed PGlite database under reading-os-synthetic-gemini-CVmb05. Only SELECT queries were used; no domain records or historical markers changed. Artifact and database have exactly one Generation, AIRequest and UsageEvent with matching references and expected ProductVersion/StyleProfileVersion bindings, customer revision 0. No production database/customer data was accessed.
+
+HTTP 200; Generation SUCCEEDED; AIRequest SUCCEEDED; provider google; requested and resolved model gemini-3.5-flash-lite; provider response ID G-vEavGmJeX9vdIP05zjiQk; duration 2,285 ms; failure null; ambiguity false. Artifact transport observer records exactly one dispatch. Provider candidate finishReason STOP. Provider envelope parsing, Zod validation and deterministic canonical validation succeeded in the real application path GenerationService → CentralAIGateway → GeminiGenerationProvider → Gemini API. Independently revalidated retained candidate JSON with validateCanonical against the retained context and compared it with persisted canonical result. Exactly three sections, no missing/unknown/duplicate IDs, exact configured titles and nonempty contents:
+
+- `current-feelings` / **Current Feelings**: Jane Test, right now the emotional dynamic in your fictional relationship feels a bit like standing at the edge of a quiet morning, waiting for the sun to break through the mist.
+- `their-intentions` / **Their Intentions**: When looking at what might be guiding their actions, it appears they are approaching this connection with a quiet desire for stability and authentic connection.
+- `relationship-direction` / **Relationship Direction**: As you look toward the future, this fictional path encourages open communication and a steady, grounded approach.
+
+Usage: input 433; output 306; total 739. Google did not return thoughtsTokenCount or cachedContentTokenCount. Reasoning remains null/unavailable; cached tokens are normalized to 0 by the existing provider when usage metadata exists but the cached count is absent (not an explicitly reported Google zero). No explicit cache is requested. Usage metadata also reports TEXT input modality with 433 tokens and standard service tier; neither adds a billable token category. No incompatible usage category was observed.
+
+Accounting: exactly one UsageEvent, costState estimated, amount 894,900 integer USD nanos ($0.0008949), matching the AIRequest's estimated cost. Pricing version google-standard-flash-lite-2026-10-06: input 300 / output 2,500 / cached 30 USD nanos/token. Calculation 433×300 + 306×2,500 = 894,900. Original reservation 23,572,100 nanos remains recorded as historical reservation; current liability uses the settled estimate instead. Reservation minus estimate = 22,677,200 nanos ($0.0226772). actualNanos remains null: no provider invoice cost was returned. THIS IS AN ESTIMATE BASED ON THE APPLICATION'S PRICING SNAPSHOT, NOT A CLAIM THAT IT EXACTLY MATCHES THE FINAL GOOGLE INVOICE, including Free Tier billing.
+
+Gateway.admit inserts AIRequest and provisional UsageEvent in the same admission transaction before dispatch. Durable UsageEvent createdAt 12:35:39.149Z precedes AIRequest startedAt 12:35:39.166Z; successful settlement finishedAt 12:35:41.454Z. Code ordering and timestamps support the accounting-before-dispatch invariant. No duplicate ledger, second dispatch or automatic model fallback. Artifact security checks assert secretAbsent and redactedAudit; persisted audit fields omit private bodies. No environment secrets were displayed, copied to documentation or staged.
+
+Comparison: host-20261006-02 and host-20261006-03 requested gemini-3.8-flash and independently received HTTP503/UNAVAILABLE/high demand, with ambiguous unknown usage/cost. Their retained histories were not retried or changed. The successful Lite acceptance does not prove 3.8 availability or that model choice was the cause of prior service failures. Current ignored local configuration and runtime default remain google / gemini-3.8-flash.
+
+Recommendation B (decision pending): switch the default to the now pipeline-verified Flash Lite in a separately authorized configuration task. It has one proven end-to-end success and lower standard rates ($0.30 input / $2.50 output per million versus 3.8's current $0.75 / $3.75). One success does not establish sustained availability or personalized-writing quality; 3.8 may merit later qualitative evaluation. NO default/configuration change made in this task.
+
+Scope of PASS: one real request, structured output, canonical persistence/validation, usage/accounting settlement and one dispatch through the existing generation path. Does not validate queue live execution, recovery, load, repeated reliability, invoices, or reading quality beyond structural plausibility. No later milestone begun, push or deployment.
+
+Final verification validations rerun: pnpm typecheck PASS; pnpm test 76/76 (15 files); pnpm test:db 195/195 (9 files); pnpm build PASS; git diff --check PASS. Total 271 tests, zero failures. Automated providers remained offline/fake/mocked. Model-compatibility implementation plus acceptance documentation committed locally with message feat(ai): verify controlled Gemini acceptance; only explicit code/test/docs paths staged. No env, marker, artifact or database files included.

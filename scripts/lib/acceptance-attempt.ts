@@ -1,3 +1,4 @@
+import { pricingFor } from "../../src/infrastructure/ai/pricing";
 import { parseArgs } from 'node:util';
 import { openSync,writeFileSync,fsyncSync,closeSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
@@ -9,20 +10,29 @@ function validateAttemptId(id:string) {
 }
 export function acceptanceArguments(args:string[]) {
  if(args.filter(a=>a==='--attempt-id'||a.startsWith('--attempt-id=')).length>1)throw new Error('Supply exactly one attempt ID');
- const {values}=parseArgs({args,options:{live:{type:'boolean'},'attempt-id':{type:'string'}},strict:true});
+ if(args.filter(a=>a==='--model'||a.startsWith('--model=')).length>1)throw new Error('Supply exactly one model');
+ const {values}=parseArgs({args,options:{live:{type:'boolean'},'attempt-id':{type:'string'},model:{type:'string'}},strict:true});
  const live=values.live??false,attemptId=values['attempt-id'];
  if(live&&!attemptId)throw new Error('Live mode requires an explicitly authorized --attempt-id');
- return {live,attemptId:attemptId===undefined?undefined:validateAttemptId(attemptId)};
+ return {live,attemptId:attemptId===undefined?undefined:validateAttemptId(attemptId),...(values.model===undefined?{}:{model:values.model})};
 }
 // One local durable claim per explicit authorization identity. Never remove or replace it.
-export function claimAcceptanceAttempt(attemptId:string,directory=tmpdir()) {
+export function claimAcceptanceAttempt(attemptId:string,directory=tmpdir(),model?:string) {
  const id=validateAttemptId(attemptId);
+ if(model!==undefined)pricingFor("google",model);
  const markerPath=join(directory,'reading-os-gemini-acceptance.'+id+'.dispatched');
  const fd=openSync(markerPath,'wx',0o600);
  try{
   const commandKey=randomUUID();
-  writeFileSync(fd,JSON.stringify({attemptId:id,commandKey,createdAt:new Date().toISOString(),intent:'one controlled synthetic acceptance'},null,2)+'\n');
+  writeFileSync(fd,JSON.stringify({attemptId:id,commandKey,model,createdAt:new Date().toISOString(),intent:'one controlled synthetic acceptance'},null,2)+'\n');
   fsyncSync(fd);
   return {attemptId:id,commandKey,markerPath};
  }finally{closeSync(fd);}
+}
+
+export function acceptanceModel(explicit:string|undefined,configured:string|undefined) {
+ const model=explicit??configured;
+ if(!model)throw new Error("Acceptance model must be explicitly configured or supplied with --model");
+ pricingFor("google",model);
+ return model;
 }

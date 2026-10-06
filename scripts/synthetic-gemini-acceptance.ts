@@ -4,7 +4,7 @@ import { drizzle } from 'drizzle-orm/pglite';
 import { readFileSync,readdirSync,mkdtempSync,writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { acceptanceArguments,claimAcceptanceAttempt } from './lib/acceptance-attempt';
+import { acceptanceArguments,claimAcceptanceAttempt,acceptanceModel } from './lib/acceptance-attempt';
 import assert from 'node:assert/strict';
 import * as schema from '../src/db/schema';
 import type { Database } from '../src/db/client';
@@ -19,11 +19,12 @@ import { generationRuntime } from '../src/infrastructure/ai/runtime';
 import { pricingFor,reserveCost,calculateCost } from '../src/infrastructure/ai/pricing';
 import type { Configuration } from '../src/modules/products/contracts';
 const stringify=(v:unknown)=>JSON.stringify(v,(_,x)=>typeof x==='bigint'?x.toString():x,2);
-assert.equal(process.env.AI_PROVIDER,'google');assert.equal(process.env.AI_GENERATION_MODEL,'gemini-3.8-flash');
+assert.equal(process.env.AI_PROVIDER,'google');
 assert.ok(process.env.GEMINI_API_KEY);
 const budget=(n:string)=>{const v=process.env[n];assert.ok(v&&/^\d+$/.test(v),n+' invalid');return BigInt(v);};
 const daily=budget('AI_DAILY_BUDGET_NANOS'),attempt=budget('AI_ATTEMPT_BUDGET_NANOS');
-const {live,attemptId}=acceptanceArguments(process.argv.slice(2));
+const {live,attemptId,model:explicitModel}=acceptanceArguments(process.argv.slice(2));
+const model=acceptanceModel(explicitModel,process.env.AI_GENERATION_MODEL);
 const location=mkdtempSync(join(tmpdir(),'reading-os-synthetic-gemini-'));
 const pg=new PGlite(join(location,'database'));
 let calls=0,payload:unknown,rawResponse:unknown,httpStatus:number|undefined;
@@ -47,21 +48,21 @@ try {
  const unit=(await workspaceData(db,scope)).units[0];assert.ok(unit);
  const context=await db.transaction(tx=>buildGenerationContext(tx,scope,unit.id),{isolationLevel:'repeatable read'});
  assert.equal(context.product.id,versionId);assert.equal(context.style.id,style.id);
- const instructions=assembleInstructions(context),pricing=pricingFor('google',process.env.AI_GENERATION_MODEL!);
+ const instructions=assembleInstructions(context),pricing=pricingFor('google',model);
  const reserved=reserveCost(Buffer.byteLength(instructions.system+instructions.data),8192,pricing);
- if(reserved>attempt||reserved>daily){console.log(stringify({preflight:'BLOCKED_BUDGET_RESERVATION',provider:process.env.AI_PROVIDER,model:process.env.AI_GENERATION_MODEL,keyPresent:true,budgetsParsed:true,admission:'PASS',requiredReservationNanos:reserved,attemptBudgetFits:reserved<=attempt,dailyBudgetFits:reserved<=daily,providerAttempts:0}));throw new Error('BUDGET_LIMIT_PREFLIGHT');}
+ if(reserved>attempt||reserved>daily){console.log(stringify({preflight:'BLOCKED_BUDGET_RESERVATION',provider:process.env.AI_PROVIDER,model,keyPresent:true,budgetsParsed:true,admission:'PASS',requiredReservationNanos:reserved,attemptBudgetFits:reserved<=attempt,dailyBudgetFits:reserved<=daily,providerAttempts:0}));throw new Error('BUDGET_LIMIT_PREFLIGHT');}
  assert.equal((await db.select().from(schema.productionQueue)).length,0);
  assert.equal((await db.select().from(schema.aiRequests)).length,0);
  // Instantiate the EXISTING runtime, without invocation during pre-flight.
- if(!live)generationRuntime(db);
- const preflight={provider:'google',model:process.env.AI_GENERATION_MODEL,keyPresent:true,budgetsParsed:true,budgetReservationFits:true,isolatedDatabase:'file-backed PGlite at temporary synthetic-only directory; DATABASE_URL never read',admission:'PASS',queueItems:0,pricing,expectedSections:sections.map(({id,title})=>({sectionId:id,title})),system:instructions.system,userData:JSON.parse(instructions.data)};
+ if(!live)generationRuntime(db,{model});
+ const preflight={provider:'google',model,keyPresent:true,budgetsParsed:true,budgetReservationFits:true,isolatedDatabase:'file-backed PGlite at temporary synthetic-only directory; DATABASE_URL never read',admission:'PASS',queueItems:0,pricing,expectedSections:sections.map(({id,title})=>({sectionId:id,title})),system:instructions.system,userData:JSON.parse(instructions.data)};
  if(!live){console.log(stringify({preflight,providerAttempts:0}));}
  else {
   // A new explicit authorization identity creates a separate immutable one-shot marker.
-  const acceptance=claimAcceptanceAttempt(attemptId!);
+  const acceptance=claimAcceptanceAttempt(attemptId!,tmpdir(),model);
   globalThis.fetch=async(input,init)=>{
    assert.equal(calls,0,'Second network invocation forbidden');
-   assert.ok(String(input).startsWith('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent'));
+   assert.ok(String(input)==='https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent');
    payload=JSON.parse(String(init?.body));calls++;
    const response=await originalFetch(input,init);httpStatus=response.status;
    // Capture response without headers; only synthetic generation content.
@@ -69,7 +70,7 @@ try {
    return response;
   };
   let result:typeof schema.generations.$inferSelect|undefined,failure:string|undefined;
-  try{result=await generationRuntime(db).prepare(scope,{unitId:unit.id,commandKey:acceptance.commandKey});}catch(e){failure=e instanceof Error&&/^[A-Z_]+$/.test(e.message)?e.message:'APPLICATION_ERROR';}
+  try{result=await generationRuntime(db,{model}).prepare(scope,{unitId:unit.id,commandKey:acceptance.commandKey});}catch(e){failure=e instanceof Error&&/^[A-Z_]+$/.test(e.message)?e.message:'APPLICATION_ERROR';}
   const requests=await db.select().from(schema.aiRequests),usage=await db.select().from(schema.usageEvents),audit=await db.select().from(schema.auditLogs);
   const secret=process.env.GEMINI_API_KEY!;
   assert.ok(!stringify({result,requests,usage,audit,payload,rawResponse}).includes(secret),'SECRET_LEAK');
