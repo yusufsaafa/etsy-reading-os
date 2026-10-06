@@ -1,6 +1,6 @@
 # Controlled real Gemini acceptance
 
-Latest result: one intentional live application attempt FAILED with NETWORK / ambiguous outcome on 2026-10-06 14:52 Europe/Istanbul. No retry. Historical pre-flight blockers below are superseded by the final live-attempt section.
+Latest recorded host attempt host-20261006-02 FAILED with HTTP503 / UNAVAILABLE (provider reports high demand), ambiguous outcome. Original Codex NETWORK attempt remains historical and unchanged. No retry during diagnosis. See the final existing-evidence diagnosis below.
 
 Date: 2026-10-06 (Europe/Istanbul).
 
@@ -281,3 +281,31 @@ Run once. Do not invent another ID automatically if this attempt fails. Summary 
 Five offline tests: first explicit marker persists before mocked dispatch, duplicate blocked without overwrite, legacy marker remains unchanged and does not authorize implicit live mode, distinct explicit IDs reach separate mocked boundaries, live missing/invalid/duplicate CLI identity rejected. Test code never contacts Gemini. **REAL GEMINI GENERATION ATTEMPTS DURING THIS TASK = 0.** No network diagnostic request, push/deploy or subsequent milestone.
 
 Validation: pnpm typecheck PASS (rerun after restoring unrelated Next-generated config); pnpm test 70 tests/14 files PASS; pnpm test:db 195 tests/9 files PASS; pnpm build PASS. Total265, zero failures; five new offline tests, no live harness invocation/network request. Original real marker hash reverified unchanged after tests. Exact files changed: scripts/synthetic-gemini-acceptance.ts, scripts/lib/acceptance-attempt.ts, tests/acceptance-attempt.test.ts, docs/GEMINI_ACCEPTANCE_REPORT.md. git diff --check PASS. Safe changes committed locally; no push/deploy. REAL GEMINI GENERATION ATTEMPTS DURING THIS TASK = 0.
+
+## Existing-evidence diagnosis: host-20261006-02 — 2026-10-06
+
+Starting repository checkpoint 1856efc2a9ba2e24cd7dd6731d9dcb91d6020ef1, initial working tree clean. User supplied retained result artifact at `/var/folders/kl/j2ydy6n901z5k8j0l4xn5tt00000gn/T/reading-os-synthetic-gemini-kmI98O/acceptance-result.json`. Read that artifact and selected fields in its actual file-backed synthetic database. No environment/API key loaded or used, no connectivity/API request, no harness rerun, no new attempt identity or marker modification. **REAL GEMINI GENERATION ATTEMPTS DURING THIS TASK = 0.**
+
+**PROVEN ROOT CAUSE:** provider-reported service unavailability/high demand: HTTP503, Google error.code503, error.status UNAVAILABLE. The retained message has the safe indicators high demand and try again later; arbitrary raw error text is not reproduced. Specific internal Google capacity/fault cause is not independently proven. No evidence of an application request-format bug.
+
+**EVIDENCE:** host result records intentionalProviderAttempts1, canonicalValidatedfalse. One durable AIRequest FAILED / PROVIDER_ERROR, ambiguous=true, duration8863ms, providergoogle, requested modelgemini-3.8-flash, resolved model/provider request ID null. Actual durable Generation FAILED, resultnull, customerRevision0; UsageEvent unknown/null USD. Artifact and DB agree. No Google structured error details present.
+
+**HTTP RESPONSE:** yes,503 with a JSON error body. Response body reached JSON/envelope parsing, then `if(!response.ok)` rejected it. No candidate text was returned/parsed and Generation canonical validation was never invoked. This is different from the original Codex16ms NETWORK failure. No transport failure code is available or indicated for this successful HTTP exchange.
+
+**AUTH:** unknown. No401/403/AUTH was returned; that does not prove authentication acceptance.
+
+**MODEL:** unknown acceptance. No404/model-not-found indication; high-demand failure does not conclusively validate requested model access/execution. No alternate model used.
+
+**ENDPOINT:** HTTP response received for the captured configured POST path; not reported rejected. Independent endpoint acceptance/routing versus global error handling cannot be proved from503 alone.
+
+**REQUEST/SCHEMA:** unknown acceptance. No400/INVALID_ARGUMENT/schema complaint. Existing captured request has systemInstruction, single user contents envelope, candidateCount1, maxOutputTokens8192, responseMimeTypeapplication/json, responseSchema OBJECT with sections ARRAY of sectionId/title/content objects and required fields. Allowed section IDs current-feelings, their-intentions, relationship-direction. Static URL construction is fixed official hostname + `/v1beta/models/` + encodeURIComponent(model) + `:generateContent`, with key in server-side header, no query key. The observed failure is service-unavailable, not a schema rejection. Do not infer all validation stages passed.
+
+**QUOTA/RATE:** no429 or RESOURCE_EXHAUSTED indication. High demand is explicitly provider-reported; project quota as a deeper factor cannot be independently ruled out, but is not supported by this error evidence.
+
+**ACCOUNTING:** Generation/AIRequest FAILED; AIRequest ambiguoustrue and costStateunknown. Exactly one UsageEvent associated with its AIRequest, unknown amountNanosnull, currencyUSD. Input/output/total/reasoning/cache token categories all unavailable/null. Reservation38,450,250 USD nanos ($0.03845025), retained conservatively. Estimated settled costnull/unknown, not zero; no invoice proof. Reservation-minus-cost difference unknown. Pricing snapshot remains the configured centralized snapshot; no new price/model/budget/policy change.
+
+**DIAGNOSTIC LIMITATION:** normal AIRequest does not persist HTTP status or Google's structured error.status/code; the synthetic harness artifact retained those fields, sufficient for this investigation. Arbitrary provider messages remain intentionally discarded by normal provider/gateway failure normalization. No offline diagnostic implementation is necessary to identify this503, and no product/schema/code change made here. Exact internal Google cause, authentication/model/schema acceptance and billing cannot be recovered from this error.
+
+**NEXT SAFE ACTION:** no request/schema/model/budget correction is justified by this evidence. Preserve uncertain history and reservation. Inspect provider availability/capacity through non-generation operational channels under separate scope before considering any separately authorized new acceptance; do not automatically retry or reinterpret503 as proof no work/billing occurred. Real Gemini end-to-end acceptance remains not PASS.
+
+Report-only change: docs/GEMINI_ACCEPTANCE_REPORT.md. git diff --check PASS; no product/harness code changed, so normal tests/build were not rerun. Previous 70unit/195DB/typecheck/build results are historical, not newly claimed validations. Local report commit only, no push/deploy. Historical artifacts/database/markers remain untouched by domain mutations.
