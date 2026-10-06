@@ -6,12 +6,12 @@ import { Heading, EmptyState, Button } from "@/components/ui";
 import { Icon } from "@/components/icon";
 import { OrderList } from "@/components/order-list";
 import { orderStatus, informationIssues } from "@/components/seller-status";
-import { reviewAvailable,readingReviewStatus } from "@/modules/review/service";
+import { readingReviewStatus } from "@/modules/review/service";
 const filters = [["all","All"],["new","New"],["info","Needs info"],["ready","Ready"],["completed","Completed"],["attention","Needs attention"]];
 export default async function OrdersPage({ searchParams }: { searchParams: Promise<{ q?:string; filter?:string }> }) {
   const scope=await currentScope(),data = await workspaceData(database(),scope);
-  const reviewable=new Set((await Promise.all(data.units.map(async unit=>{const line=data.lines.find(l=>l.id===unit.lineItemId);return line&&await reviewAvailable(database(),scope,line.orderId,unit.id)?unit.id:null;}))).filter(Boolean));
-  const approved=new Set((await Promise.all(data.units.map(async unit=>{const line=data.lines.find(l=>l.id===unit.lineItemId);return line&&reviewable.has(unit.id)&&await readingReviewStatus(database(),scope,line.orderId,unit.id)==="Approved"?unit.id:null;}))).filter(Boolean));
+  const statuses=new Map(await Promise.all(data.units.map(async unit=>{const line=data.lines.find(l=>l.id===unit.lineItemId);return [unit.id,line?await readingReviewStatus(database(),scope,line.orderId,unit.id):null] as const;})));
+  const reviewable=new Set([...statuses].filter(([,status])=>status!==null).map(([id])=>id)),approved=new Set([...statuses].filter(([,status])=>status==="Approved").map(([id])=>id));
   const params = await searchParams, q = typeof params.q === "string" ? params.q.slice(0,200) : "", filter = filters.some(([key]) => key === params.filter) ? params.filter : "all";
   const rows = data.orders.map(order => {
     const lines = data.lines.filter(l => l.orderId === order.id), units = data.units.filter(u => lines.some(l => l.id === u.lineItemId));

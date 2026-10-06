@@ -8,6 +8,7 @@ import {answerSchema,stableJson,type Scope} from "../intake/contracts";
 import {configurationSchema} from "../products/contracts";
 import {ENGINE_VERSION,validateCanonical} from "../generation/contracts";
 import {validateReviewDraft,ReviewDraftError} from "./draft-contract";
+import {immutableApprovedReading,type ApprovedReadingForDocument} from "./approved-reading";
 export class ReviewUnavailable extends Error {constructor(){super("REVIEW_UNAVAILABLE");}}
 const identity=z.string().uuid();
 export function reviewContent(generation:typeof generations.$inferSelect) {
@@ -45,8 +46,7 @@ async function candidate(tx:DbExecutor,scope:Scope,orderId:string,readingId:stri
  return {unit,line,order,generation,review,content};
 }
 export async function reviewAvailable(db:Database,scope:Scope,orderId:string,readingId:string) {
- try {return await db.transaction(async tx=>{const data=await candidate(tx,scope,orderId,readingId);if(data.review?.state==="APPROVED")approvedReviewContent(data.review,validateCanonical(JSON.stringify(data.generation.result),data.generation.context));return true;},{isolationLevel:"repeatable read"});}
- catch(error){if(error instanceof ReviewUnavailable)return false;throw error;}
+ return (await readingReviewStatus(db,scope,orderId,readingId))!==null;
 }
 export async function openReadingReview(db:Database,scope:Scope,orderId:string,readingId:string,editing=false) {
  return db.transaction(async tx=>{
@@ -90,8 +90,9 @@ export function reviewContentHash(content:import("../generation/contracts").Cano
 }
 export function approvedReviewContent(review:typeof readingReviews.$inferSelect,base:import("../generation/contracts").CanonicalResult) {
  try {
-  if(review.state!=="APPROVED"||!review.approvedAt||!review.approvedContentHash||!review.approvedByUserId)throw new Error();
+  if(review.state!=="APPROVED"||!(review.approvedAt instanceof Date)||!Number.isFinite(review.approvedAt.getTime())||!review.approvedContentHash||!review.approvedByUserId||(review.approvedDraftRevision!==null&&(!Number.isSafeInteger(review.approvedDraftRevision)||review.approvedDraftRevision<0)))throw new Error();
   const content=validateReviewDraft(review.approvedContent,base);
+  if(review.approvedDraftRevision===null&&stableJson(content)!==stableJson(base))throw new Error();
   if(reviewContentHash(content)!==review.approvedContentHash)throw new Error();
   return content;
  }catch{throw new ReviewUnavailable();}
@@ -121,6 +122,24 @@ export async function readingReviewStatus(db:Database,scope:Scope,orderId:string
    approvedReviewContent(data.review,validateCanonical(JSON.stringify(data.generation.result),data.generation.context));
    return "Approved";
   }
+  if(data.review){
+   const base=validateCanonical(JSON.stringify(data.generation.result),data.generation.context);
+   const [draft]=await tx.select().from(readingReviewDrafts).where(and(tenantWhere(readingReviewDrafts,scope),eq(readingReviewDrafts.reviewId,data.review.id)));
+   try{if(draft)validateReviewDraft(draft.content,base);}catch{throw new ReviewUnavailable();}
+  }
   return "Ready for review";
  },{isolationLevel:"repeatable read"});}catch(error){if(error instanceof ReviewUnavailable)return null;throw error;}
+}
+
+/** Local repeatable-read boundary; no admission, editing, approval or provider side effect. */
+export async function getApprovedReadingForDocument(db:Database,scope:Scope,orderId:string,readingId:string):Promise<ApprovedReadingForDocument> {
+ return db.transaction(async tx=>{
+  const data=await candidate(tx,scope,orderId,readingId),review=data.review;
+  if(!review||review.state!=="APPROVED")throw new ReviewUnavailable();
+  const base=validateCanonical(JSON.stringify(data.generation.result),data.generation.context);
+  const content=approvedReviewContent(review,base);
+  try{return immutableApprovedReading({contractVersion:"approved-reading/v1",organizationId:scope.organizationId,storeId:scope.storeId,readingId:data.unit.id,
+   order:{id:data.order.id,reference:data.order.externalId,customerName:data.order.buyerName||"Customer"},product:{name:data.line.title},readingNumber:data.unit.unitIndex,quantity:data.line.quantity,
+   sections:content.sections,contentHash:review.approvedContentHash,approvedAt:review.approvedAt!.toISOString(),provenance:{reviewId:review.id,generationId:review.generationId}});}catch{throw new ReviewUnavailable();}
+ },{isolationLevel:"repeatable read"});
 }

@@ -519,3 +519,49 @@ it("racing save and approval never approves unseen content or advances an approv
  const [review]=await db.select().from(schema.readingReviews),[draft]=await db.select().from(schema.readingReviewDrafts);
  if(review.state==="APPROVED"){expect(review.approvedContent).toEqual(view.draft!.content);expect(draft.revision).toBe(0);}else{expect(review.approvedContent).toBeNull();expect(draft.revision).toBe(1);}
 });
+
+it.each([false,true])("complete review lifecycle hands off only exact immutable approved content (edited=%s)",async edited=>{
+ const {openReadingReview,approveReadingReview,saveReadingReviewDraft,getApprovedReadingForDocument}=await import("../src/modules/review/service");
+ const {result,provider}=await prepare(),orderId=result.context.orderId;
+ await expect(getApprovedReadingForDocument(db,a,orderId,unitId)).rejects.toThrow("REVIEW_UNAVAILABLE");
+ await openReadingReview(db,a,orderId,unitId);
+ await expect(getApprovedReadingForDocument(db,a,orderId,unitId)).rejects.toThrow("REVIEW_UNAVAILABLE");
+ let revision:number|null=null;
+ if(edited){const view=await openReadingReview(db,a,orderId,unitId,true),content=structuredClone(view.draft!.content);content.sections[0].content="Seller correction — 猫 🐾\n\nhttps://example.invalid/"+"x".repeat(20000);
+  await expect(getApprovedReadingForDocument(db,a,orderId,unitId)).rejects.toThrow("REVIEW_UNAVAILABLE");await saveReadingReviewDraft(db,a,orderId,unitId,0,content);revision=1;}
+ const approved=await approveReadingReview(db,a,orderId,unitId,revision),first=await getApprovedReadingForDocument(db,a,orderId,unitId),second=await getApprovedReadingForDocument(db,a,orderId,unitId);
+ expect(first).toEqual(second);expect(first.sections).toEqual(approved.approvedContent!.sections);expect(first.contentHash).toBe(approved.approvedContentHash);expect(first.provenance).toEqual({reviewId:approved.id,generationId:result.id});
+ expect(first).toMatchObject({organizationId:a.organizationId,storeId:a.storeId,readingId:unitId,contractVersion:"approved-reading/v1"});
+ expect(Object.isFrozen(first)).toBe(true);expect(Object.isFrozen(first.sections)).toBe(true);expect(Object.isFrozen(first.sections[0])).toBe(true);
+ expect(()=>{(first.sections[0] as {content:string}).content="Downstream mutation";}).toThrow();
+ expect(JSON.stringify(first)).not.toMatch(/draft|AIRequest|UsageEvent|provider|model|styleIntelligence|contextHash|queue/);expect(provider.calls).toBe(1);
+ await expect(openReadingReview(db,a,orderId,unitId,true)).rejects.toThrow();
+});
+it("approved handoff rejects foreign Stores, sibling Stores and forged Order/Reading pairs",async()=>{
+ const {openReadingReview,approveReadingReview,getApprovedReadingForDocument}=await import("../src/modules/review/service");const {result}=await prepare(),orderId=result.context.orderId;
+ await openReadingReview(db,a,orderId,unitId);await approveReadingReview(db,a,orderId,unitId,null);
+ const [sibling]=await db.insert(schema.stores).values({organizationId:a.organizationId,name:"Sibling handoff",source:"fixtures",importSince:new Date()}).returning();
+ for(const [scope,order,reading]of [[b,orderId,unitId],[{...a,storeId:sibling.id},orderId,unitId],[a,randomUUID(),unitId],[a,orderId,randomUUID()]] as const)await expect(getApprovedReadingForDocument(db,scope,order,reading)).rejects.toThrow("REVIEW_UNAVAILABLE");
+});
+it("handoff and Orders fail closed on corrupt approval and pending draft content",async()=>{
+ const {openReadingReview,approveReadingReview,getApprovedReadingForDocument,readingReviewStatus,reviewContentHash}=await import("../src/modules/review/service");const {result}=await prepare(),orderId=result.context.orderId;
+ await openReadingReview(db,a,orderId,unitId,true);const [review]=await db.select().from(schema.readingReviews);
+ async function corrupt(sql:string,parameters:unknown[]){await pg.exec("BEGIN; SET LOCAL session_replication_role=replica");await pg.query(sql,parameters);await pg.exec("SET LOCAL session_replication_role=origin; COMMIT");}
+ await corrupt("UPDATE reading_review_drafts SET content=$1 WHERE review_id=$2",[JSON.stringify({sections:[]}),review.id]);
+ expect(await readingReviewStatus(db,a,orderId,unitId)).toBeNull();await expect(openReadingReview(db,a,orderId,unitId)).rejects.toThrow("REVIEW_UNAVAILABLE");
+ await corrupt("UPDATE reading_review_drafts SET content=$1 WHERE review_id=$2",[JSON.stringify(result.result),review.id]);
+ const approved=await approveReadingReview(db,a,orderId,unitId,0);
+ for(const content of [{sections:[]},{sections:approved.approvedContent!.sections.map((s,i)=>({...s,sectionId:i===0?"forged":s.sectionId}))}]){
+  await corrupt("UPDATE reading_reviews SET approved_content=$1,approved_content_hash=$2 WHERE id=$3",[JSON.stringify(content),reviewContentHash(content),review.id]);
+  await expect(getApprovedReadingForDocument(db,a,orderId,unitId)).rejects.toThrow("REVIEW_UNAVAILABLE");
+ }
+ await corrupt("UPDATE reading_reviews SET approved_content=$1,approved_content_hash=$2 WHERE id=$3",[JSON.stringify(approved.approvedContent),"0".repeat(64),review.id]);await expect(getApprovedReadingForDocument(db,a,orderId,unitId)).rejects.toThrow("REVIEW_UNAVAILABLE");
+});
+it("approved handoff never replaces content with later successful evidence or mutable draft content",async()=>{
+ const {openReadingReview,approveReadingReview,getApprovedReadingForDocument}=await import("../src/modules/review/service");const {result}=await prepare(),orderId=result.context.orderId;
+ await openReadingReview(db,a,orderId,unitId,true);const approved=await approveReadingReview(db,a,orderId,unitId,0),original=await getApprovedReadingForDocument(db,a,orderId,unitId);
+ const changed=structuredClone(result.result!);changed.sections[0].content="Later content, never approved";
+ const [later]=await db.insert(schema.generations).values({...result,id:randomUUID(),status:"PROCESSING",result:null,completedAt:null,createdAt:new Date(result.createdAt.getTime()+1000)}).returning();await db.update(schema.generations).set({status:"SUCCEEDED",result:changed,completedAt:new Date()}).where(eq(schema.generations.id,later.id));
+ await pg.exec("BEGIN; SET LOCAL session_replication_role=replica");await pg.query("UPDATE reading_review_drafts SET content=$1 WHERE review_id=$2",[JSON.stringify(changed),approved.id]);await pg.exec("SET LOCAL session_replication_role=origin; COMMIT");
+ expect(await getApprovedReadingForDocument(db,a,orderId,unitId)).toEqual(original);
+});

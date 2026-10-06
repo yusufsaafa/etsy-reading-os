@@ -24,3 +24,11 @@ it("read-only document renders escaped customer content, exact sections, semanti
  expect(html).not.toMatch(/sectionId|generationId|provider|Gemini|token|canonical|<textarea|<button|<script>/);
  const css=readFileSync("src/app/globals.css","utf8");expect(css).toContain("max-width:72ch");expect(css).toContain("minmax(min(100%,16rem),1fr)");expect(css).toContain("overflow-wrap:anywhere");
 });
+it("long Unicode customer data and near-bound reading text stay complete escaped plain text",()=>{
+ const generation=evidence(),question="O'Neil asks: \"猫 🐾\"\nhttps://example.invalid/"+"x".repeat(9000);
+ generation.context.customer.answers[0].value=question;
+ const body="Opening — 猫 🐾\n\n"+"x".repeat(39000)+"\nhttps://example.invalid/<script>text only</script>";
+ generation.result!.sections[0].content=body;generation.contextHash=createHash("sha256").update(stableJson(generation.context)).digest("hex");
+ const result=reviewContent(generation),html=renderToStaticMarkup(createElement(ReviewReading,{reading:{approved:true,customer:"Customer",product:"Reading",orderReference:"2002",index:1,quantity:2,...result}}));
+ expect(result.details[0].value).toBe(question);expect(result.sections[1].content).toBe(body);expect(html).toContain("x".repeat(39000));expect(html).toContain("猫 🐾");expect(html).toContain("&lt;script&gt;");expect(html).not.toContain("<script>");expect(html).not.toContain("href=\"https://example.invalid/");
+});

@@ -1,4 +1,4 @@
-# Review Workspace — Parts 1–3
+# Review Workspace — Complete (Parts 1–4)
 
 Review is entered through Orders, with no primary navigation change. Sellers can read a prepared Reading and the customer details used for it. Part 2 adds section-body editing and explicit durable draft saving. Part 3 adds immutable approval. Regeneration, documents and delivery are not implemented.
 
@@ -58,6 +58,40 @@ Migration 0015_stale_omega_sentinel is additive. SQL checks require PENDING to h
 
 The readable workspace has Edit reading and Approve reading. Approval opens an inline, labelled confirmation form explaining that the reading can no longer be edited. It supports keyboard focus, Cancel, pending text and announced errors. Active editing has Save/Cancel only; unsaved browser content cannot be approved. Approved workspace content comes from approved_content, never draft content; editing and draft initialization are blocked. Orders marks individual readings Approved / View reading. Mixed carts and quantity units remain independent; an order is labelled Approved only when every reading is approved, without any order-wide approval action.
 
-Responsive document layout and native forms/buttons reuse locked primitives. Long text stays escaped and wrapped. Automated coverage checks markup/CSS structure; a native phone viewport run is not claimed. Part 4 and Document/PDF Engine remain deferred. Real Gemini calls: 0.
+Responsive document layout and native forms/buttons reuse locked primitives. Long text stays escaped and wrapped. Automated coverage checks markup/CSS structure; a native phone viewport run is not claimed. Part 3 deferred Part 4; Part 4 is completed below. Document/PDF Engine remains deferred. Real Gemini calls: 0.
 
 Approval records the authenticated actor using the existing stable app_users identity and nullable additive foreign key. No actor is fabricated for historical PENDING reviews; approved actor identity is immutable and is not displayed to sellers.
+
+## Part 4 — REVIEW WORKSPACE COMPLETE
+
+The complete domain lifecycle is Generation → lazy owned review admission → optional persisted seller draft → immutable approval → approved Reading → validated document handoff. Review owns the original evidence pin, seller corrections and approval. No later/latest body enrichment is permitted. Approval remains a per-Reading fact; mixed carts and quantity units progress independently.
+
+### Stable document-input contract
+
+`getApprovedReadingForDocument(db, scope, orderId, readingId)` is a local server/domain read. It verifies persisted membership and Store/Order/Line/Reading ownership in one repeatable-read transaction, checks existing operational holds and validates pinned successful evidence and context/hash bindings. Only APPROVED can return. Missing, pending, draft-only, foreign, malformed or inconsistent data raises bounded ReviewUnavailable; nothing is silently repaired.
+
+The strict `approved-reading/v1` DTO contains organizationId, storeId, readingId; owned order id/reference/customer display name; purchased product display name; operational readingNumber/quantity; exact approved ordered section IDs/titles/bodies; validated contentHash; approvedAt ISO string; reviewId and pinned generationId as minimal provenance. Display metadata comes from owned purchased order/line facts; it is not a document snapshot. The future document layer must snapshot any metadata/design it uses alongside this approved body/hash. Customer details remain visible in Review from the frozen generation context, but no full customer answers or infrastructure state are automatically included in this handoff.
+
+Reading numbering is operational metadata, not an instruction to print customer-facing numbers.
+
+The returned value is Zod-validated, detached from persistence objects and deeply frozen, with a TypeScript deep-readonly type. No mutable Date, draft revision/content/editing API, accounting, provider, prompt, style intelligence or queue data is returned. The future document layer never needs to know whether the seller edited. Only the approved artifact supplies section bodies. A latest-generation status lookup preserves existing operational eligibility precedence, but never supplies handoff content. The contract performs no review admission, save, approval or provider execution.
+
+The contentHash contract remains SHA-256 over UTF-8 stableJson of `{sections:[{sectionId,title,content},...]}`. Object keys use existing stable serialization; section array order and exact body whitespace are significant. Approval time and provenance are excluded. The approved-reading/v1 contract locks this meaning; a future incompatible hash interpretation requires explicit versioning. Document artifacts will bind this validated semantic hash separately from their layout/artifact checksum.
+
+### Concrete hardening
+
+Orders previously validated original evidence but could offer Review reading for malformed saved drafts, while opening the workspace then failed. Both status and eligibility now validate the current effective PENDING content. Canonical-only approval provenance is also checked against exact pinned content, with finite approval time and nonnegative safe draft revision checks. Approved display/handoff remains independent of mutable draft content.
+
+Orders previously ran review availability and approval status through two complete query paths for eligible readings. Each reading now resolves a single status in one repeatable-read transaction; availability and Approved derive from that same value. One reading's queries use owned unique identities and latest-generation LIMIT 1, without loading historical generations, style sources or draft history. The application still has its pre-existing whole-Store Orders dataset and per-reading status checks; pagination/batch projections are general scaling work, not silently claimed solved here.
+
+Review constraints/triggers in 0013–0015 compose correctly: lazy admission, unique owned review/draft, immutable pin, canonical initial draft, exact section structure, revision progression, complete atomic one-way approval, immutable approved fields/actor and post-approval draft locks. NO MIGRATION REQUIRED. Existing replay/repeat-no-op coverage remains active.
+
+### Acceptance and deferred document responsibility
+
+Local integration/route/action tests cover canonical and edited approval, exact handoff, ownership, corruption, stable hashes, late generations, mutable draft independence, stale save/approval, cancel's non-persistence, post-approval locks and mixed-cart/quantity independence. Seller feedback remains bounded; no SQL/Zod/IDs/hash/provider/queue errors are reflected. Native textareas, text statuses, confirmation focus/Cancel, pending disabled controls and announced feedback remain in place. No UI redesign or primary navigation change.
+
+Native in-app browser viewport checks used synthetic static markup rendered from the actual ReviewReading and ReviewDraftForm components with repository CSS, at 390×844 and 1440×900. Reading/view and edit fields fit both widths with scrollWidth equal to viewport width; long labels, customer answers, URLs, Unicode, HTML-like text, quantity labels and paragraphs were exercised. This is component viewport acceptance, not hydrated application authentication/save/approval end-to-end browser testing or physical-device/screen-reader certification. Durable lifecycle acceptance uses the application services and route/action tests with synthetic local data.
+
+Future boundary: approved Reading + document configuration/template → immutable document snapshot → paginated preview/render → PDF artifact. The Document/PDF Engine owns controlled seller customization (not a Canva-like editor): professional template selection, logo, brand name, primary/accent colors, controlled fonts, cover/footer/display options, reusable saved designs and product→design assignment. It must offer a realistic paginated preview and a real approved-Reading preview before PDF creation. Preview and final PDF must share one deterministic layout/rendering model to avoid drift. None of those responsibilities is implemented by Review Workspace.
+
+PDF/document rendering, design UI, branding, assignment, delivery, Telegram, billing, regeneration/reopening and approval histories remain deferred. Real Gemini calls in Part 4: 0. Review Workspace is complete within this milestone's scope; general deployment/access/retention/scaling gates remain separate.
