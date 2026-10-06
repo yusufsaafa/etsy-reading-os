@@ -282,3 +282,23 @@ export const readingReviewDrafts=pgTable("reading_review_drafts",{
  updatedAt:time("updated_at").defaultNow().notNull(),
 },t=>[foreignKey({name:"draft_owned_review_fk",columns:[t.organizationId,t.storeId,t.reviewId],foreignColumns:[readingReviews.organizationId,readingReviews.storeId,readingReviews.id]}),
  check("review_draft_revision",sql`${t.revision}>=0`)]);
+
+// Presentation configuration is separate from product content and approved readings.
+export const documentDesigns = pgTable("document_designs", {
+  id: id(), organizationId: org(), storeId: store(), name: text("name").notNull(),
+  status: text("status").notNull().default("ACTIVE"), configuration: jsonb("configuration").$type<import("../modules/documents/contracts").DocumentDesignConfiguration>().notNull(),
+  revision: integer("revision").notNull().default(0), isDefault: boolean("is_default").notNull().default(false),
+  createdAt: time("created_at").defaultNow().notNull(), updatedAt: time("updated_at").defaultNow().notNull(),
+}, t => [unique("document_design_owned_identity").on(t.organizationId,t.storeId,t.id),
+  foreignKey({columns:[t.organizationId,t.storeId],foreignColumns:[stores.organizationId,stores.id]}),
+  uniqueIndex("document_design_one_default").on(t.organizationId,t.storeId).where(sql`${t.isDefault}`),
+  check("document_design_state",sql`${t.status} in ('ACTIVE','ARCHIVED') and (not ${t.isDefault} or ${t.status} = 'ACTIVE')`),
+  check("document_design_bounds",sql`${t.revision} >= 0 and length(trim(${t.name})) between 1 and 100 and jsonb_typeof(${t.configuration}) = 'object' and ${t.configuration}->>'contractVersion' = 'document-design/v1' and octet_length(${t.configuration}::text) <= 8192`),
+]);
+export const productDocumentDesigns = pgTable("product_document_designs", {
+  organizationId: org(), storeId: store(), productId: uuid("product_id").notNull(), designId: uuid("design_id").notNull(),
+}, t => [unique("product_document_design_one_assignment").on(t.organizationId,t.storeId,t.productId),
+  foreignKey({columns:[t.organizationId,t.storeId,t.productId],foreignColumns:[products.organizationId,products.storeId,products.id]}),
+  foreignKey({columns:[t.organizationId,t.storeId,t.designId],foreignColumns:[documentDesigns.organizationId,documentDesigns.storeId,documentDesigns.id]}),
+  index("product_document_design_references").on(t.organizationId,t.storeId,t.designId),
+]);

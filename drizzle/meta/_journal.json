@@ -113,6 +113,13 @@
       "when": 1791324260887,
       "tag": "0015_stale_omega_sentinel",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1791326112875,
+      "tag": "0016_unknown_banshee",
+      "breakpoints": true
     }
   ]
 }
