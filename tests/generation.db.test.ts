@@ -386,6 +386,13 @@ it("review mixed-cart and quantity readings remain independently owned and pinne
   expect(view.details[0].value).toBe(`Person ${i}`);expect(view.quantity).toBe(ls.find(l=>l.id===u.lineItemId)!.quantity);expect(view.index).toBe(u.unitIndex);
   expect(generated.context.unitId).toBe(u.id);
  }
+ const {saveReadingReviewDraft}=await import("../src/modules/review/service");
+ for(const [i,u]of us.entries()){
+  const editable=await openReadingReview(db,a,o.id,u.id,true),content=structuredClone(editable.draft!.content);content.sections[0].content=`Independent draft ${i}`;
+  await saveReadingReviewDraft(db,a,o.id,u.id,0,content);
+ }
+ for(const [i,u]of us.entries())expect((await openReadingReview(db,a,o.id,u.id)).sections[0].content).toBe(`Independent draft ${i}`);
+ expect(await db.select().from(schema.readingReviewDrafts)).toHaveLength(3);
  expect(await db.select().from(schema.readingReviews)).toHaveLength(3);
  expect(await reviewAvailable(db,a,(await context()).orderId,us[0].id)).toBe(false);
 });
@@ -406,4 +413,40 @@ it("review corrupt canonical data fails closed at the owned read boundary",async
  await pg.exec("SET LOCAL session_replication_role=origin; COMMIT");
  expect(await reviewAvailable(db,a,result.context.orderId,unitId)).toBe(false);
  await expect(openReadingReview(db,a,result.context.orderId,unitId)).rejects.toThrow("REVIEW_UNAVAILABLE");expect(await db.select().from(schema.readingReviews)).toHaveLength(0);
+});
+
+it("review drafts initialize once from pinned evidence and edits persist without changing original records",async()=>{
+ const {openReadingReview,saveReadingReviewDraft}=await import("../src/modules/review/service");const {result}=await prepare(),orderId=result.context.orderId;
+ const untouched=await openReadingReview(db,a,orderId,unitId);expect(untouched.draft).toBeNull();
+ const [first,second]=await Promise.all([openReadingReview(db,a,orderId,unitId,true),openReadingReview(db,a,orderId,unitId,true)]);
+ expect(first.draft).toEqual(second.draft);expect(first.draft).toMatchObject({revision:0,modified:false});expect(await db.select().from(schema.readingReviewDrafts)).toHaveLength(1);
+ const original=await readGeneration(db,a,result.id),review=(await db.select().from(schema.readingReviews))[0],ledger=await generationAccounting(db,a,result.id);
+ const content=structuredClone(first.draft!.content);content.sections[0].content="<script>alert('text only')</script>\n\nSeller correction";content.sections[1].content="Second correction";
+ expect(await saveReadingReviewDraft(db,a,orderId,unitId,0,content)).toEqual({revision:1,modified:true});
+ const saved=await openReadingReview(db,a,orderId,unitId);expect(saved.sections[0].content).toBe(content.sections[0].content);expect(saved.draft).toMatchObject({revision:1,content,modified:true});
+ expect((await openReadingReview(db,a,orderId,unitId,true)).draft).toEqual(saved.draft);
+ expect(saved.details).toEqual(untouched.details);expect(await readGeneration(db,a,result.id)).toEqual(original);expect((await db.select().from(schema.readingReviews))[0]).toEqual(review);expect(await generationAccounting(db,a,result.id)).toEqual(ledger);
+ expect(await saveReadingReviewDraft(db,a,orderId,unitId,1,first.draft!.content)).toEqual({revision:2,modified:false});expect((await openReadingReview(db,a,orderId,unitId)).draft?.modified).toBe(false);
+ expect((await openReadingReview(db,a,orderId,unitId)).draft?.revision).toBe(2);
+});
+it("concurrent draft saves reject stale revision without overwriting the winner",async()=>{
+ const {openReadingReview,saveReadingReviewDraft}=await import("../src/modules/review/service");const {result}=await prepare(),orderId=result.context.orderId;
+ const view=await openReadingReview(db,a,orderId,unitId,true),one=structuredClone(view.draft!.content),two=structuredClone(one);one.sections[0].content="First writer";two.sections[0].content="Second writer";
+ const outcomes=await Promise.allSettled([saveReadingReviewDraft(db,a,orderId,unitId,0,one),saveReadingReviewDraft(db,a,orderId,unitId,0,two)]);
+ expect(outcomes.filter(o=>o.status==="fulfilled")).toHaveLength(1);expect(outcomes.filter(o=>o.status==="rejected")).toHaveLength(1);
+ const saved=await openReadingReview(db,a,orderId,unitId);expect(saved.draft?.revision).toBe(1);expect(["First writer","Second writer"]).toContain(saved.sections[0].content);
+ await expect(saveReadingReviewDraft(db,a,orderId,unitId,0,one)).rejects.toThrow("CONFLICT");
+ expect((await openReadingReview(db,a,orderId,unitId)).draft).toEqual(saved.draft);
+});
+it("draft writes reject section structure changes, malformed content and foreign/forged relationships",async()=>{
+ const {openReadingReview,saveReadingReviewDraft}=await import("../src/modules/review/service");const {result}=await prepare(),orderId=result.context.orderId;
+ const view=await openReadingReview(db,a,orderId,unitId,true),base=view.draft!.content;
+ const mutations=[{sections:base.sections.slice(1)},{sections:[...base.sections,base.sections[0]]},{sections:[...base.sections].reverse()},{sections:base.sections.map((s,i)=>i? s:{...s,sectionId:"injected"})},{sections:base.sections.map((s,i)=>i?s:{...s,title:"Changed title"})},{sections:base.sections.map((s,i)=>i?s:{...s,content:"x".repeat(40001)})},{sections:base.sections.map((s,i)=>i?s:{...s,content:" "})},null,{...base,customer:"changed"}];
+ for(const mutation of mutations)await expect(saveReadingReviewDraft(db,a,orderId,unitId,0,mutation)).rejects.toThrow("INVALID");
+ await expect(saveReadingReviewDraft(db,b,orderId,unitId,0,base)).rejects.toThrow();await expect(openReadingReview(db,b,orderId,unitId,true)).rejects.toThrow();
+ const [sibling]=await db.insert(schema.stores).values({organizationId:a.organizationId,name:"Sibling drafts",source:"fixtures",importSince:new Date()}).returning();
+ await expect(saveReadingReviewDraft(db,{...a,storeId:sibling.id},orderId,unitId,0,base)).rejects.toThrow();await expect(openReadingReview(db,{...a,storeId:sibling.id},orderId,unitId,true)).rejects.toThrow();
+ await expect(saveReadingReviewDraft(db,a,randomUUID(),unitId,0,base)).rejects.toThrow();await expect(saveReadingReviewDraft(db,a,orderId,randomUUID(),0,base)).rejects.toThrow();
+ const [draft]=await db.select().from(schema.readingReviewDrafts);expect(draft.revision).toBe(0);
+ await expect(db.update(schema.readingReviewDrafts).set({reviewId:randomUUID(),revision:1}).where(eq(schema.readingReviewDrafts.reviewId,draft.reviewId))).rejects.toThrow();
 });

@@ -2,11 +2,12 @@ import {createHash} from "node:crypto";
 import {and,desc,eq} from "drizzle-orm";
 import {z} from "zod";
 import type {Database,DbExecutor} from "../../db/client";
-import {readingReviews,units,lineItems,orders,generations,stores,productionQueue} from "../../db/schema";
+import {readingReviews,readingReviewDrafts,units,lineItems,orders,generations,stores,productionQueue} from "../../db/schema";
 import {tenantWhere,verifyScope} from "../intake/service";
 import {answerSchema,stableJson,type Scope} from "../intake/contracts";
 import {configurationSchema} from "../products/contracts";
 import {ENGINE_VERSION,validateCanonical} from "../generation/contracts";
+import {validateReviewDraft,ReviewDraftError} from "./draft-contract";
 export class ReviewUnavailable extends Error {constructor(){super("REVIEW_UNAVAILABLE");}}
 const identity=z.string().uuid();
 export function reviewContent(generation:typeof generations.$inferSelect) {
@@ -47,13 +48,37 @@ export async function reviewAvailable(db:Database,scope:Scope,orderId:string,rea
  try {return await db.transaction(async tx=>{await candidate(tx,scope,orderId,readingId);return true;},{isolationLevel:"repeatable read"});}
  catch(error){if(error instanceof ReviewUnavailable)return false;throw error;}
 }
-export async function openReadingReview(db:Database,scope:Scope,orderId:string,readingId:string) {
+export async function openReadingReview(db:Database,scope:Scope,orderId:string,readingId:string,editing=false) {
  return db.transaction(async tx=>{
   await verifyScope(tx,scope);
   await tx.select({id:stores.id}).from(stores).where(and(eq(stores.id,scope.storeId),eq(stores.organizationId,scope.organizationId))).for("update");
   const data=await candidate(tx,scope,orderId,readingId);
-  if(!data.review)await tx.insert(readingReviews).values({organizationId:scope.organizationId,storeId:scope.storeId,unitId:readingId,generationId:data.generation.id});
-  // Only seller-facing fields leave this service; the immutable generation remains the source.
-  return {customer:data.order.buyerName||"Customer",product:data.line.title,orderReference:data.order.externalId,index:data.unit.unitIndex,quantity:data.line.quantity,...data.content};
+  let review=data.review;
+  if(!review)[review]=await tx.insert(readingReviews).values({organizationId:scope.organizationId,storeId:scope.storeId,unitId:readingId,generationId:data.generation.id}).returning();
+  const base=validateCanonical(JSON.stringify(data.generation.result),data.generation.context);
+  let [draft]=await tx.select().from(readingReviewDrafts).where(and(tenantWhere(readingReviewDrafts,scope),eq(readingReviewDrafts.reviewId,review.id)));
+  if(editing&&!draft)[draft]=await tx.insert(readingReviewDrafts).values({organizationId:scope.organizationId,storeId:scope.storeId,reviewId:review.id,content:base}).returning();
+  let content=base;
+  try{if(draft)content=validateReviewDraft(draft.content,base);}catch{throw new ReviewUnavailable();}
+  return {customer:data.order.buyerName||"Customer",product:data.line.title,orderReference:data.order.externalId,index:data.unit.unitIndex,quantity:data.line.quantity,...data.content,
+   sections:content.sections.map(({title,content})=>({title,content})),
+   draft:draft?{revision:draft.revision,content,modified:stableJson(content)!==stableJson(base)}:null};
+ });
+}
+
+export async function saveReadingReviewDraft(db:Database,scope:Scope,orderId:string,readingId:string,expectedRevision:number,raw:unknown) {
+ if(!Number.isSafeInteger(expectedRevision)||expectedRevision<0)throw new ReviewDraftError("INVALID");
+ return db.transaction(async tx=>{
+  await verifyScope(tx,scope);
+  await tx.select({id:stores.id}).from(stores).where(and(eq(stores.id,scope.storeId),eq(stores.organizationId,scope.organizationId))).for("update");
+  const data=await candidate(tx,scope,orderId,readingId);
+  if(!data.review||data.review.state!=="PENDING")throw new ReviewDraftError("UNAVAILABLE");
+  const [draft]=await tx.select().from(readingReviewDrafts).where(and(tenantWhere(readingReviewDrafts,scope),eq(readingReviewDrafts.reviewId,data.review.id))).for("update");
+  if(!draft)throw new ReviewDraftError("UNAVAILABLE");
+  if(draft.revision!==expectedRevision)throw new ReviewDraftError("CONFLICT");
+  const base=validateCanonical(JSON.stringify(data.generation.result),data.generation.context),content=validateReviewDraft(raw,base);
+  const [saved]=await tx.update(readingReviewDrafts).set({content,revision:draft.revision+1,updatedAt:new Date()}).where(and(tenantWhere(readingReviewDrafts,scope),eq(readingReviewDrafts.reviewId,draft.reviewId),eq(readingReviewDrafts.revision,expectedRevision))).returning();
+  if(!saved)throw new ReviewDraftError("CONFLICT");
+  return {revision:saved.revision,modified:stableJson(content)!==stableJson(base)};
  });
 }

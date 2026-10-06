@@ -266,6 +266,15 @@ export const readingReviews=pgTable("reading_reviews",{
  id:id(),organizationId:org(),storeId:store(),unitId:uuid("unit_id").notNull(),generationId:uuid("generation_id").notNull(),
  state:text("state").notNull().default("PENDING"),createdAt:time("created_at").defaultNow().notNull(),
 },t=>[unique("one_review_per_reading").on(t.organizationId,t.storeId,t.unitId),
+ unique("review_owned_identity").on(t.organizationId,t.storeId,t.id),
  foreignKey({name:"review_owned_reading_fk",columns:[t.organizationId,t.storeId,t.unitId],foreignColumns:[units.organizationId,units.storeId,units.id]}),
  foreignKey({name:"review_exact_generation_fk",columns:[t.organizationId,t.storeId,t.unitId,t.generationId],foreignColumns:[generations.organizationId,generations.storeId,generations.unitId,generations.id]}),
  check("review_state",sql`${t.state}='PENDING'`)]);
+
+export const readingReviewDrafts=pgTable("reading_review_drafts",{
+ reviewId:uuid("review_id").primaryKey(),organizationId:org(),storeId:store(),
+ revision:integer("revision").notNull().default(0),
+ content:jsonb("content").$type<import("../modules/generation/contracts").CanonicalResult>().notNull(),
+ updatedAt:time("updated_at").defaultNow().notNull(),
+},t=>[foreignKey({name:"draft_owned_review_fk",columns:[t.organizationId,t.storeId,t.reviewId],foreignColumns:[readingReviews.organizationId,readingReviews.storeId,readingReviews.id]}),
+ check("review_draft_revision",sql`${t.revision}>=0`)]);
