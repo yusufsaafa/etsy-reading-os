@@ -142,3 +142,64 @@ Any Generation fences safe reclaim, including abandoned/ambiguous PROCESSING or 
 ### Exact PART 3 handoff
 
 Preserve waiting policy bindings, per-reading uniqueness, Store lock order, claim token/expiration and scheduling turns. Add only the next expressly authorized execution layer. Design an additive execution transition that fences expired workers; coordinate already-started manual Generation; persist a stable queue-to-generation command relationship before external work; establish explicit trusted worker authorization for GenerationService while leaving seller security intact. Revalidate immediately before any accounted gateway request and run external work after commit. Resolve successful/manual work without paying twice; retain ambiguous AI outcome/accounting and prohibit blind redispatch after lease expiry. Do not infer provider retry/backoff, full abandoned execution recovery, documents, delivery or Part 4 authorization from Part 2.
+
+## PART 3 — EXECUTION + SETTLEMENT
+
+This section supersedes Part 2's execution deferral. Scheduling/admission remain unchanged. There is no recurring worker runtime, automatic retry, backoff, rate limiter or ambiguous-execution recovery.
+
+### Trusted paid-worker boundary
+
+`ProductionExecutor.forInternalWorker(serverDatabase, generationService)` accepts only persisted queue identity/current token at execution. Store, Reading and ProductVersion come from the queue's composite-owned row; callers cannot supply tenant identity. It is a trusted server-code API, not a route, server action, browser capability or remote authentication endpoint. Possession of server DB access is required. Arbitrary trusted code with database credentials is outside this isolation boundary.
+
+The executor issues a frozen, process-local `ProductionAuthority` inside the fenced execution transaction; the capability is usable by the executor only after commit. GenerationService's dedicated `prepareProduction(authority)` accepts only objects issued by the server issuer (WeakSet membership); JSON/structural copies are rejected. WeakSet membership authenticates a capability; it is not a concurrency lock. Database state/token/ownership/expiry checks remain authoritative. Normal seller `prepare(scope, command)` retains owner authorization. No user or seller session is fabricated. CentralAIGateway admits the same authority while retaining all existing budgets/provider policy/accounting. Neither execution nor settlement imports/calls the gateway/provider.
+
+### Durable lifecycle and command binding
+
+| State | Meaning | Automatic reclaim |
+| --- | --- | --- |
+| QUEUED | Waiting intent | Scheduler may claim |
+| CLAIMED | Token-owned, not executing | Safe expired pre-execution reclaim only |
+| SKIPPED | Deterministically stale before execution | Never |
+| EXECUTING | Durable paid-execution intent; dispatch may or may not have happened | Never |
+| COMPLETED | Referenced canonical Generation succeeded | Never |
+| ATTENTION | Known failure, blocked admission after intent, or uncertain outcome | Never |
+
+Additive migration 0008 adds `generation_command_key`, `generation_id`, `execution_started_at`. The queue UUID is the Generation command UUID. It is committed with EXECUTING before GenerationService admission/provider dispatch. Same durable intent always retains the same command across processes/restarts. GenerationService inserts its Generation, associates the queue reference, admits AIRequest and provisional UsageEvent in one transaction; the engine's command hash/idempotency is unchanged. The queue contains references/status only, never canonical bodies or private context.
+
+Database checks require exact command identity, coherent lifecycle metadata, same-tenant Generation ownership and immutable retained production policy. Transition triggers protect current token, claim history, one-time Generation binding to the same Reading/ProductVersion, successful Generation for COMPLETED, and immutable terminal rows. Existing waiting/claimed/skipped rows retain their fields with null execution bindings; no migration-time execution is invented.
+
+### Final fence and manual race
+
+Execution validates UUIDs, derives Store from the persisted row, locks Store before queue, then checks current CLAIMED state/token and nonexpired DB-clock lease. It reuses the existing production context builder and exact bound ProductVersion/ASSISTED policy, and rejects any existing Generation or current hold/input/profile/style/configuration problem. Deterministic stale rows become SKIPPED without any Generation/AIRequest/UsageEvent. Product/style/customer text is never accepted as worker instructions.
+
+After the fence commits, GenerationService uses the same Store lock as manual preparation, checks all admission rules again, snapshots current usable style/customer/seller against retained ProductVersion, and excludes existing/conflicting Generation. A manual preparation that wins before the fence produces SKIPPED. If manual preparation wins the short fence→engine admission gap, the engine rejects the worker without another call; queue becomes ATTENTION/PREPARATION_BLOCKED. Conversely, an admitted worker's PROCESSING Generation blocks a competing manual command. Final gateway preflight rechecks customer revision/eligibility and worker claim authority before dispatch. Changes after the committed dispatch decision cannot retract an already authorized external request.
+
+### Transactions, tokens and crash windows
+
+1. Short transaction: Store→queue lock, final domain fence, persist EXECUTING/stable command/start time, issue server capability; commit.
+2. Existing GenerationService staged transactions and provider invocation. No executor transaction is held during external work. Queue/Generation association and provisional accounting commit before dispatch.
+3. Short transaction: Store→queue lock; compare current token; inspect persisted Generation/AIRequest; settle outcome. No result supplied by a worker is trusted as canonical truth.
+
+Wrong/expired/replaced CLAIMED tokens cannot dispatch. Old acknowledgements cannot mutate a newer claim or terminal history. EXECUTING is never rotated or reclaimed, even when its former claim deadline passes; expiry cannot prove the absence of external work. Actual dispatch admission still requires a nonexpired token. Settlement after dispatch may succeed after expiry because the current nonreplaceable token still owns its incurred operation. Terminal rows retain the opaque token for fenced replay; expiry is cleared. Tokens are never seller-visible.
+
+A crash before EXECUTING permits safe Part 2 reclaim. A crash after EXECUTING but before Generation admission leaves a conservative nonreclaimable intent. A crash after accounting admission/dispatch can leave PROCESSING Generation and CLAIMED/RUNNING AIRequest with unknown cost. Replaying EXECUTING only inspects records, returns IN_PROGRESS when unfinished and NEVER re-enters GenerationService. A crash after canonical success but before queue settlement can be acknowledged from persisted success without provider redispatch. No automatic abandoned-execution resolution exists in this part.
+
+### Settlement and accounting
+
+Persisted SUCCEEDED Generation → COMPLETED/SUCCEEDED, retain Generation reference, clear expiry. FAILED Generation → ATTENTION/GENERATION_FAILED or OUTCOME_UNCERTAIN when the AIRequest is ambiguous. An unexpected execution interruption with an admitted request → ATTENTION/OUTCOME_UNCERTAIN while retaining incomplete Generation/accounting. Rejection/interruption after execution intent with no associated request → ATTENTION/PREPARATION_BLOCKED; the engine’s accounting-before-dispatch invariant proves no provider invocation occurred. No failure triggers a new command or scheduler retry.
+
+`acknowledge(queueId, token)` can settle already persisted terminal engine outcomes only; unfinished records return IN_PROGRESS. Token mismatch returns STALE_CLAIM without mutations. Terminal replay returns stored outcome without paid work. Unknown costs remain null/unknown; no queue accounting path exists. Provider failures with usage retain CentralAIGateway's exact integer USD nanos and pricing snapshot. Successful return-path interruptions can still settle success from canonical state.
+
+Meaningful skip/completion/attention events use existing audit rows with null system actor and Store/resource metadata. No poll audit noise, prompts, customer/style text, bodies, secrets or raw errors are logged.
+
+### Cycle and seller projection
+
+`runProductionCycle(scheduler, executor)` obtains Part 2 bounded claims and executes them sequentially after claim commit. `productionRuntime(db).runCycle()` wires existing centrally configured GenerationService for explicit server invocation. No command is exposed to the browser; invoking this runtime can incur real provider cost according to existing environment configuration. No cron/daemon/recurrence is installed.
+
+Claim batch is the maximum considered per cycle; the existing one-claim-per-Store fairness rule remains. Execution is sequential, not a global distributed concurrency guarantee. Later claims can expire while earlier work runs: they return STALE_CLAIM without dispatch and remain safely reclaimable. Multiple trusted cycles can run concurrently across different intents; a future rate/concurrency policy must address total outstanding provider calls.
+
+Seller projection uses scoped queue metadata: QUEUED/CLAIMED → Waiting, EXECUTING or PROCESSING Generation → Preparing, canonical success → Ready for review, ATTENTION → Problem. Existing operational holds and revised-customer successful-content warnings remain authoritative. Canonical success takes precedence over queue metadata. Existing minimal generated-section inspection/manual Prepare flow remain; no Review Workspace or redesign.
+
+### Exact PART 4 handoff
+
+Keep the stable queue UUID→command binding and same-Reading/ProductVersion reference. Never rotate/reclaim EXECUTING or infer retry safety from expiration. Part 4 must define explicit known-failure retry/resume/adoption rules and durable command identities for any new paid attempt; do not silently reuse an ATTENTION command as a fresh invocation. Preserve every AIRequest/UsageEvent and unknown-cost liability. Investigate abandoned EXECUTING/PROCESSING/RUNNING work conservatively before any operator-approved recovery. Retain token-fenced acknowledgement, Store-first locking, bounded claims and shared engine admission. Decide runtime/deployment, global concurrency/rate controls and reconciliation independently; none is provided here. SKIPPED and ATTENTION history remains terminal until an explicit future policy/migration is designed. PDF/delivery/Telegram/billing/review remain outside this slice.

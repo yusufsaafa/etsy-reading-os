@@ -9,10 +9,10 @@ export function readingStatus(issues: string[], productionStatus?:string) {
   if (issues.includes("mapping_paused")) return "Product paused";
   if (issues.some(i => informationIssues.includes(i))) return "Customer information needed";
   if(issues.length)return "Review required";
-  return productionStatus==="PROCESSING"?"Preparing":productionStatus==="SUCCEEDED"?"Ready for review":productionStatus==="FAILED"?"Problem":productionStatus==="STALE"?"Review updated information":"Ready";
+  return productionStatus==="WAITING"?"Waiting":productionStatus==="PROCESSING"?"Preparing":productionStatus==="SUCCEEDED"?"Ready for review":productionStatus==="FAILED"?"Problem":productionStatus==="STALE"?"Review updated information":"Ready";
 }
 export function orderStatus(readings: { issues: string[]; productionStatus?:string }[]) {
   const issues = [...new Set(readings.flatMap(r => r.issues))];
-  return readingStatus(issues,readings.some(r=>r.productionStatus==="STALE")?"STALE":readings.some(r=>r.productionStatus==="FAILED")?"FAILED":readings.some(r=>r.productionStatus==="PROCESSING")?"PROCESSING":readings.length&&readings.every(r=>r.productionStatus==="SUCCEEDED")?"SUCCEEDED":undefined);
+  return readingStatus(issues,readings.some(r=>r.productionStatus==="STALE")?"STALE":readings.some(r=>r.productionStatus==="FAILED")?"FAILED":readings.some(r=>r.productionStatus==="PROCESSING")?"PROCESSING":readings.length&&readings.every(r=>r.productionStatus==="SUCCEEDED")?"SUCCEEDED":readings.some(r=>r.productionStatus==="WAITING")?"WAITING":undefined);
 }
 export function displayDate(date: Date) { return new Intl.DateTimeFormat("en", {day:"numeric",month:"short",year:"numeric",timeZone:"UTC"}).format(date); }

@@ -1,28 +1,35 @@
+import { verifyGenerationAuthority,isProductionAuthority,type GenerationAuthority,type ProductionAuthority } from "./authority";
 import { createHash } from "node:crypto";
 import { and, desc, eq } from "drizzle-orm";
 import type { Database, DbExecutor } from "../../db/client";
-import { generations, aiRequests, usageEvents, stores, units, auditLogs } from "../../db/schema";
+import { generations, aiRequests, usageEvents, stores, units, auditLogs, productionQueue } from "../../db/schema";
 import { verifyScope, tenantWhere } from "../intake/service";
 import { stableJson, type Scope } from "../intake/contracts";
 import { AccessDenied } from "../identity/service";
 import { CentralAIGateway } from "../../infrastructure/ai/gateway";
 import { assembleInstructions } from "./instructions";
-import { buildGenerationContext } from "./context";
+import { buildGenerationContext, buildProductionContextForStoreInTransaction } from "./context";
 import { commandSchema, AdmissionError, OPERATION, validateCanonical } from "./contracts";
 const hash=(data:unknown)=>createHash("sha256").update(stableJson(data)).digest("hex");
-async function audit(tx:DbExecutor,scope:Scope,action:string,resourceId:string) {
+async function audit(tx:DbExecutor,scope:GenerationAuthority,action:string,resourceId:string) {
  await tx.insert(auditLogs).values({organizationId:scope.organizationId,storeId:scope.storeId,actorId:scope.userId,action,resourceId});
 }
 export class GenerationService {
  constructor(private readonly db:Database,private readonly gateway:CentralAIGateway) {}
- async prepare(scope:Scope,raw:unknown) {
+ async prepare(scope:Scope,raw:unknown) { return this.run(scope,raw); }
+ // Internal capability only; no client-selected command, unit or Store.
+ async prepareProduction(authority:ProductionAuthority) {
+  if(!isProductionAuthority(authority))throw new AccessDenied();
+  return this.run(authority,{unitId:authority.unitId,commandKey:authority.commandKey});
+ }
+ private async run(scope:GenerationAuthority,raw:unknown) {
   const command=commandSchema.parse(raw),commandHash=hash(command);
   const claim=await this.db.transaction(async tx=>{
-   await verifyScope(tx,scope,true);
+   await verifyGenerationAuthority(tx,scope);
    await tx.select({id:stores.id}).from(stores).where(and(eq(stores.organizationId,scope.organizationId),eq(stores.id,scope.storeId))).for("update");
    const [replay]=await tx.select().from(aiRequests).where(and(tenantWhere(aiRequests,scope),eq(aiRequests.commandKey,command.commandKey)));
    if(replay){if(replay.commandHash!==commandHash)throw new AdmissionError("COMMAND_CONFLICT");return {id:replay.generationId!,run:false};}
-   const current=await buildGenerationContext(tx,scope,command.unitId);
+   const current=await contextForAuthority(tx,scope,command.unitId);
    const existing=await tx.select().from(generations).where(and(tenantWhere(generations,scope),eq(generations.unitId,command.unitId))).orderBy(desc(generations.createdAt));
    if(existing.some(g=>g.status==="PROCESSING"))throw new AdmissionError("ACTIVE_OPERATION");
    let generation=existing[0],parent:typeof aiRequests.$inferSelect|undefined,attemptNumber=1;
@@ -43,6 +50,10 @@ export class GenerationService {
      productVersionId:current.product.id,styleVersionId:current.style.id,sellerProfileId:current.seller.id,customerRevision:current.customer.revision,
      context:current,contextHash:hash(current)}).returning();
    }
+   if(isProductionAuthority(scope)){
+    const bound=await tx.update(productionQueue).set({generationId:generation.id,updatedAt:new Date()}).where(and(tenantWhere(productionQueue,scope),eq(productionQueue.id,scope.queueId),eq(productionQueue.claimToken,scope.claimToken),eq(productionQueue.state,"EXECUTING"))).returning({id:productionQueue.id});
+    if(!bound.length)throw new AccessDenied();
+   }
    const instructions=assembleInstructions(generation.context);
    const request=await this.gateway.admit(tx,scope,{generationId:generation.id,attemptNumber,commandKey:command.commandKey,commandHash,parentRequestId:parent?.id,operation:OPERATION,inputBytes:Buffer.byteLength(instructions.system+instructions.data)});
    await audit(tx,scope,parent?"generation_retry_requested":"generation_requested",generation.id);
@@ -61,11 +72,18 @@ export class GenerationService {
      // Recheck deterministic admission after claiming, never run against revised customer data.
      const [unit]=await tx.select().from(units).where(and(tenantWhere(units,scope),eq(units.id,command.unitId)));
      if(!unit||unit.revision!==context.customer.revision)throw new AdmissionError("CONTEXT_CHANGED");
-     await buildGenerationContext(tx,scope,command.unitId);
+     await verifyGenerationAuthority(tx,scope);
+     await contextForAuthority(tx,scope,command.unitId);
     });
   }
-  return readGeneration(this.db,scope,claim.id);
+  if(!isProductionAuthority(scope))return readGeneration(this.db,scope,claim.id);
+  // Accounting/result reads after dispatch must survive claim expiration.
+  const [result]=await this.db.select().from(generations).where(and(tenantWhere(generations,scope),eq(generations.id,claim.id),eq(generations.unitId,scope.unitId)));
+  if(!result)throw new AccessDenied();return result;
  }
+}
+async function contextForAuthority(tx:DbExecutor,scope:GenerationAuthority,unitId:string) {
+ return isProductionAuthority(scope)?buildProductionContextForStoreInTransaction(tx,scope,unitId):buildGenerationContext(tx,scope,unitId);
 }
 export async function readGeneration(db:DbExecutor,scope:Scope,generationId:string) {
  await verifyScope(db,scope);

@@ -54,6 +54,6 @@ Official Etsy assumptions are time-sensitive. Sources and verification dates are
 
 Version-owned Manual/Assisted production and Standard/Express fulfillment targets now support durable automatic admission of eligible ASSISTED readings. Waiting work does not execute yet. See [architecture](docs/PRODUCTION_ORCHESTRATION.md) and [Part 1 report](docs/PRODUCTION_ORCHESTRATION_REPORT.md). Existing manual preparation remains available.
 
-## Production orchestration — Part 2
+## Production orchestration — Part 3
 
-Durable waiting readings can now be scheduled and claimed using deadline/Express/aging rules, persistent Store fairness and bounded claim cycles. Stale work is retained as skipped; safe unexecuted expired claims can be reclaimed. No queued generation executes. See the Part 2 sections in [architecture](docs/PRODUCTION_ORCHESTRATION.md) and [report](docs/PRODUCTION_ORCHESTRATION_REPORT.md).
+Durable waiting readings can now be scheduled and claimed using deadline/Express/aging rules, persistent Store fairness and bounded claim cycles. Stale work is retained as skipped; safe unexecuted expired claims can be reclaimed. Explicit trusted server cycles now execute fenced claims through existing GenerationService, with stable command identity, canonical/accounting persistence and token-fenced settlement. Ambiguous execution is never automatically retried; no recurring worker is installed. See the Part 3 sections in [architecture](docs/PRODUCTION_ORCHESTRATION.md) and [report](docs/PRODUCTION_ORCHESTRATION_REPORT.md).

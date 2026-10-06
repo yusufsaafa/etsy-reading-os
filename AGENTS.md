@@ -56,3 +56,7 @@ PRODUCTION_ORCHESTRATION.md Part 1 adds version-owned production/urgency policy,
 ## Authorized Part 2 boundary
 
 Part 2 adds deterministic scheduling, Store fairness, durable bounded claims and safe pre-execution expiration/stale resolution only. Part 3 execution, GenerationService worker invocation and provider/AI accounting creation from queue remain unauthorized. Retain the production policy and claim-transition migration triggers. Never reclaim paid work merely because a queue claim expired.
+
+## Authorized Part 3 boundary
+
+Part 3 explicitly authorizes trusted token-fenced queue execution through existing GenerationService, stable durable command identity, canonical/accounting persistence and outcome settlement. No production route/browser worker capability is authorized. Preserve queue transition guards and seller owner authorization; never reclaim EXECUTING work or retry an ambiguous AI operation because a claim expired. Continuous worker deployment, automatic retries/backoff/recovery, rate limiting and Part 4 remain excluded.

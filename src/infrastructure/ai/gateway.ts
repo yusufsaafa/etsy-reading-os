@@ -1,8 +1,8 @@
 import { and, eq, gte, or } from "drizzle-orm";
 import type { Database, DbExecutor } from "../../db/client";
 import { aiRequests, usageEvents, stores } from "../../db/schema";
-import { tenantWhere, verifyScope } from "../../modules/intake/service";
-import type { Scope } from "../../modules/intake/contracts";
+import { tenantWhere } from "../../modules/intake/service";
+import { verifyGenerationAuthority,type GenerationAuthority } from "../../modules/generation/authority";
 import { AdmissionError } from "../../modules/generation/contracts";
 import { calculateCost, normalizedUsage, reserveCost, type Pricing } from "./pricing";
 import { ProviderFailure, type GenerationProvider, type ProviderRequest, type ProviderResponse } from "./provider";
@@ -11,8 +11,8 @@ export class CentralAIGateway {
  constructor(private readonly db:Database,private readonly policy:GatewayPolicy) {}
  get maxOutputTokens() {return this.policy.maxOutputTokens;}
  // Called under the Store lock. Intent + provisional UNKNOWN accounting exist before any dispatch.
- async admit(tx:DbExecutor,scope:Scope,input:{generationId?:string;attemptNumber:number;commandKey:string;commandHash:string;parentRequestId?:string;operation:string;inputBytes:number}) {
-  await verifyScope(tx,scope,true);
+ async admit(tx:DbExecutor,scope:GenerationAuthority,input:{generationId?:string;attemptNumber:number;commandKey:string;commandHash:string;parentRequestId?:string;operation:string;inputBytes:number}) {
+  await verifyGenerationAuthority(tx,scope);
   const [store]=await tx.select({source:stores.source}).from(stores).where(and(eq(stores.organizationId,scope.organizationId),eq(stores.id,scope.storeId))).for("update");
   if(this.policy.provider.name==="fake"&&store.source!=="fixtures")throw new AdmissionError("READING_HOLD");
   const {pricing,model,provider,maxOutputTokens}=this.policy;
@@ -28,10 +28,10 @@ export class CentralAIGateway {
   await tx.insert(usageEvents).values({organizationId:scope.organizationId,storeId:scope.storeId,aiRequestId:request.id,operation:input.operation});
   return request;
  }
- async execute<T>(scope:Scope,requestId:string,input:ProviderRequest,accept:(response:ProviderResponse)=>T,
+ async execute<T>(scope:GenerationAuthority,requestId:string,input:ProviderRequest,accept:(response:ProviderResponse)=>T,
   finalize:(tx:DbExecutor,outcome:{result?:T;failure?:ProviderFailure})=>Promise<void>,preflight:(tx:DbExecutor)=>Promise<void>) {
   const claimed=await this.db.transaction(async tx=>{
-   await verifyScope(tx,scope,true);
+   await verifyGenerationAuthority(tx,scope);
    await tx.select({id:stores.id}).from(stores).where(and(eq(stores.organizationId,scope.organizationId),eq(stores.id,scope.storeId))).for("update");
    const [row]=await tx.select().from(aiRequests).where(and(tenantWhere(aiRequests,scope),eq(aiRequests.id,requestId))).for("update");
    if(!row||row.status!=="CLAIMED")return undefined;

@@ -108,3 +108,59 @@ Date: 2026-10-06. Branch verified: `codex/ui-ux-design-lock`. HEAD before edits 
 ### Boundary confirmation
 
 Scheduler implementation imports no GenerationService, CentralAIGateway or GenerationProvider and creates no Generation/AIRequest/UsageEvent. Explicit tests spy on all those invocation boundaries and global fetch. The manual coordination test uses one fake provider outside the scheduler to establish prior work; this is not a live-provider call. Part 3 has not begun.
+
+## PART 3 — EXECUTION + SETTLEMENT
+
+Date: 2026-10-06. Branch: `codex/ui-ux-design-lock`. Verified clean starting HEAD/history contains required base `0e5a36081403f9c2970cd2397488e5ed5617cadd`. Completed locally; no push/deployment. The completion commit includes this report; its exact hash is returned in the final response and available in local Git history.
+
+1. **Execution lifecycle:** QUEUED→CLAIMED→EXECUTING→COMPLETED/ATTENTION. Existing SKIPPED is pre-execution terminal history. No RETRY_WAIT or automatic retry lifecycle. EXECUTING is not reclaimable.
+2. **Schema/migration:** additive `0008_thankful_marvex.sql`, Drizzle snapshot/journal. Three nullable columns: generation_command_key, generation_id, execution_started_at. Expanded lifecycle checks, owned command uniqueness, composite Generation FK, exact Reading/ProductVersion association, immutable execution bindings/terminal states, active-claim transition guard. 25 existing tables retained; no new table, historical mutation or fabricated execution.
+3. **Trusted boundary:** ProductionExecutor requires trusted server Database and GenerationService. Store/Reading identity comes from locked queue state. Frozen issuer-authenticated capability cannot be serialized/forged by a browser. Normal owner-authorized seller path remains intact; no impersonation, HTTP route or server action added.
+4. **Stable identity:** queue UUID is the persisted generation command UUID, committed before dispatch. Restart/replay retains that identity and never creates a new paid command. Queue association commits with Generation/AIRequest/provisional UsageEvent admission.
+5. **Final fence:** Store→queue locking; current CLAIMED/token/unexpired DB clock; existing Generation exclusion; shared production context checks for holds/customer/configuration/profile/style; retained ProductVersion and ASSISTED policy. Deterministic stale work becomes SKIPPED with zero new Generation/AIRequest/UsageEvent.
+6. **Token fencing:** wrong/expired/replaced pre-execution token cannot dispatch; stale acknowledgement cannot mutate newer work. EXECUTING cannot rotate/reclaim. Terminal states retain token for fenced idempotent acknowledgement, clearing expiry. Incurred outcome can settle after dispatch expiry.
+7. **Engine integration:** dedicated GenerationService.prepareProduction delegates to the existing pipeline. Prompt assembly, canonical validation, snapshots, budgets/provider policy and gateway accounting are reused. Production execution does not import or call CentralAIGateway/GenerationProvider directly.
+8. **Cycle:** explicit runProductionCycle plus productionRuntime(db).runCycle; claims a bounded set, executes after scheduler commit, returns compact statuses/references. No infinite loop, recurring schedule, cron or deployment daemon.
+9. **Concurrency:** sequential execution per cycle. Existing batch limit/per-Store fairness retained. Multiple cycles are not a distributed provider-concurrency cap. Later sequential claims may expire and return STALE_CLAIM without dispatch.
+10. **Success:** referenced persisted SUCCEEDED Generation settles COMPLETED/SUCCEEDED, retains canonical source and clears expiry; queue never copies bodies. Success return-path interruptions can acknowledge canonical state without paying again.
+11. **Known failure:** FAILED Generation settles ATTENTION/GENERATION_FAILED. Admission/interruption with no admitted request settles ATTENTION/PREPARATION_BLOCKED; accounting-before-dispatch proves no provider invocation. No automatic retry.
+12. **Ambiguity:** ambiguous request or interrupted admitted external work settles ATTENTION/OUTCOME_UNCERTAIN with preserved request/usage/cost liability. Hard crashes can remain EXECUTING/PROCESSING/RUNNING. Replay never redispatches unfinished intent. Unknown remains null/unknown, never zero.
+13. **Stale worker:** queue/Store locks and token comparison fence settlement. acknowledgements read persisted outcomes only; unfinished EXECUTING returns IN_PROGRESS. Mismatched token returns STALE_CLAIM and cannot overwrite newer claims/terminal results.
+14. **Manual race:** shared Store lock plus existing per-Reading Generation exclusion permits only one new initial request. Manual win before execution fence skips queue. Manual win in fence→engine admission gap settles blocked attention without duplicate work; canonical manual success remains authoritative. Manual mode itself is unchanged.
+15. **Accounting:** one gateway path creates AIRequest/provisional UsageEvent before provider dispatch and settles existing exact USD nanos/pricing snapshot. Paid-model test double verifies failed attempt's 825000 estimated nanos and preserved usage. Settlement-failure test preserves RUNNING unknown/null accounting and proves no redispatch. No paid/live provider is used by tests.
+16. **Seller projection:** scoped queue metadata supplies Waiting→Preparing; canonical success supplies Ready for review; ATTENTION supplies Problem. Existing hold/customer-revision warnings retain precedence. Processing content whose queue needs attention shows support guidance rather than an inaccurate ongoing-preparation message. No infrastructure terminology, controls or visual redesign added.
+17. **Security/privacy:** tenant-scoped seller reads and composite ownership remain. Internal identity derives only from durable queue. Audit actions for skip/completion/attention contain owned resource metadata/null system actor, no raw prompt/customer/style/content/secret/error logging. No poll noise. Capability membership is authenticity only; concurrency remains PostgreSQL-backed.
+18. **Tests added:** 27 isolated PostgreSQL-engine execution tests and one architecture boundary test (28 new). Cover canonical/accounting integration, reload/projection, stable replay/restart, concurrent dispatch, active/wrong/expired/replaced token, final holds/customer/setup fences, manual race and its admission gap, exact retained version/current snapshots, known/ambiguous/interrupted paid outcomes, terminal history guards, mixed cart/quantity, Manual preservation, scoped denial, batch/sequential Store ownership and populated Part 2 migration preservation. Existing assertions were not weakened.
+19. **Total:** 217 tests: 55 unit/domain/security in 11 files + 162 database/integration in 8 files. Prior 189 remain green. Deterministic fake providers only; zero external AI calls.
+20. **Commands:** pnpm typecheck PASS; pnpm test PASS (55); pnpm test:db PASS (162); pnpm build PASS. Next-generated tsconfig/next-env changes restored so no unrelated config churn remains.
+21. **Migration/replay:** Drizzle PGlite migration runner application and replay PASS including migration 0008. Populated waiting/claimed Part 2 rows retain original metadata and null execution bindings. Fixture seed/replay PASS: six orders, seven lines, ten independent readings, mixed cart #2002 Love×2 + Career×1 retained; no fabricated Generation.
+22. **Native PostgreSQL:** attempted isolated `initdb -D /tmp/reading-os-part3-pg -A trust --no-locale -E UTF8`. BLOCKED during bootstrap: `could not create shared memory segment: Operation not permitted`, failed `shmget(key=76896492, size=56, 03600)`. No native server/database was available for acceptance, and no production database was accessed. PGlite validates PostgreSQL engine behavior but is not a native multi-process/socket concurrency acceptance.
+23. **Limitations:** no automatic abandoned-AI recovery, retry/backoff, rate limiting, distributed concurrency cap, recurring runtime, live provider acceptance or new browser journey. Application/database acceptance uses synthetic tests, including seller status/reloaded content, rather than claiming a live UI/provider run. EXECUTING can remain indefinitely after a hard crash; SKIPPED/ATTENTION are terminal until future explicit policy. Existing metadata scan scaling and live-intake/privacy/deployment gates remain.
+24. **Exact files changed:** listed below; no dependency/lockfile/provider/pricing/product-policy changes.
+25. **Commit:** local completion commit contains this report and all files below; full hash supplied in final response. Nothing pushed or deployed.
+26. **Exact PART 4 handoff:** preserve stable execution command, queue history, Store-first/token fences, shared admission and gateway accounting. Define explicit known-failure retry/resume/adoption and durable new-attempt identity; do not reuse ATTENTION as fresh paid work. Inspect abandoned/unknown external operations conservatively before any approved recovery; lease expiry never proves retry safety. Preserve unknown liabilities and attempt history. Runtime/deployment, global concurrency/rate control and any retry policy require the next bounded authorization. Do not infer PDF/delivery/review/billing scope. Part 4 has not begun.
+
+### Exact changed files
+
+- AGENTS.md
+- README.md
+- docs/ARCHITECTURE.md
+- docs/EDGE_CASES.md
+- docs/GENERATION_ENGINE.md
+- docs/PRODUCTION_ORCHESTRATION.md
+- docs/PRODUCTION_ORCHESTRATION_REPORT.md
+- drizzle/0008_thankful_marvex.sql
+- drizzle/meta/0008_snapshot.json
+- drizzle/meta/_journal.json
+- src/app/(operations)/orders/[id]/page.tsx
+- src/components/generation/reading-preparation.tsx
+- src/components/seller-status.ts
+- src/db/schema.ts
+- src/infrastructure/ai/gateway.ts
+- src/modules/generation/authority.ts
+- src/modules/generation/service.ts
+- src/modules/intake/service.ts
+- src/modules/production/execution.ts
+- src/modules/production/runtime.ts
+- tests/production-boundary.test.ts
+- tests/production-execution.db.test.ts

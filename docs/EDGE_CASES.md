@@ -91,3 +91,13 @@ Repeated/concurrent admission uses one Store/reading unique intent and the exist
 ## Production claims — Part 2
 
 Waiting or safely expired work is revalidated under Store/queue locks. Existing Generation or current holds resolve intent as SKIPPED; history is retained and never silently resurrected. Claim expiration rotates tokens only while no Generation exists. Manual production after a claim still requires Part 3 coordination before any paid dispatch. Fairness advances on stale resolution as well as claim to prevent stale-heavy Stores monopolizing scan cycles. No ambiguous AI outcome is reclaimed.
+
+## Queue execution — Part 3
+
+- Claimed reading receives a new hold or loses required information/setup: final shared admission fence retains SKIPPED history and invokes no provider/accounting.
+- Seller manually prepares after claim: existing Generation fences the worker. If manual preparation wins after EXECUTING commit but before engine admission, worker records PREPARATION_BLOCKED attention with no duplicate paid request. Store locks/Generation exclusion decide concurrent races.
+- Old/replaced/expired pre-execution token: no dispatch/acknowledgement mutation. EXECUTING is never reclaimed even after claim expiration; incurred accounting can settle after expiry with the same current token.
+- Crash before dispatch after execution intent: conservatively stuck EXECUTING, no automatic redispatch. Crash after request admission/dispatch: preserve unknown provisional cost and PROCESSING/RUNNING records. Unknown is never zero.
+- Canonical success committed but queue acknowledgement interrupted: replay acknowledges persisted success without re-entering GenerationService. Wrong token cannot overwrite terminal state.
+- Sequential bounded cycle: later claims may expire during earlier provider work and are not dispatched; global multi-cycle concurrency/rate limiting is not implemented.
+- Terminal failure/skip is not automatically resurrected by reconciliation. Future explicit retry/resume/adoption policy must preserve accounting, snapshots and durable new-attempt identities.
