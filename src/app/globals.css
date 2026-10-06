@@ -280,3 +280,5 @@ dd { display: block; margin: 0 0 16px; line-height: 1.6; overflow-wrap: anywhere
 .review-workspace .order-header, .review-workspace .page-heading, .review-document h3 { min-width:0; overflow-wrap:anywhere; }
 .review-draft-form textarea { display:block; width:100%; max-width:100%; min-height:16rem; resize:vertical; line-height:1.7; overflow-wrap:anywhere; }
 .review-save-actions { display:flex; flex-wrap:wrap; align-items:center; gap:.75rem; margin-block:1rem; }
+
+.review-approval { max-width: 72ch; margin-block: 1rem; padding: 1rem; border: 1px solid var(--border); overflow-wrap: anywhere; }

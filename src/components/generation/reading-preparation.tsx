@@ -5,8 +5,8 @@ import { generationHistory, generationAccounting } from "@/modules/generation/se
 import { sellerStyleData } from "@/modules/seller-style/service";
 import { publishErrors, styleConfiguration } from "@/modules/seller-style/contracts";
 import { PrepareForm } from "./prepare-form";
-export async function ReadingPreparation({scope,unitId,eligible,currentRevision,productionStatus,reviewHref}:{scope:Scope;unitId:string;eligible:boolean;currentRevision:number;productionStatus?:string;reviewHref?:string}) {
- if(reviewHref)return <div className="reading-preparation"><Link className="button" href={reviewHref} prefetch={false}>Review reading</Link></div>;
+export async function ReadingPreparation({scope,unitId,eligible,currentRevision,productionStatus,reviewHref,approved=false}:{scope:Scope;unitId:string;eligible:boolean;currentRevision:number;productionStatus?:string;reviewHref?:string;approved?:boolean}) {
+ if(reviewHref)return <div className="reading-preparation"><Link className="button" href={reviewHref} prefetch={false}>{approved?"View reading":"Review reading"}</Link></div>;
  const [latest]=await generationHistory(database(),scope,unitId);
  if(latest){
   const {attempts}=await generationAccounting(database(),scope,latest.id);

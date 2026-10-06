@@ -1,12 +1,12 @@
-# Review Workspace — Parts 1–2
+# Review Workspace — Parts 1–3
 
-Review is entered through Orders, with no primary navigation change. Sellers can read a prepared Reading and the customer details used for it. Part 2 adds section-body editing and explicit durable draft saving. Approval, regeneration, documents and delivery are not implemented.
+Review is entered through Orders, with no primary navigation change. Sellers can read a prepared Reading and the customer details used for it. Part 2 adds section-body editing and explicit durable draft saving. Part 3 adds immutable approval. Regeneration, documents and delivery are not implemented.
 
 ## Durable foundation
 
-One reading_reviews row per owned Reading pins the exact successful Generation. PENDING is the only review lifecycle state in this foundation: it means seller review is still pending, distinct from successful preparation. Part 2 seller draft content lives separately from this immutable base; later approval requires explicit design/migrations. We deliberately do not invent document or approval states in Part 1.
+One reading_reviews row per owned Reading pins the exact successful Generation. At the Part 1 boundary PENDING was the only review lifecycle state: it means seller review is still pending, distinct from successful preparation. Part 2 seller draft content lives separately from this immutable base; Part 3 approval is stored separately from the original pin and draft content, as described below. We deliberately do not invent document or approval states in Part 1.
 
-Admission is lazy on first workspace entry under the Store row lock, after persisted membership and Store/Order/Line/Reading ownership checks. Concurrent entries create one base. Orders eligibility reads never create reviews, and Review links disable prefetch. No historical backfill. Composite foreign keys bind the same organization, Store, Reading and Generation; a unique constraint protects one base, and a database trigger rejects non-successful evidence and updates/deletes of the base. Original Generation/context/result and AI accounting remain untouched.
+Admission is lazy on first workspace entry under the Store row lock, after persisted membership and Store/Order/Line/Reading ownership checks. Concurrent entries create one base. Orders eligibility reads never create reviews, and Review links disable prefetch. No historical backfill. Composite foreign keys bind the same organization, Store, Reading and Generation; a unique constraint protects one base, and database triggers reject non-successful evidence and changes to the original pin. Original Generation/context/result and AI accounting remain untouched.
 
 ## Eligibility and stability
 
@@ -18,7 +18,7 @@ Before initial admission, successful preparation must match the current customer
 
 Route: /orders/[id]/readings/[readingId]/review. Current scope is derived server-side; the URL accepts only Order/Reading identities, never Store or Generation identities. Unavailable/corrupt/foreign readings map to the existing safe not-found experience. Orders displays Ready for review and Review reading only after domain eligibility, replacing inline prepared-content display.
 
-The workspace uses existing Heading, Badge, button/back-link and operational shell patterns. Customer name, purchased product title and order reference identify the task. Quantity greater than one adds Reading n of quantity; mixed-cart lines and quantity units are independently pinned. Customer details come from the pinned GenerationContext, labelled by its retained ProductVersion input definitions; missing optional details say Not provided. The reading renders validated sections in deterministic product order without IDs or raw metadata. Text is escaped, intended line/paragraph breaks preserved, and no editing/approval controls exist.
+The workspace uses existing Heading, Badge, button/back-link and operational shell patterns. Customer name, purchased product title and order reference identify the task. Quantity greater than one adds Reading n of quantity; mixed-cart lines and quantity units are independently pinned. Customer details come from the pinned GenerationContext, labelled by its retained ProductVersion input definitions; missing optional details say Not provided. The reading renders validated sections in deterministic product order without IDs or raw metadata. Text is escaped, intended line/paragraph breaks preserved, with Part 2 editing and Part 3 approval controls described below.
 
 The document column is limited to 72ch, with long strings wrapping anywhere. Customer details use a grid whose minimum fits the container; existing responsive headers stack on phones. Semantic headings, labelled sections/article, text status and keyboard links reuse accessible primitives. SSR/structure tests verify semantics and responsive constraints; native browser viewport QA is not claimed.
 
@@ -26,7 +26,7 @@ The document column is limited to 72ch, with long strings wrapping anywhere. Cus
 
 0013_flat_prodigy adds reading_reviews, owned composite generation identity and immutable review-base guard. Historical rows are preserved; no review records fabricated. Existing migration replay/repeat-no-op and production historical-data preservation suites remain active. New domain/DB tests cover pinning, concurrency, original immutability, later evidence, tenant and sibling Store isolation, forged relationships, missing/failed/processing/problem/corrupt data, mixed carts and quantities. Render tests cover frozen labels, optional/long answers, canonical order, escaped text, metadata exclusion, Orders links, semantic landmarks and responsive structure.
 
-Real Gemini calls: 0. Parts 3–4 remain deferred.
+Real Gemini calls: 0. The following Part 2 section describes its original boundary; Part 3 is documented below.
 
 ## Part 2 — seller-owned durable drafts
 
@@ -42,4 +42,22 @@ Effective modification is computed from validated saved content versus the norma
 
 Each mixed-cart or quantity Reading has an independent draft/revision. Reads and writes are Store-scoped; no client Store/review/Generation identity grants ownership. Customer context remains read-only. Seller text uses normal escaped rendering in view mode and native labelled textareas in edit mode, with responsive widths/wrapping, existing touch-target buttons, keyboard Cancel/Save and announced errors/loading. Mobile coverage is rendered structure/CSS, not a claimed live viewport run.
 
-Approval/final content, PDFs, delivery, regeneration, rewriting, proofreading and rich editing remain explicitly deferred. No provider call, prompt/style change or production redesign accompanies saving.
+Part 2 deferred approval/final content; Part 3 below adds it. PDFs, delivery, regeneration, rewriting, proofreading and rich editing remain deferred. No provider call, prompt/style change or production redesign accompanies saving.
+
+## Part 3 — immutable approved reading
+
+The current workflow is: original immutable Generation → immutable review pin → optional mutable seller draft → immutable approved reading. Approval and future document rendering are separate. Part 3 implements approval only; no PDF, delivery, reopening or provider call.
+
+The approved artifact is stored directly on reading_reviews: approved_content (ordered strict sections), approved_draft_revision (nullable), approved_content_hash, approved_at and approved_by_user_id. Existing owned review/Reading/Generation relationships remain its provenance. One row holds both status and artifact so a single transactional update cannot leave a partial approval. Existing PENDING rows and drafts are preserved without backfill. No separate audit subsystem or approval history is introduced.
+
+Approval requires the same current durable eligibility and owned pinned successful evidence as review. The server selects saved draft content whenever a draft exists, including an unmodified revision-0 draft; otherwise it selects pinned canonical content. It validates saved structure and never accepts section text, titles, provenance or hashes from the approval action. The page submits only its expected saved revision, or an explicit no-draft token. A newly created/saved draft invalidates a stale page. Stale approval returns a safe conflict and requires the seller to review the latest saved content.
+
+Store-first locking coordinates admission, saving and approval. Approval changes PENDING → APPROVED once. Concurrent or repeated consistent approvals return the existing artifact, with no replacement or extra snapshot. Draft content and revision are unchanged. The content hash is SHA-256 over stableJson of ordered section IDs, titles and exact bodies; timestamps/provenance are outside this semantic content hash. Reads validate the approved contract and hash and fail closed on corruption.
+
+Migration 0015_stale_omega_sentinel is additive. SQL checks require PENDING to have no approval fields and APPROVED to have complete content/hash/time, with a nonnegative draft revision when used. The review trigger preserves all original identity and Generation provenance, allows only the one-way transition, binds approval to the exact current saved draft/revision or original result, and forbids updates/deletion afterward. Draft writes lock the owned review and require PENDING; approval and draft mutation cannot safely cross. Existing draft structural/revision guards still apply. Canonical Generation, context, customer inputs, product/style and accounting history are untouched.
+
+The readable workspace has Edit reading and Approve reading. Approval opens an inline, labelled confirmation form explaining that the reading can no longer be edited. It supports keyboard focus, Cancel, pending text and announced errors. Active editing has Save/Cancel only; unsaved browser content cannot be approved. Approved workspace content comes from approved_content, never draft content; editing and draft initialization are blocked. Orders marks individual readings Approved / View reading. Mixed carts and quantity units remain independent; an order is labelled Approved only when every reading is approved, without any order-wide approval action.
+
+Responsive document layout and native forms/buttons reuse locked primitives. Long text stays escaped and wrapped. Automated coverage checks markup/CSS structure; a native phone viewport run is not claimed. Part 4 and Document/PDF Engine remain deferred. Real Gemini calls: 0.
+
+Approval records the authenticated actor using the existing stable app_users identity and nullable additive foreign key. No actor is fabricated for historical PENDING reviews; approved actor identity is immutable and is not displayed to sellers.

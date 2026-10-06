@@ -392,6 +392,10 @@ it("review mixed-cart and quantity readings remain independently owned and pinne
   await saveReadingReviewDraft(db,a,o.id,u.id,0,content);
  }
  for(const [i,u]of us.entries())expect((await openReadingReview(db,a,o.id,u.id)).sections[0].content).toBe(`Independent draft ${i}`);
+ const {approveReadingReview}=await import("../src/modules/review/service");
+ await approveReadingReview(db,a,o.id,us[0].id,1);
+ expect((await openReadingReview(db,a,o.id,us[0].id)).approved).toBe(true);
+ for(const u of us.slice(1))expect((await openReadingReview(db,a,o.id,u.id)).approved).toBe(false);
  expect(await db.select().from(schema.readingReviewDrafts)).toHaveLength(3);
  expect(await db.select().from(schema.readingReviews)).toHaveLength(3);
  expect(await reviewAvailable(db,a,(await context()).orderId,us[0].id)).toBe(false);
@@ -449,4 +453,69 @@ it("draft writes reject section structure changes, malformed content and foreign
  await expect(saveReadingReviewDraft(db,a,randomUUID(),unitId,0,base)).rejects.toThrow();await expect(saveReadingReviewDraft(db,a,orderId,randomUUID(),0,base)).rejects.toThrow();
  const [draft]=await db.select().from(schema.readingReviewDrafts);expect(draft.revision).toBe(0);
  await expect(db.update(schema.readingReviewDrafts).set({reviewId:randomUUID(),revision:1}).where(eq(schema.readingReviewDrafts.reviewId,draft.reviewId))).rejects.toThrow();
+});
+
+it("approval freezes canonical-only content atomically and is immutable and idempotent",async()=>{
+ const {openReadingReview,approveReadingReview,reviewContentHash}=await import("../src/modules/review/service");
+ const {result}=await prepare(),orderId=result.context.orderId;
+ await openReadingReview(db,a,orderId,unitId);
+ const original=await readGeneration(db,a,result.id),ledger=await generationAccounting(db,a,result.id);
+ const outcomes=await Promise.all([approveReadingReview(db,a,orderId,unitId,null),approveReadingReview(db,a,orderId,unitId,null)]);
+ expect(outcomes[0]).toEqual(outcomes[1]);expect(outcomes[0]).toMatchObject({state:"APPROVED",approvedByUserId:a.userId,generationId:result.id,approvedContent:result.result,approvedDraftRevision:null,approvedContentHash:reviewContentHash(result.result!)});
+ expect((await openReadingReview(db,a,orderId,unitId)).approved).toBe(true);
+ expect(await readGeneration(db,a,result.id)).toEqual(original);expect(await generationAccounting(db,a,result.id)).toEqual(ledger);
+ expect(await db.select().from(schema.readingReviews)).toHaveLength(1);
+ await expect(openReadingReview(db,a,orderId,unitId,true)).rejects.toThrow();
+ for(const update of [{state:"PENDING"},{approvedContentHash:"0".repeat(64)},{generationId:randomUUID()},{approvedDraftRevision:2}])await expect(db.update(schema.readingReviews).set(update)).rejects.toThrow();
+ await expect(db.delete(schema.readingReviews)).rejects.toThrow();
+});
+it("approval requires the exact saved revision and preserves saved draft and original evidence",async()=>{
+ const {openReadingReview,approveReadingReview,saveReadingReviewDraft}=await import("../src/modules/review/service");
+ const {result}=await prepare(),orderId=result.context.orderId;
+ const first=await openReadingReview(db,a,orderId,unitId,true),content=structuredClone(first.draft!.content);
+ content.sections[0].content="<script>untrusted</script>\nSeller edited text";
+ await saveReadingReviewDraft(db,a,orderId,unitId,0,content);
+ await expect(approveReadingReview(db,a,orderId,unitId,0)).rejects.toMatchObject({kind:"CONFLICT"});
+ expect((await db.select().from(schema.readingReviews))[0].state).toBe("PENDING");
+ await expect(approveReadingReview(db,a,orderId,unitId,null)).rejects.toMatchObject({kind:"CONFLICT"});
+ const before=(await db.select().from(schema.readingReviewDrafts))[0];
+ const approved=await approveReadingReview(db,a,orderId,unitId,1);
+ expect(approved.approvedContent).toEqual(content);expect(approved.approvedDraftRevision).toBe(1);
+ expect((await db.select().from(schema.readingReviewDrafts))[0]).toEqual(before);
+ expect((await openReadingReview(db,a,orderId,unitId)).sections).toEqual(content.sections.map(({title,content})=>({title,content})));
+ await expect(saveReadingReviewDraft(db,a,orderId,unitId,1,content)).rejects.toThrow();
+ await expect(db.update(schema.readingReviewDrafts).set({revision:2,content})).rejects.toThrow();
+ expect((await readGeneration(db,a,result.id)).result).toEqual(result.result);
+});
+it("approval rejects foreign ownership, forged relationships and invalid revision without partial state",async()=>{
+ const {openReadingReview,approveReadingReview}=await import("../src/modules/review/service");
+ const {result}=await prepare(),orderId=result.context.orderId;await openReadingReview(db,a,orderId,unitId);
+ const [sibling]=await db.insert(schema.stores).values({organizationId:a.organizationId,name:"Sibling approvals",source:"fixtures",importSince:new Date()}).returning();
+ for(const [scope,order,unit,revision] of [[b,orderId,unitId,null],[{...a,storeId:sibling.id},orderId,unitId,null],[a,randomUUID(),unitId,null],[a,orderId,randomUUID(),null],[a,orderId,unitId,-1]] as const)await expect(approveReadingReview(db,scope,order,unit,revision)).rejects.toThrow();
+ const [review]=await db.select().from(schema.readingReviews);expect(review.state).toBe("PENDING");expect(review.approvedContent).toBeNull();
+ await expect(db.update(schema.readingReviews).set({state:"APPROVED"})).rejects.toThrow();
+ await expect(db.update(schema.readingReviews).set({state:"APPROVED",approvedContent:{sections:[]},approvedContentHash:"0".repeat(64),approvedAt:new Date()})).rejects.toThrow();
+ expect((await db.select().from(schema.readingReviews))[0]).toEqual(review);
+});
+
+it("approved display stays frozen despite unrelated draft corruption and fails closed on approved corruption",async()=>{
+ const {openReadingReview,approveReadingReview,readingReviewStatus}=await import("../src/modules/review/service");const {result}=await prepare(),orderId=result.context.orderId;
+ await openReadingReview(db,a,orderId,unitId,true);const approved=await approveReadingReview(db,a,orderId,unitId,0);
+ await pg.exec("BEGIN; SET LOCAL session_replication_role=replica");await pg.query("UPDATE reading_review_drafts SET content=$1 WHERE review_id=$2",[JSON.stringify({sections:[]}),approved.id]);await pg.exec("SET LOCAL session_replication_role=origin; COMMIT");
+ expect((await openReadingReview(db,a,orderId,unitId)).sections).toEqual(approved.approvedContent!.sections.map(({title,content})=>({title,content})));
+ await pg.exec("BEGIN; SET LOCAL session_replication_role=replica");await pg.query("UPDATE reading_reviews SET approved_content_hash=$1 WHERE id=$2",["0".repeat(64),approved.id]);await pg.exec("SET LOCAL session_replication_role=origin; COMMIT");
+ await expect(openReadingReview(db,a,orderId,unitId)).rejects.toThrow("REVIEW_UNAVAILABLE");expect(await readingReviewStatus(db,a,orderId,unitId)).toBeNull();
+});
+it("unmodified draft approval retains deterministic draft provenance",async()=>{
+ const {openReadingReview,approveReadingReview}=await import("../src/modules/review/service");const {result}=await prepare(),orderId=result.context.orderId;
+ const view=await openReadingReview(db,a,orderId,unitId,true);expect(view.draft?.modified).toBe(false);
+ const approved=await approveReadingReview(db,a,orderId,unitId,0);expect(approved.approvedContent).toEqual(view.draft!.content);expect(approved.approvedDraftRevision).toBe(0);
+});
+it("racing save and approval never approves unseen content or advances an approved draft",async()=>{
+ const {openReadingReview,approveReadingReview,saveReadingReviewDraft}=await import("../src/modules/review/service");const {result}=await prepare(),orderId=result.context.orderId;
+ const view=await openReadingReview(db,a,orderId,unitId,true),content=structuredClone(view.draft!.content);content.sections[0].content="Another tab saved";
+ const outcomes=await Promise.allSettled([approveReadingReview(db,a,orderId,unitId,0),saveReadingReviewDraft(db,a,orderId,unitId,0,content)]);
+ expect(outcomes.filter(o=>o.status==="fulfilled")).toHaveLength(1);
+ const [review]=await db.select().from(schema.readingReviews),[draft]=await db.select().from(schema.readingReviewDrafts);
+ if(review.state==="APPROVED"){expect(review.approvedContent).toEqual(view.draft!.content);expect(draft.revision).toBe(0);}else{expect(review.approvedContent).toBeNull();expect(draft.revision).toBe(1);}
 });

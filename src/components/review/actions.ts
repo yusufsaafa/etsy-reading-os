@@ -4,7 +4,7 @@ import {revalidatePath} from "next/cache";
 import {redirect} from "next/navigation";
 import {database} from "@/db/client";
 import {currentScope} from "@/modules/identity/session";
-import {saveReadingReviewDraft} from "@/modules/review/service";
+import {saveReadingReviewDraft,approveReadingReview} from "@/modules/review/service";
 import {reviewDraftMessage,ReviewDraftError,MAX_DRAFT_BYTES} from "@/modules/review/draft-contract";
 export type ReviewSaveState={error?:string};
 export async function saveReviewDraftAction(orderId:string,readingId:string,_state:ReviewSaveState,form:FormData):Promise<ReviewSaveState> {
@@ -22,4 +22,16 @@ export async function saveReviewDraftAction(orderId:string,readingId:string,_sta
  const path=`/orders/${orderId}/readings/${readingId}/review`;
  revalidatePath(path);revalidatePath(`/orders/${orderId}`);
  redirect(path+"?saved=1");
+}
+
+export async function approveReviewAction(orderId:string,readingId:string,_state:ReviewSaveState,form:FormData):Promise<ReviewSaveState> {
+ try {
+  const scope=await currentScope();
+  z.string().uuid().parse(orderId);z.string().uuid().parse(readingId);
+  if([...form.keys()].some(key=>key!=="revision"&&!key.startsWith("$ACTION_")))throw new ReviewDraftError("INVALID");
+  const token=z.string().regex(/^(none|\d+)$/).parse(form.get("revision"));
+  await approveReadingReview(database(),scope,orderId,readingId,token==="none"?null:Number(token));
+ }catch(error){return {error:error instanceof ReviewDraftError&&error.kind==="CONFLICT"?"This reading changed since you opened it. Review the latest version before approving.":"This reading could not be approved. Refresh and check its status before continuing."};}
+ const path=`/orders/${orderId}/readings/${readingId}/review`;
+ revalidatePath(path);revalidatePath(`/orders/${orderId}`);revalidatePath("/orders");redirect(path);
 }

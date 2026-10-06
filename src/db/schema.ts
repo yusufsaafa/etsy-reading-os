@@ -265,11 +265,15 @@ function analysisIdentityColumns():[AnyPgColumn,AnyPgColumn,AnyPgColumn] {return
 export const readingReviews=pgTable("reading_reviews",{
  id:id(),organizationId:org(),storeId:store(),unitId:uuid("unit_id").notNull(),generationId:uuid("generation_id").notNull(),
  state:text("state").notNull().default("PENDING"),createdAt:time("created_at").defaultNow().notNull(),
+ approvedContent:jsonb("approved_content").$type<import("../modules/generation/contracts").CanonicalResult>(),
+ approvedByUserId:text("approved_by_user_id").references(()=>users.id),
+ approvedDraftRevision:integer("approved_draft_revision"),approvedContentHash:text("approved_content_hash"),approvedAt:time("approved_at"),
 },t=>[unique("one_review_per_reading").on(t.organizationId,t.storeId,t.unitId),
  unique("review_owned_identity").on(t.organizationId,t.storeId,t.id),
  foreignKey({name:"review_owned_reading_fk",columns:[t.organizationId,t.storeId,t.unitId],foreignColumns:[units.organizationId,units.storeId,units.id]}),
  foreignKey({name:"review_exact_generation_fk",columns:[t.organizationId,t.storeId,t.unitId,t.generationId],foreignColumns:[generations.organizationId,generations.storeId,generations.unitId,generations.id]}),
- check("review_state",sql`${t.state}='PENDING'`)]);
+ check("review_state",sql`${t.state} IN ('PENDING','APPROVED')`),
+ check("review_approval_complete",sql`(${t.state}='PENDING' AND ${t.approvedByUserId} IS NULL AND ${t.approvedContent} IS NULL AND ${t.approvedDraftRevision} IS NULL AND ${t.approvedContentHash} IS NULL AND ${t.approvedAt} IS NULL) OR (${t.state}='APPROVED' AND ${t.approvedByUserId} IS NOT NULL AND ${t.approvedContent} IS NOT NULL AND ${t.approvedContentHash} IS NOT NULL AND ${t.approvedContentHash} ~ '^[a-f0-9]{64}$' AND ${t.approvedAt} IS NOT NULL AND (${t.approvedDraftRevision} IS NULL OR ${t.approvedDraftRevision}>=0))`)]);
 
 export const readingReviewDrafts=pgTable("reading_review_drafts",{
  reviewId:uuid("review_id").primaryKey(),organizationId:org(),storeId:store(),
