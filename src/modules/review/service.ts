@@ -133,7 +133,10 @@ export async function readingReviewStatus(db:Database,scope:Scope,orderId:string
 
 /** Local repeatable-read boundary; no admission, editing, approval or provider side effect. */
 export async function getApprovedReadingForDocument(db:Database,scope:Scope,orderId:string,readingId:string):Promise<ApprovedReadingForDocument> {
- return db.transaction(async tx=>{
+ return db.transaction(tx=>getApprovedReadingForDocumentInTransaction(tx,scope,orderId,readingId),{isolationLevel:"repeatable read"});
+}
+/** Composition boundary: caller owns the transaction; same validation as the public handoff. */
+export async function getApprovedReadingForDocumentInTransaction(tx:DbExecutor,scope:Scope,orderId:string,readingId:string):Promise<ApprovedReadingForDocument> {
   const data=await candidate(tx,scope,orderId,readingId),review=data.review;
   if(!review||review.state!=="APPROVED")throw new ReviewUnavailable();
   const base=validateCanonical(JSON.stringify(data.generation.result),data.generation.context);
@@ -141,5 +144,5 @@ export async function getApprovedReadingForDocument(db:Database,scope:Scope,orde
   try{return immutableApprovedReading({contractVersion:"approved-reading/v1",organizationId:scope.organizationId,storeId:scope.storeId,readingId:data.unit.id,
    order:{id:data.order.id,reference:data.order.externalId,customerName:data.order.buyerName||"Customer"},product:{name:data.line.title},readingNumber:data.unit.unitIndex,quantity:data.line.quantity,
    sections:content.sections,contentHash:review.approvedContentHash,approvedAt:review.approvedAt!.toISOString(),provenance:{reviewId:review.id,generationId:review.generationId}});}catch{throw new ReviewUnavailable();}
- },{isolationLevel:"repeatable read"});
+
 }

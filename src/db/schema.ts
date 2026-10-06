@@ -302,3 +302,19 @@ export const productDocumentDesigns = pgTable("product_document_designs", {
   foreignKey({columns:[t.organizationId,t.storeId,t.designId],foreignColumns:[documentDesigns.organizationId,documentDesigns.storeId,documentDesigns.id]}),
   index("product_document_design_references").on(t.organizationId,t.storeId,t.designId),
 ]);
+
+export const documentSnapshots = pgTable("document_snapshots", {
+  id:id(),organizationId:org(),storeId:store(),readingId:uuid("reading_id").notNull(),orderId:uuid("order_id").notNull(),productId:uuid("product_id").notNull(),
+  reviewId:uuid("review_id").notNull(),generationId:uuid("generation_id").notNull(),designId:uuid("design_id").notNull(),designRevision:integer("design_revision").notNull(),
+  snapshotHash:text("snapshot_hash").notNull(),payload:jsonb("payload").$type<import("../modules/documents/snapshot-contract").DocumentSnapshot>().notNull(),createdAt:time("created_at").notNull(),
+},t=>[
+  unique("document_snapshot_intent").on(t.organizationId,t.storeId,t.readingId,t.reviewId,t.designId,t.designRevision,t.snapshotHash),
+  foreignKey({columns:[t.organizationId,t.storeId,t.readingId],foreignColumns:[units.organizationId,units.storeId,units.id]}),
+  foreignKey({columns:[t.organizationId,t.storeId,t.orderId],foreignColumns:[orders.organizationId,orders.storeId,orders.id]}),
+  foreignKey({columns:[t.organizationId,t.storeId,t.productId],foreignColumns:[products.organizationId,products.storeId,products.id]}),
+  foreignKey({columns:[t.organizationId,t.storeId,t.reviewId],foreignColumns:[readingReviews.organizationId,readingReviews.storeId,readingReviews.id]}),
+  foreignKey({columns:[t.organizationId,t.storeId,t.readingId,t.generationId],foreignColumns:[generations.organizationId,generations.storeId,generations.unitId,generations.id]}),
+  foreignKey({columns:[t.organizationId,t.storeId,t.designId],foreignColumns:[documentDesigns.organizationId,documentDesigns.storeId,documentDesigns.id]}),
+  index("document_snapshot_reading").on(t.organizationId,t.storeId,t.readingId,t.createdAt),
+  check("document_snapshot_bounds",sql`${t.designRevision}>=0 and ${t.snapshotHash} ~ '^[a-f0-9]{64}$' and jsonb_typeof(${t.payload})='object' and (${t.payload}->>'contractVersion') is not distinct from 'document-snapshot/v1' and octet_length(${t.payload}::text)<=650000`),
+]);

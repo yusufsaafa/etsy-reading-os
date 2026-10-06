@@ -77,7 +77,9 @@ export async function archiveDocumentDesign(db: Database, scope: Scope, id: stri
 }
 export type DocumentDesignResolution = { readonly status: "SETUP_REQUIRED" } | { readonly status: "RESOLVED"; readonly design: ResolvedDocumentDesign };
 export async function resolveDocumentDesignForProduct(db: Database, scope: Scope, productId: string): Promise<DocumentDesignResolution> {
-  return db.transaction(async tx => {
+  return db.transaction(tx => resolveDocumentDesignForProductInTransaction(tx,scope,productId), {isolationLevel:"repeatable read"});
+}
+export async function resolveDocumentDesignForProductInTransaction(tx: DbExecutor, scope: Scope, productId: string): Promise<DocumentDesignResolution> {
     await verifyScope(tx,scope); await ownedProduct(tx,scope,productId);
     const [assignment] = await tx.select().from(productDocumentDesigns).where(and(tenantWhere(productDocumentDesigns,scope),eq(productDocumentDesigns.productId,productId)));
     const [fallback] = assignment ? [] : await tx.select({id:documentDesigns.id}).from(documentDesigns).where(and(tenantWhere(documentDesigns,scope),eq(documentDesigns.isDefault,true)));
@@ -88,5 +90,5 @@ export async function resolveDocumentDesignForProduct(db: Database, scope: Scope
     // Detached, recursively frozen presentation value; no reading or infrastructure data.
     const design = immutableResolvedDesign({contractVersion:"resolved-document-design/v1",organizationId:scope.organizationId,storeId:scope.storeId,productId,designId:row.id,revision:row.revision,name:row.name,source:assignment ? "PRODUCT" : "STORE_DEFAULT",templateVersion:1,configuration:documentDesignSchema.parse(row.configuration),configurationHash:configurationHash(row.configuration)});
     return Object.freeze({status:"RESOLVED" as const,design});
-  }, {isolationLevel:"repeatable read"});
+
 }

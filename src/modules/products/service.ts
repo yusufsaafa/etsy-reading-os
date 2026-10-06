@@ -1,7 +1,7 @@
 import { and, asc, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import type { Database, DbExecutor } from "../../db/client";
-import { products, productVersions, mappings, listings, listingSelections, lineItems, stores, auditLogs } from "../../db/schema";
+import { products, productVersions, mappings, listings, listingSelections, lineItems, stores, auditLogs, units, generations } from "../../db/schema";
 import { tenantWhere, verifyScope } from "../intake/service";
 import { AccessDenied } from "../identity/service";
 import { stableJson, type Scope } from "../intake/contracts";
@@ -102,4 +102,17 @@ export async function activateProduct(db: Database,scope: Scope,productId:string
     await audit(tx,scope,"product_version_activated",versionId);
     return versionId;
   });
+}
+
+/** Product identity for an exact owned Reading provenance; never reads generated body content. */
+export async function productIdentityForReading(db: DbExecutor, scope: Scope, readingId: string, generationId: string) {
+  await verifyScope(db,scope);
+  z.uuid().parse(readingId); z.uuid().parse(generationId);
+  const [row] = await db.select({productId:productVersions.productId}).from(units)
+    .innerJoin(generations,and(tenantWhere(generations,scope),eq(generations.unitId,units.id),eq(generations.id,generationId),eq(generations.productVersionId,units.productVersionId)))
+    .innerJoin(productVersions,and(tenantWhere(productVersions,scope),eq(productVersions.id,generations.productVersionId)))
+    .innerJoin(products,and(tenantWhere(products,scope),eq(products.id,productVersions.productId)))
+    .where(and(tenantWhere(units,scope),eq(units.id,readingId)));
+  if (!row) throw new AccessDenied();
+  return row.productId;
 }
