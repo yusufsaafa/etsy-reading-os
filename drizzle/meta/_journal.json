@@ -43,6 +43,13 @@
       "when": 1791228737738,
       "tag": "0005_green_mindworm",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791230782812,
+      "tag": "0006_small_rattler",
+      "breakpoints": true
     }
   ]
 }

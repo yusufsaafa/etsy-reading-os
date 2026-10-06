@@ -235,8 +235,13 @@ it("migration runner application/replay and fixture seed/replay preserve existin
 it("an additive migration preserves seeded pre-generation product, seller, style and order rows",async()=>{
  const acceptance=new PGlite(),legacy=drizzle(acceptance,{schema}) as unknown as Database;
  try{
+  // This fixture intentionally runs the pre-generation application/schema boundary.
+  // Suppress only new production admission while constructing its historical rows.
+  const production=await import("../src/modules/production/service");
+  const admit=vi.spyOn(production,"admitReadingInTransaction").mockResolvedValue({outcome:"ineligible"});
+  const reconcile=vi.spyOn(production,"reconcileProductionInTransaction").mockResolvedValue({scanned:0,queued:0});
   const files=readdirSync("drizzle").filter(f=>f.endsWith(".sql")).sort();
-  for(const file of files.filter(f=>!f.startsWith("0005")))await acceptance.exec(readFileSync("drizzle/"+file,"utf8"));
+  for(const file of files.filter(f=>f<"0005"))await acceptance.exec(readFileSync("drizzle/"+file,"utf8"));
   await legacy.insert(schema.users).values({id:"existing",name:"Existing seller"});
   const scope=await authorizeStore(legacy,"existing",await createWorkspace(legacy,"existing","Existing Store","fixtures"));
   for(const listing of fixtureListings)await ingestListing(legacy,scope,listing);
@@ -247,6 +252,7 @@ it("an additive migration preserves seeded pre-generation product, seller, style
   for(const receipt of fixtureOrders)await ingestOrder(legacy,scope,receipt);
   const before={units:await legacy.select().from(schema.units),products:await legacy.select().from(schema.productVersions),style:await legacy.select().from(schema.styleVersions),seller:await legacy.select().from(schema.sellerProfiles)};
   await acceptance.exec(readFileSync("drizzle/"+files.find(f=>f.startsWith("0005"))!,"utf8"));
+  admit.mockRestore();reconcile.mockRestore();
   expect(await legacy.select().from(schema.units)).toEqual(before.units);expect(await legacy.select().from(schema.productVersions)).toEqual(before.products);expect(await legacy.select().from(schema.styleVersions)).toEqual(before.style);expect(await legacy.select().from(schema.sellerProfiles)).toEqual(before.seller);expect(await legacy.select().from(schema.generations)).toHaveLength(0);
  }finally{await acceptance.close();}
 });

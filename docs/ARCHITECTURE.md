@@ -194,3 +194,7 @@ Only pasted text is implemented. PrivateObjectStorage remains a port without an 
 ## Implemented generation boundary
 
 Generation is now implemented by the three-table, version-bound pipeline in [GENERATION_ENGINE.md](GENERATION_ENGINE.md). AIRequest is the attempt equivalent and CentralAIGateway is the only provider invocation boundary. Protected context/result snapshots, durable pre-dispatch accounting, integer USD nanos, Store-row budget/idempotency locks and database history/accounting guards are additive. Existing sync jobs/storage are unchanged; production queue, PDF and delivery remain deferred. Earlier no-AI statements describe Milestone 1 only. Validation and environment blockers are in GENERATION_ENGINE_REPORT.md.
+
+## Production orchestration — Part 1 foundation
+
+`production_queue` stores one tenant-owned waiting intent per Reading with its exact retained ProductVersion and urgency policy. Mutation-driven transactional admission reuses generation context eligibility; Store locks and unique constraints protect replay/concurrency. Queue execution, claims, scheduling and recovery are deferred. See PRODUCTION_ORCHESTRATION.md for policy, transaction integration and Part 2 handoff.

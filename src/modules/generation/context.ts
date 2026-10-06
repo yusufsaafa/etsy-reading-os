@@ -9,8 +9,10 @@ import { sellerProductionContextInTransaction } from "../seller-style/context";
 import { sellerIdentity, styleConfiguration, publishErrors } from "../seller-style/contracts";
 import { AdmissionError, ENGINE_VERSION, type GenerationContext } from "./contracts";
 // Caller holds the Store lock; standalone reads use a repeatable-read transaction.
-export async function buildGenerationContext(tx: DbExecutor, scope: Scope, unitId: string): Promise<GenerationContext> {
-  await verifyScope(tx, scope, true);
+// Paid generation keeps owner=true. Internal intake admission can check membership
+// only: it creates waiting work and never grants permission for provider dispatch.
+export async function buildGenerationContext(tx: DbExecutor, scope: Scope, unitId: string, owner = true): Promise<GenerationContext> {
+  await verifyScope(tx, scope, owner);
   const [unit] = await tx.select().from(units).where(and(tenantWhere(units,scope),eq(units.id,unitId)));
   if (!unit) throw new AccessDenied();
   if (!unit.productVersionId || unit.configurationState !== "versioned") throw new AdmissionError("PRODUCT_SETUP");

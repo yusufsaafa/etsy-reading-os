@@ -83,3 +83,7 @@ Before a production pilot, demonstrate mixed checkout quantity expansion, duplic
 ## Generation milestone handling
 
 See GENERATION_ENGINE.md for duplicate/concurrent command exclusion, exact version/context snapshots, malformed-output accounting, nullable unknown cost, explicit retry history and safe transaction stages. Late customer corrections preserve earlier work but project Review updated information. Late cancellation/payment/refund holds take precedence over generated status. A crash or settlement failure remains PROCESSING with unknown liability and never automatically redispatches. Native concurrency/abandoned-request reconciliation remain acceptance/hardening gates for the next queue milestone. No PDF or delivery side effects exist.
+
+## Production admission — Part 1
+
+Repeated/concurrent admission uses one Store/reading unique intent and the existing Store lock. Missing context/setup, holds and any existing Generation prevent new automatic admission. Existing waiting rows survive later holds/manual preparation; later execution must revalidate and skip/resolve stale waiting work. Migration does not auto-adopt or produce historical orders; explicit owner-scoped reconciliation fills eligible ASSISTED gaps without execution. See PRODUCTION_ORCHESTRATION.md.

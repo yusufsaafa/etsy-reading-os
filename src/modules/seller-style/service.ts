@@ -1,3 +1,4 @@
+import { reconcileProductionInTransaction } from "../production/service";
 import { createHash } from "node:crypto";
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
@@ -29,7 +30,7 @@ export async function saveSellerProfile(db:Database,scope:Scope,raw:unknown) {
     const [old]=await tx.select().from(sellerProfiles).where(tenantWhere(sellerProfiles,scope));
     if(old && old.displayName===payload.displayName && old.shortBio===payload.shortBio) return old;
     const [saved]=await tx.insert(sellerProfiles).values({organizationId:scope.organizationId,storeId:scope.storeId,...payload}).onConflictDoUpdate({target:[sellerProfiles.organizationId,sellerProfiles.storeId],set:{...payload,updatedAt:new Date()}}).returning();
-    await audit(tx,scope,old ? "seller_profile_updated":"seller_profile_created",saved.id);return saved;
+    await audit(tx,scope,old ? "seller_profile_updated":"seller_profile_created",saved.id);await reconcileProductionInTransaction(tx,scope);return saved;
   });
 }
 // Mutation only: opening a page never creates database records.
@@ -66,7 +67,7 @@ export async function applyStyle(db:Database,scope:Scope,versionId:string,expect
     if(data.active)await tx.update(styleVersions).set({status:"ARCHIVED"}).where(and(tenantWhere(styleVersions,scope),eq(styleVersions.id,data.active.id)));
     const [active]=await tx.update(styleVersions).set({status:"ACTIVE",activatedAt:new Date(),configuration,revision:version.revision+(supplied?1:0)}).where(and(tenantWhere(styleVersions,scope),eq(styleVersions.id,versionId))).returning();
     await tx.update(styleProfiles).set({activeVersionId:versionId}).where(and(tenantWhere(styleProfiles,scope),eq(styleProfiles.id,version.styleProfileId)));
-    await audit(tx,scope,"style_applied",versionId);return active;
+    await audit(tx,scope,"style_applied",versionId);await reconcileProductionInTransaction(tx,scope);return active;
   });
 }
 export async function addPreviousWork(db:Database,scope:Scope,raw:unknown) {

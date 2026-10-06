@@ -115,3 +115,7 @@ Pasted text works with bounded inputs, ownership checks, escaped viewing and met
 ## Current canonical preparation milestone
 
 Eligible version-bound readings can be manually prepared from order detail using their saved product, current published style at admission, bounded seller identity snapshot and exact customer revision. Preparing, Ready for review and Problem are projections separate from intake holds. Sellers inspect canonical sections only; there is no approval/document/delivery workspace. Repeated commands cannot pay twice; known failures can be explicitly retried, ambiguous attempts require reconciliation. Previous work is not sent/analyzed. See GENERATION_ENGINE.md and GENERATION_ENGINE_REPORT.md.
+
+## Production orchestration — Part 1
+
+Manual starts preparation through the seller action. Assisted automatically admits eligible individual readings to durable waiting work; it never means automatic delivery. Standard/Express and optional purchase-relative target minutes are version-owned. Automatic execution is unavailable in this part. Mixed carts and quantities stay independent. See PRODUCTION_ORCHESTRATION.md.

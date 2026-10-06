@@ -48,3 +48,7 @@ Read README.md and relevant docs/ before changing behavior. Architectural work r
 - Update the relevant documentation whenever an architectural decision, invariant, capability, or scope changes. Record rationale and consequences; never leave proposed decisions looking finalized by accident.
 - Run meaningful checks proportional to the change. For implementation, cover tenant isolation, mixed carts, quantity expansion, duplicate commands, failure recovery, and mobile flows. Use synthetic or properly redacted fixtures.
 - Report changes, validation, unresolved assumptions, and material limitations. Never claim a real integration has been tested using only a mock.
+
+## Authorized production continuation
+
+PRODUCTION_ORCHESTRATION.md Part 1 adds version-owned production/urgency policy, durable PostgreSQL waiting intents and automatic idempotent admission only. Do not execute queue items or add scheduling, claims, leases, retries, recovery, delivery or later-part behavior without explicit authorization.

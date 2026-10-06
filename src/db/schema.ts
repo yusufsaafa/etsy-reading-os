@@ -177,3 +177,17 @@ export const usageEvents=pgTable("usage_events",{
 },t=>[unique("one_usage_per_request").on(t.organizationId,t.storeId,t.aiRequestId),
  foreignKey({columns:[t.organizationId,t.storeId,t.aiRequestId],foreignColumns:[aiRequests.organizationId,aiRequests.storeId,aiRequests.id]}),
  check("usage_cost",sql`${t.currency}='USD' and ${t.costState} in ('estimated','known_zero','unknown') and ((${t.costState}='unknown')=(${t.amountNanos} is null)) and ${t.amountNanos}>=0`)]);
+
+// Waiting production work only. Execution lifecycle is intentionally deferred.
+export const productionQueue = pgTable("production_queue", {
+  id: id(), organizationId: org(), storeId: store(), unitId: uuid("unit_id").notNull(),
+  productVersionId: uuid("product_version_id").notNull(), state: text("state").notNull().default("QUEUED"),
+  priorityClass: text("priority_class").notNull(), targetCompletionMinutes: integer("target_completion_minutes"),
+  targetDeadline: time("target_deadline"), createdAt: time("created_at").defaultNow().notNull(),
+  updatedAt: time("updated_at").defaultNow().notNull(),
+}, t => [unique("production_queue_one_per_reading").on(t.organizationId,t.storeId,t.unitId),
+  foreignKey({columns:[t.organizationId,t.storeId,t.unitId],foreignColumns:[units.organizationId,units.storeId,units.id]}),
+  foreignKey({columns:[t.organizationId,t.storeId,t.productVersionId],foreignColumns:[productVersions.organizationId,productVersions.storeId,productVersions.id]}),
+  check("production_queue_waiting",sql`${t.state}='QUEUED'`),
+  check("production_queue_urgency",sql`${t.priorityClass} in ('STANDARD','EXPRESS') and (${t.targetCompletionMinutes} is null or ${t.targetCompletionMinutes} between 1 and 525600) and ((${t.targetCompletionMinutes} is null)=(${t.targetDeadline} is null))`),
+]);

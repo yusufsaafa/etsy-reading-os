@@ -33,7 +33,7 @@ The seller correction form includes missing configured fields from the reading's
 
 Content sections have stable IDs, seller-defined titles, short instructions and consecutive sort order. They are configuration data, not model prompts. Publishing requires at least one named section. Arrays are deterministically ordered when saved.
 
-Output supports TEXT and PDF **preferences only**. No document is created and no renderer is selected. Workflow defaults to ASSISTED; MANUAL and ASSISTED record intended operation only. AUTOMATIC is recognized structurally but disabled in the UI and rejected at activation until safe execution exists. Neither assisted nor automatic generation/delivery is simulated.
+Output supports TEXT and PDF **preferences only**. No document is created and no renderer is selected. Workflow defaults to ASSISTED. In production orchestration Part 1, MANUAL remains seller-started and ASSISTED automatically admits eligible readings to durable waiting work. It does not mean automatic delivery. Optional version-owned fulfillment priority and target minutes support future planning; absent values resolve to Standard/no target. AUTOMATIC is recognized structurally but disabled in the UI and rejected at activation until safe execution exists. Queue execution remains deferred; existing manual canonical preparation remains available. See PRODUCTION_ORCHESTRATION.md.
 
 ## Etsy bindings
 

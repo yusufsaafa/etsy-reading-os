@@ -1,3 +1,4 @@
+import { admitReadingInTransaction, reconcileProductionInTransaction } from "../production/service";
 import { generations, productVersions } from "../../db/schema";
 import { resolveConfiguration, unitPolicy } from "../products/runtime";
 import { and, eq, desc } from "drizzle-orm";
@@ -65,6 +66,8 @@ export async function ingestOrder(db: Database, scope: Scope, raw: unknown, opti
       const retained = await tx.select().from(units).where(and(tenantWhere(units, scope), eq(units.lineItemId, historical.id)));
       for (const unit of retained) await tx.update(units).set({ sourceChanged: true, issues: [...new Set([...unit.issues, "source_changed", ...(effective.canceled ? ["canceled"] : []), ...(effective.refund !== "none" ? ["refund_review"] : [])])] }).where(and(tenantWhere(units, scope), eq(units.id, unit.id)));
     }
+    const readingIds = await tx.select({id:units.id}).from(units).innerJoin(lineItems,eq(units.lineItemId,lineItems.id)).where(and(tenantWhere(units,scope),eq(lineItems.orderId,order.id)));
+    for (const reading of readingIds) await admitReadingInTransaction(tx,scope,reading.id);
     return order.id;
   });
 }
@@ -93,6 +96,7 @@ export async function correctInput(db: Database, scope: Scope, unitId: string, e
     await tx.insert(customerInputs).values({ organizationId: scope.organizationId, storeId: scope.storeId, unitId, revision: unit.revision + 1, answers, source: "seller_correction", actorId: scope.userId });
     await tx.update(units).set({ revision: unit.revision + 1, contextAllocated: allocated, issues: triage(order.latestSnapshot, line.snapshot, await unitPolicy(tx,scope,unit,mapping), answers, allocated, unit.sourceChanged) }).where(and(tenantWhere(units, scope), eq(units.id, unitId)));
     await tx.insert(auditLogs).values({ organizationId: scope.organizationId, storeId: scope.storeId, actorId: scope.userId, action: "customer_input_corrected", resourceId: unitId });
+    await admitReadingInTransaction(tx,scope,unitId);
   });
 }
 export async function configureMapping(db: Database, scope: Scope, listingId: string, variantKey: string, paused: boolean) {
@@ -114,5 +118,6 @@ export async function configureMapping(db: Database, scope: Scope, listingId: st
       }
     }
     await tx.insert(auditLogs).values({ organizationId: scope.organizationId, storeId: scope.storeId, actorId: scope.userId, action: paused ? "mapping_paused" : "mapping_configured", resourceId: listing.id });
+    await reconcileProductionInTransaction(tx,scope);
   });
 }

@@ -106,3 +106,7 @@ Settings owns Your profile & style; no additional primary navigation. Use the sa
 ## Canonical preparation continuation
 
 Order detail now enables Prepare reading for eligible version-bound readings with a saved profile/published style. Pending copy is Preparing; successful sections appear in a compact escaped details view and status is Ready for review. Problem/updated-information/review statuses reuse existing badges and contextual attention lists. Provider/model/token/prompt controls remain absent. Other visual/navigation rules stay locked; no Review Workspace, PDF or delivery is introduced. Earlier disabled-create statements describe the previous milestone.
+
+## Production policy — Part 1
+
+Product Setup retains its existing controls and adds Standard/Express plus optional target minutes. Production labels are Manual/Automatically prepare; the latter truthfully explains that waiting admission is implemented and execution remains unavailable. No delivery semantics, raw computed deadline or infrastructure settings appear. Orders/Home and manual Prepare reading remain visually unchanged.

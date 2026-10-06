@@ -49,3 +49,7 @@ Keep the recorded local acceptance checks passing. For live Etsy, obtain approve
 The current milestone is canonical generation with centralized usage/cost accounting. Secure read-only intake and mobile triage remain intact. Native/browser/live-provider acceptance limits and the next recommended milestone are in GENERATION_ENGINE_REPORT.md. Future production acceptance criteria remain in [PRODUCT_SPEC.md](docs/PRODUCT_SPEC.md).
 
 Official Etsy assumptions are time-sensitive. Sources and verification dates are recorded in the architecture document; recheck them before implementing adapters.
+
+## Production orchestration — Part 1
+
+Version-owned Manual/Assisted production and Standard/Express fulfillment targets now support durable automatic admission of eligible ASSISTED readings. Waiting work does not execute yet. See [architecture](docs/PRODUCTION_ORCHESTRATION.md) and [Part 1 report](docs/PRODUCTION_ORCHESTRATION_REPORT.md). Existing manual preparation remains available.

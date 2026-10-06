@@ -7,7 +7,12 @@ export const inputDefinitionSchema = z.object({
   sortOrder: z.number().int().min(0).max(100),
 });
 export const sectionSchema = z.object({ id: identity, title: z.string().max(200), instruction: z.string().max(2000), sortOrder: z.number().int().min(0).max(100) });
+export const fulfillmentPolicySchema = z.object({
+  priorityClass: z.enum(["STANDARD", "EXPRESS"]),
+  targetCompletionMinutes: z.number().int().min(1).max(525600).nullable(),
+}).strict();
 export const configurationSchema = z.object({
+  fulfillment: fulfillmentPolicySchema.optional(),
   inputs: z.array(inputDefinitionSchema).max(20), sections: z.array(sectionSchema).max(20),
   output: z.enum(["TEXT", "PDF"]).nullable(), workflow: z.enum(["MANUAL", "ASSISTED", "AUTOMATIC"]).nullable(),
 }).strict();
@@ -37,4 +42,10 @@ export function activationErrors(name: string, raw: unknown): string[] {
 }
 export function inputPolicy(configuration: Configuration): InputPolicy {
   return configuration.inputs.map(i=>({ key:i.key, label:i.label, type:i.type, required:i.required, minimumLength:1 }));
+}
+
+// workflow remains the single version-owned automation source; no delivery implication.
+export function productionPolicy(configuration: Configuration) {
+  return { automation: configuration.workflow,
+    ...(configuration.fulfillment ?? { priorityClass: "STANDARD" as const, targetCompletionMinutes: null }) };
 }
