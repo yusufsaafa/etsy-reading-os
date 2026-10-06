@@ -1,6 +1,6 @@
-# Style Intelligence — Parts 1–3
+# Style Intelligence — complete Parts 1–4
 
-Part 1 delivered durable domain/data. Part 2 now implements explicit bounded analysis execution through CentralAIGateway. Part 3 pins completed intelligence into new customer generations. Seller UI, automatic triggers and analysis workflow/queues remain unimplemented. The Part 1 sections below record its foundation; the Part 2 and Part 3 sections define current execution and generation behavior.
+Part 1 delivered durable domain/data. Part 2 now implements explicit bounded analysis execution through CentralAIGateway. Part 3 pins completed intelligence into new customer generations. Part 4 provides the optional seller workflow. Automatic triggers and analysis queues remain unimplemented. The Part 1 sections below record its foundation; the Part 2 and Part 3 sections define current execution and generation behavior.
 
 Historical StyleSources → bounded analysis → immutable READY StyleAnalysisVersion → new generation admission → pinned snapshot → immutable GenerationContext → CentralAIGateway → customer reading.
 
@@ -150,4 +150,68 @@ The existing JSON data envelope adds only `styleIntelligence: payload`. IDs, ver
 
 Existing gateway admission receives UTF-8 bytes of the exact assembled system plus data request, including added intelligence and priority instruction. Central pricing/reservation, input byte cap (256,000), output allowance, budget checks and actual usage settlement remain unchanged. No fixed assumed intelligence-token cost or second ledger is introduced. Existing Generation context hash covers the snapshot; command hashes retain their original command identity semantics. Generation has no new separate provider-request hash field.
 
-Seller-facing workflow/UI remains **Part 4**, unimplemented: no analyze button, preview/status, onboarding step or navigation change. Source/exemplar injection, automatic/recurring analysis, fallback, uploads, embeddings/RAG/fine-tuning remain excluded. Real Gemini calls during Part 3 validation: zero; only fake providers or mocked transports.
+At the Part 3 boundary seller-facing workflow/UI remained **Part 4**, unimplemented: no analyze button, preview/status, onboarding step or navigation change. Source/exemplar injection, automatic/recurring analysis, fallback, uploads, embeddings/RAG/fine-tuning remain excluded. Real Gemini calls during Part 3 validation: zero; only fake providers or mocked transports.
+
+
+## Part 4: optional seller workflow
+
+Settings → Your profile & style now retains manual preferences and previous-work management, with a compact **Writing style** status and preview. Primary navigation and onboarding remain unchanged. Adding examples, learning style and updating style are optional; their absence never blocks product setup, order intake or reading preparation. This is structured style inference, not training or fine-tuning, and does not guarantee imitation.
+
+Previous work → **Learn my writing style** → explicitly requested analysis → **Style ready** → future newly admitted readings use latest usable learned tendencies.
+
+Add another example → **Update writing style** → a new immutable analysis version. The current READY remains usable during the update and after a failed update. Existing admitted readings retain their original frozen context/hash; there is no per-reading style-version selector.
+
+### Execution and submission safety
+
+The real runtime is synchronous: the server action awaits `StyleAnalysisExecutionService.executeForSeller`, using the same bounded automatic selection, CentralAIGateway, provider, pricing, accounting and validation as Part 2. No queue, worker, recurring trigger or fake progress is added. During submission the existing action-state/form-status pattern disables the action and announces “Learning your writing style…”; a status-only refresh control reads durable state. Reload/navigation does not dispatch. A long-running request may outlive its browser view; a lost process can leave durable unfinished state. No automatic recovery is claimed.
+
+The browser retains an explicit UUID command key in its form. Same-command replay returns durable state through existing idempotency before safety admission. A new seller command is admitted under the Store lock only if **all** Store analysis history is resolved: no DRAFT/PENDING/ANALYZING, CLAIMED/RUNNING request, ambiguity flag/code or UNKNOWN accounting. Checking all history means a later known completed attempt cannot hide an older unresolved request. Concurrent different keys cannot create parallel paid seller updates. This restriction is additive at the seller execution entry point; existing explicit internal APIs retain Part 2 policy. No broad retry, automatic fallback or ambiguity reconciliation is implemented.
+
+Known completed/failed attempts with settled accounting may be followed by an explicit new Learn/Update command. Budget rejection before dispatch creates the existing FAILED version with no request/charge. Invalid/unsafe result gets reliable-style failure copy; provider/configuration/budget failures get a generic inability message. Ambiguous/unsettled/unfinished history removes the new-request action. The current READY preview remains visible, with an explanation that the latest update did not finish. Resolving quarantined/incomplete history requires a separately authorized operator policy; refreshing is not a retry.
+
+The server action derives Store from the authenticated session and StyleProfile from owned persisted domain data; if absent, it creates the existing style draft/profile through `editStyle`. Only one command key is accepted; client-supplied Store/profile/source/analysis IDs are rejected. Service writes reverify owner membership and acquire Store locking; reads use owner-verified repeatable-read. All metadata, profile, sources, analyses and accounting joins use organization/Store ownership. Same-organization sibling stores remain isolated. No caller can select a foreign analysis through the UI.
+
+### Product status and preview
+
+| Durable state | Seller presentation |
+| --- | --- |
+| No attempt | Not learned yet; add examples if needed |
+| PENDING/ANALYZING with no READY | Learning your writing style; check durable status |
+| READY usable | Style ready |
+| FAILED without READY | Needs attention with bounded safe explanation |
+| Older READY and newer unfinished/failed attempt | Style ready; current style remains active, update explanation beneath |
+| Ambiguous or unmeasured history | No new paid action; needs-attention explanation, retaining any READY preview |
+
+Preview is a read-only definition list: Voice (bounded summary), Tone (up to three tendencies), Structure (one opening/development/closing tendency), Writing tendencies and Preferred patterns (up to two each). Empty groups are omitted. No raw JSON, full contract, source snippets, input manifests, model/provider/request metadata, costs, token counts, internal statuses/IDs or raw timestamps are displayed. IDs remain only where existing scoped links/hidden command fields require them. The existing manual style form stays visible and authoritative.
+
+### Library changes and retention
+
+Update detection uses durable source membership and creation facts, not client state. The current automatic bounded selection is compared with the READY version's frozen membership, and sources created after analysis admission are detected using native SQL timestamp precision. Changes arriving while a request is running remain detectable afterward. Full source text is not loaded for this comparison. Sources are immutable; no new editing or upload capability exists. Adding examples never invokes analysis.
+
+The oldest-first Part 2 bounded selection is unchanged. Not every library example is included, so adding an example beyond its cap does not guarantee different learned tendencies. The UI explains that a selection is used; it does not expose engineering limits or offer a selection wizard. A subsequent update acknowledges the newer library state while freezing its actual selected membership. More advanced selection is future scope, not secretly implemented here.
+
+Referenced examples cannot be removed, including those frozen by failed attempts: “This example is part of your writing style history and can’t be removed yet.” An owner-checked application precheck provides that message; existing restrictive foreign keys remain authoritative. Unreferenced examples retain existing scoped deletion behavior. No new privacy erasure/retention semantics are invented.
+
+### Layout/accessibility and acceptance boundary
+
+The workflow uses the existing 900px Settings content, label/content sections, Badge/Button primitives, small definition list, native disclosures and pasted-text form. Existing 900/600px single-column breakpoints, wrapping text and 44px controls remain; long source heading flex children can shrink without overflow. Status is textual, loading uses an announced status, errors use alerts, and keyboard/focus behavior uses native controls and existing focus styling. No dialog or custom widget is added. Browser visual/mobile acceptance was not completed in this environment; rendered markup, semantic controls and responsive CSS are tested.
+
+### Optional one-shot acceptance harness
+
+`scripts/style-analysis-acceptance.ts` uses a fresh synthetic-only, file-backed PGlite database and migrated schema; it never reads DATABASE_URL or a real seller library. Default invocation is **offline**, with a fake provider through the normal service/gateway/accounting. Live execution is **not yet authorized or performed**.
+
+Offline command (supported Node 22):
+
+```sh
+node --import tsx scripts/style-analysis-acceptance.ts
+```
+
+After separate explicit authorization only:
+
+```sh
+AI_PROVIDER=google AI_GENERATION_MODEL=gemini-3.5-flash-lite node --env-file=.env.local --import tsx scripts/style-analysis-acceptance.ts --live --attempt-id=unique-authorized-id
+```
+
+Use a lowercase letters/digits/hyphens attempt ID, within the existing 64-character limit. Live mode requires it and rejects model overrides or a configured model other than `gemini-3.5-flash-lite`; credentials and central budgets must already be configured. An exclusive persistent `.style-acceptance/` marker is claimed before invocation; never remove a marker to replay an attempt. One network dispatch maximum is asserted. The normal runtime/service/gateway performs the request and settlement. A safe report contains live/fake dispatch counts, request/usage cardinality, analysis/request state, contract validation and settled/unknown accounting. No key, source body, prompt, provider response or sensitive header is printed. Markers are local to this checkout; preserve them across acceptance runs. A marker is not provider idempotency or cross-host exactly-once execution.
+
+Real Gemini calls during Part 4 implementation/tests: **0**. Live style quality and actual provider structured-style acceptance remain unvalidated. No push/deployment, uploads, embeddings/RAG/fine-tuning, review workspace, PDF, delivery, Telegram, billing or multi-reader identities are included.

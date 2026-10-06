@@ -223,3 +223,8 @@ Bounded indexed ProductionRecovery classifies local execution evidence, adopts c
 ## Style Intelligence — Part 3 generation admission
 
 New Generation admission pins latest owned READY analysis from the same stable StyleProfile into immutable GenerationContext. Selection occurs only under verified authority and Store locking in the new-insertion branch; execution/retry/replay uses the frozen payload/hash. The optional v1 extension preserves historical contexts and exact no-analysis prompts. Existing accounted gateway measures the enriched request. No historical sources/exemplars enter generation; seller UI remains Part 4. See STYLE_INTELLIGENCE.md.
+
+
+## Style Intelligence — Part 4 workflow
+
+The existing seller-style Settings surface invokes the shared execution service through an owner-authenticated server action. Durable commands and an additive Store-locked all-history safety gate suppress parallel new commands and prevent paid retry of ambiguous/unmeasured history. Read-only product projections combine latest attempt/latest READY and durable source/provenance changes. No schema, queue, generation admission or navigation change. Optional isolated synthetic acceptance is offline by default and has not been run live. See STYLE_INTELLIGENCE.md.

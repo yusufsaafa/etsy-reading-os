@@ -1,11 +1,12 @@
 "use client";
 import { useActionState, useEffect, useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
 import type { StyleConfiguration } from "@/modules/seller-style/contracts";
 import { Button } from "../ui";
-import { saveProfile, saveStyle, pasteWork, deleteWork, type FormState } from "./actions";
+import { saveProfile, saveStyle, pasteWork, deleteWork, learnWritingStyle, type FormState } from "./actions";
 import styles from "./profile.module.css";
-function Feedback({state,message}:{state:FormState;message:string}) {return <>{state.error&&<p className="error-message" role="alert">{state.error}</p>}{state.saved&&<p className="notice" role="status">{message}</p>}</>;}
+function Feedback({state,message,errorId}:{state:FormState;message:string;errorId?:string}) {return <>{state.error&&<p id={errorId} className="error-message" role="alert">{state.error}</p>}{state.saved&&<p className="notice" role="status">{message}</p>}</>;}
 function Submit({children,secondary=false}:{children:React.ReactNode;secondary?:boolean}){const {pending}=useFormStatus();return <Button disabled={pending} className={secondary?"secondary":""}>{pending?"Saving…":children}</Button>;}
 export function ProfileForm({displayName,shortBio}:{displayName:string;shortBio:string}) {
   const [state,action]=useActionState(saveProfile,{});
@@ -29,6 +30,14 @@ export function StyleForm({versionId,revision,initial}:{versionId:string;revisio
 export function PasteForm({commandKey}:{commandKey:string}) {
   const [state,action]=useActionState(pasteWork,{}),[key,setKey]=useState(commandKey);const form=useRef<HTMLFormElement>(null);
   useEffect(()=>{if(state.sourceAdded){form.current?.reset();setKey(crypto.randomUUID());}},[state]);
-  return <details className={styles.paste}><summary>Paste previous work</summary><form ref={form} action={action} className={styles.form}><input type="hidden" name="commandKey" value={key}/><label htmlFor="work-title">Title<input id="work-title" name="title" maxLength={150} required placeholder="Personalized message example"/></label><label htmlFor="work-text">Previous work<textarea id="work-text" name="text" maxLength={50000} rows={7} required aria-describedby="work-privacy"/></label><p id="work-privacy" className="small muted">Use work you have permission to share. Remove customer names and other private details before adding it.</p><Feedback state={state} message="Previous work added."/>{state.sourceAdded&&<p role="status" className="notice">Previous work added to your library.</p>}<div><Submit>Add previous work</Submit></div></form></details>;
+  return <details className={styles.paste}><summary>Paste previous work</summary><form ref={form} action={action} className={styles.form}><input type="hidden" name="commandKey" value={key}/><label htmlFor="work-title">Title<input id="work-title" aria-describedby={state.error?"work-error":undefined} name="title" maxLength={150} required placeholder="Personalized message example"/></label><label htmlFor="work-text">Previous work<textarea id="work-text" name="text" maxLength={50000} rows={7} required aria-describedby={state.error?"work-privacy work-error":"work-privacy"}/></label><p id="work-privacy" className="small muted">Use work you have permission to share. Remove customer names and other private details before adding it.</p><Feedback state={state} errorId="work-error" message="Previous work added."/>{state.sourceAdded&&<p role="status" className="notice">Previous work added to your library.</p>}<div><Submit>Add previous work</Submit></div></form></details>;
 }
 export function DeleteSource({sourceId}:{sourceId:string}){const[state,action]=useActionState(deleteWork,{});return <details className={styles.remove}><summary>Remove</summary><p className="small muted">Remove this reference from your library?</p><form action={action}><input type="hidden" name="sourceId" value={sourceId}/><Submit secondary>Remove previous work</Submit></form><Feedback state={state} message="Previous work removed."/></details>;}
+
+function LearnSubmit({label}:{label:string}) {const {pending}=useFormStatus();return <><Button disabled={pending}>{pending?"Learning your writing style…":label}</Button>{pending&&<p role="status" aria-live="polite" className="small muted">This may take a moment. Your current style stays available.</p>}</>;}
+export function WritingStyleAction({commandKey,label}:{commandKey:string;label:string}) {
+ const [state,action]=useActionState(learnWritingStyle,{}),router=useRouter();
+ useEffect(()=>{if(state.learned||state.error)router.refresh();},[state,router]);
+ return <form action={action} className={styles.form}><input type="hidden" name="commandKey" value={commandKey}/><div><LearnSubmit label={label}/></div>{state.error&&<p role="alert" className="error-message">{state.error}</p>}{state.learned&&<p role="status" className="notice">Writing style learned. Newly prepared readings can use it; existing readings stay unchanged.</p>}</form>;
+}
+export function RefreshWritingStyle(){const router=useRouter();return <Button className="secondary" type="button" onClick={()=>router.refresh()}>Check writing style status</Button>;}

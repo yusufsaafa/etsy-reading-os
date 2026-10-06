@@ -103,3 +103,8 @@ Explicit previous-work analysis can now execute through the existing CentralAIGa
 ## Style Intelligence Part 3 follow-up
 
 New customer generations now optionally pin latest usable READY analysis from their admitted stable StyleProfile. Explicit published style configuration stays authoritative over learned tendencies; previous work is style evidence, never customer truth. No READY means existing manual style behavior. Existing generations/retries never adopt newer analyses. Source text and manifests are not sent. Seller controls remain unimplemented Part 4. See STYLE_INTELLIGENCE.md.
+
+
+## Style Intelligence Part 4 seller workflow
+
+The existing Settings/profile area now offers optional Learn/Update writing style, compact product status and a bounded read-only preview. Manual preferences remain authoritative. Previous-work additions do not trigger analysis. Referenced examples retain their deletion restriction with human-readable feedback. Seller requests use existing execution/accounting with Store-locked unresolved-history protection; older READY stays usable during/after updates. No onboarding/navigation change, uploads or raw infrastructure data. STYLE_INTELLIGENCE.md defines the full workflow and the unexecuted live acceptance gate.

@@ -105,3 +105,8 @@ The earlier provider-undecided/no-call statements describe Milestone 1. [GENERAT
 ## Style Intelligence in customer generation
 
 Part 3 enrichment uses the same customer-generation AIRequest/UsageEvent path. Exact assembled system+data bytes, including bounded pinned intelligence, feed existing conservative reserveCost and Store budget checks; actual provider usage settles normally. Intelligence selection is a database operation with no model call or additional usage record. Context SHA-256 includes the pinned snapshot; no fixed token surcharge or separate ledger exists.
+
+
+## Seller-requested style updates
+
+Part 4 seller actions use existing StyleAnalysisExecutionService/CentralAIGateway/AIRequest/UsageEvent, not a route-level provider call. New seller commands are blocked while any analysis is unfinished/ambiguous or accounting remains UNKNOWN. Known terminal settled history may admit an explicit new immutable analysis; there is no automatic retry. UI hides provider/model/usage/cost metadata. The optional live acceptance harness requires separately authorized --live and a persistent unique attempt marker; no live style acceptance is claimed.

@@ -93,6 +93,9 @@ export async function removePreviousWork(db:Database,scope:Scope,sourceId:string
   z.string().uuid().parse(sourceId);
   return db.transaction(async tx=>{
     await lock(tx,scope);
+    const {styleAnalysisSources}=await import("../../db/schema");
+    const [used]=await tx.select({id:styleAnalysisSources.sourceId}).from(styleAnalysisSources).where(and(tenantWhere(styleAnalysisSources,scope),eq(styleAnalysisSources.sourceId,sourceId))).limit(1);
+    if(used)throw new Error("STYLE_SOURCE_RETAINED");
     // A repeat removal is a scoped no-op; it never reads another store's source.
     const [source]=await tx.delete(styleSources).where(and(tenantWhere(styleSources,scope),eq(styleSources.id,sourceId))).returning({id:styleSources.id});
     if(source)await audit(tx,scope,"style_source_deleted",source.id);

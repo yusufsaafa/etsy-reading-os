@@ -19,6 +19,7 @@
 .sources { list-style:none; padding:0; margin:0; }
 .source { border-bottom:1px solid var(--border); padding-block:16px; }
 .sourceHeading { display:flex; gap:16px; align-items:flex-start; justify-content:space-between; }
+.sourceHeading > div { min-width:0; flex:1; }
 .sourceHeading strong { overflow-wrap:anywhere; }
 .source p { margin:4px 0; }
 .remove { font-size:13px; }

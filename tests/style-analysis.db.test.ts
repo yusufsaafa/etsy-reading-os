@@ -199,3 +199,49 @@ it("manifest mismatches are rejected before source provenance can commit",async(
  await expect(db.transaction(async tx=>{await lockStyleAnalysisStore(tx,a);return createStyleAnalysisVersionInTransaction(tx,a,{styleProfileId:profile,sourceIds:[source.id]},{commandKey:randomUUID(),commandHash:"b".repeat(64),inputManifest:manifest});})).rejects.toThrow();
  expect(await db.select().from(s.styleAnalysisVersions)).toHaveLength(0);
 });
+
+// Seller workflow uses the same real domain orchestration with offline providers.
+it("seller no-source state remains optional and first learning produces a compact ready preview",async()=>{
+ const {writingStyleWorkflow}=await import("../src/modules/seller-style/workflow");
+ let view=await writingStyleWorkflow(db,b);expect(view).toMatchObject({status:"Not learned yet",canRequest:false,preview:[]});
+ view=await writingStyleWorkflow(db,a);expect(view.canRequest).toBe(true);expect(view.actionLabel).toBe("Learn my writing style");
+ const provider=new FakeGenerationProvider(),{service}=setup(provider);await service.executeForSeller(a,command());view=await writingStyleWorkflow(db,a);
+ expect(view.status).toBe("Style ready");expect(view.changed).toBe(false);expect(view.preview.some(p=>p.label==="Voice")).toBe(true);
+ for(const field of ["analysisVersionId","inputManifest","contractVersion","AIRequest","gemini","token","commandKey","sourceIds"])expect(JSON.stringify(view)).not.toContain(field);
+ expect(provider.calls).toBe(1);
+});
+it("adding work after READY offers update without dispatch; update creates a new immutable version",async()=>{
+ const {writingStyleWorkflow}=await import("../src/modules/seller-style/workflow");const provider=new FakeGenerationProvider(),{service}=setup(provider),first=await service.executeForSeller(a,command());
+ await addPreviousWork(db,a,{title:"New example",text:"Synthetic new patterns",commandKey:randomUUID()});expect(provider.calls).toBe(1);
+ expect(await writingStyleWorkflow(db,a)).toMatchObject({status:"Style ready",changed:true,actionLabel:"Update writing style",canRequest:true});
+ const second=await service.executeForSeller(a,command());expect(second.id).not.toBe(first.id);expect(second.versionNumber).toBe(first.versionNumber+1);expect((await latestUsableStyleAnalysis(db,a,profile))?.id).toBe(second.id);expect((await writingStyleWorkflow(db,a)).changed).toBe(false);
+});
+it("known invalid update displays older READY and permits a new safe command",async()=>{
+ const {writingStyleWorkflow}=await import("../src/modules/seller-style/workflow");const first=await setup().service.executeForSeller(a,command());
+ await setup(new FakeGenerationProvider({output:"bad"})).service.executeForSeller(a,command());const view=await writingStyleWorkflow(db,a);
+ expect(view).toMatchObject({status:"Style ready",canRequest:true});expect(view.message).toContain("current style is still active");expect(view.message).toContain("reliable writing style");expect(view.preview.length).toBeGreaterThan(0);expect((await latestUsableStyleAnalysis(db,a,profile))?.id).toBe(first.id);
+});
+it.each([false,true])("ambiguous/unmeasured history blocks a new seller request even after other terminal attempts (success=%s)",async success=>{
+ const {writingStyleWorkflow}=await import("../src/modules/seller-style/workflow");const fake=new FakeGenerationProvider(success?{usage:{}}:{failure:new ProviderFailure("TIMEOUT",{},undefined,true)}),{service}=setup({name:"google",generate:r=>fake.generate(r)}),c=command();
+ const first=await service.executeForSeller(a,c);expect((await writingStyleWorkflow(db,a)).canRequest).toBe(false);
+ await expect(service.executeForSeller(a,command())).rejects.toThrow("STYLE_UPDATE_UNSAFE");expect((await service.executeForSeller(a,c)).id).toBe(first.id);expect(fake.calls).toBe(1);
+ // Internal known terminal attempts do not erase unresolved earlier liability.
+ await setup().service.execute(a,command());await expect(setup().service.executeForSeller(a,command())).rejects.toThrow("STYLE_UPDATE_UNSAFE");
+});
+it("concurrent different seller commands cannot dispatch twice; replay retains pending state and older READY",async()=>{
+ const {writingStyleWorkflow}=await import("../src/modules/seller-style/workflow");const first=await setup().service.executeForSeller(a,command());let release!:()=>void;
+ const p=new FakeGenerationProvider({delay:new Promise<void>(r=>{release=r;})}),{service}=setup(p),c=command(),running=service.executeForSeller(a,c);
+ await vi.waitFor(()=>expect(p.calls).toBe(1));const view=await writingStyleWorkflow(db,a);expect(view).toMatchObject({status:"Style ready",learning:true,canRequest:false});expect(view.message).toContain("current style is still active");
+ await expect(service.executeForSeller(a,command())).rejects.toThrow("STYLE_UPDATE_UNSAFE");expect((await service.executeForSeller(a,c)).status).toBe("ANALYZING");expect((await latestUsableStyleAnalysis(db,a,profile))?.id).toBe(first.id);release();expect((await running).status).toBe("READY");expect(p.calls).toBe(1);
+});
+it("seller workflow reads and requests enforce tenant and same-org Store ownership",async()=>{
+ const {writingStyleWorkflow}=await import("../src/modules/seller-style/workflow");await setup().service.executeForSeller(a,command());
+ expect((await writingStyleWorkflow(db,b)).preview).toEqual([]);await expect(writingStyleWorkflow(db,{...a,userId:b.userId})).rejects.toThrow();
+ const storeId=randomUUID();await db.insert(s.stores).values({id:storeId,organizationId:a.organizationId,name:"Sibling",importSince:new Date()});const sibling={...a,storeId};expect((await writingStyleWorkflow(db,sibling)).preview).toEqual([]);
+ const provider=new FakeGenerationProvider();await expect(setup(provider).service.executeForSeller(sibling,command())).rejects.toThrow();await expect(setup(provider).service.executeForSeller(b,command(ids))).rejects.toThrow();expect(provider.calls).toBe(0);
+});
+it("referenced examples return a safe deletion reason while unreferenced examples remain removable",async()=>{
+ const {removePreviousWork}=await import("../src/modules/seller-style/service");await setup().service.executeForSeller(a,command());
+ await expect(removePreviousWork(db,a,ids[0])).rejects.toThrow("STYLE_SOURCE_RETAINED");expect(await styleAnalysisSourceProvenance(db,a,(await latestUsableStyleAnalysis(db,a,profile))!.id)).toHaveLength(2);
+ const extra=await addPreviousWork(db,a,{title:"Unused",text:"Synthetic unused",commandKey:randomUUID()});await removePreviousWork(db,a,extra);expect(await db.select().from(s.styleSources).where(eq(s.styleSources.id,extra))).toHaveLength(0);
+});

@@ -1,3 +1,4 @@
+import { sellerAnalysisSafety } from "./workflow";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { Database, DbExecutor } from "../../db/client";
 import { aiRequests, styleProfiles, styleSources, styleAnalysisVersions as versions, auditLogs } from "../../db/schema";
@@ -32,12 +33,15 @@ function failureReason(failure:ProviderFailure) {
 }
 export class StyleAnalysisExecutionService {
  constructor(private readonly db:Database,private readonly gateway:CentralAIGateway) {}
- async execute(scope:Scope,raw:unknown) {
+ async execute(scope:Scope,raw:unknown) {return this.run(scope,raw,false);}
+ async executeForSeller(scope:Scope,raw:unknown) {return this.run(scope,raw,true);}
+ private async run(scope:Scope,raw:unknown,sellerRequest:boolean) {
   const command=analysisCommand.parse(raw),commandHash=analysisCommandHash(command);
   const claim=await this.db.transaction(async tx=>{
    await lockStyleAnalysisStore(tx,scope);
    const [replay]=await tx.select().from(versions).where(and(tenantWhere(versions,scope),eq(versions.commandKey,command.commandKey)));
    if(replay){if(replay.commandHash!==commandHash)throw new AdmissionError("COMMAND_CONFLICT");return {id:replay.id};}
+   if(sellerRequest&&!await sellerAnalysisSafety(tx,scope))throw new Error("STYLE_UPDATE_UNSAFE");
    const [other]=await tx.select({id:aiRequests.id}).from(aiRequests).where(and(tenantWhere(aiRequests,scope),eq(aiRequests.commandKey,command.commandKey)));
    if(other)throw new AdmissionError("COMMAND_CONFLICT");
    const [profile]=await tx.select({id:styleProfiles.id}).from(styleProfiles).where(and(tenantWhere(styleProfiles,scope),eq(styleProfiles.id,command.styleProfileId)));
