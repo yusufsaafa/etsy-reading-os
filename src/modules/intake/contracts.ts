@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { assessEtsySource, etsySourceSchema, selectionKey, type EtsyProductPolicy } from "../etsy/source-contract";
 
 export const externalId = z.string().regex(/^[1-9]\d{0,19}$/);
 export const answerSchema = z.object({
@@ -16,6 +17,15 @@ export const lineSchema = z.object({
   quantity: z.number().int().min(1).max(1000), sku: z.string().max(500).nullable(),
   variantKey: z.string().max(2000).default("default"), variations: z.array(variationSchema),
   answers: z.array(answerSchema), digital: z.boolean(),
+  etsySource: etsySourceSchema.optional(),
+}).superRefine((line,ctx)=>{
+  const s=line.etsySource;
+  if(s && (s.transaction.transactionId!==line.externalId || s.transaction.listingId.presence!=="value" || s.transaction.listingId.value!==line.listingId || s.transaction.quantity!==line.quantity || s.transaction.isDigital.presence!=="value" || s.transaction.isDigital.value!==line.digital))
+    ctx.addIssue({code:"custom",message:"Etsy transaction projection mismatch"});
+  if(s){
+    try {if(line.variantKey!==selectionKey(s.purchaseSelections.map(x=>({propertyId:x.propertyId,valueIds:x.valueIds.presence==="value"?x.valueIds.value:[]})))) ctx.addIssue({code:"custom",message:"Etsy selection key mismatch"});}
+    catch {ctx.addIssue({code:"custom",message:"Unresolved Etsy purchase selection"});}
+  }
 });
 export const orderSchema = z.object({
   externalId, buyerName: z.string().max(500), createdAt: z.number().int().nonnegative(),
@@ -25,6 +35,8 @@ export const orderSchema = z.object({
 }).superRefine((order, ctx) => {
   if (new Set(order.lines.map(l => l.externalId)).size !== order.lines.length)
     ctx.addIssue({ code: "custom", message: "Duplicate transaction identifiers" });
+  if(order.lines.some(l=>l.etsySource && (l.etsySource.receipt.receiptId!==order.externalId || (l.etsySource.receipt.isPaid.presence==="value"&&l.etsySource.receipt.isPaid.value!==order.paid))))
+    ctx.addIssue({code:"custom",message:"Etsy receipt projection mismatch"});
 });
 export type ExternalOrder = z.infer<typeof orderSchema>;
 export type ExternalListing = z.infer<typeof listingSchema>;
@@ -51,12 +63,16 @@ export function validateInputs(answers: Answer[], required: InputPolicy): IssueC
     return [...matches[0].value.trim()].length < rule.minimumLength ? ["unusable_input" as const] : [];
   });
 }
-export function triage(order: ExternalOrder, line: ExternalOrder["lines"][number], mapping?: { required: InputPolicy; paused: boolean }, answers = line.answers, allocated = false, sourceChanged = false): string[] {
+export function triage(order: ExternalOrder, line: ExternalOrder["lines"][number], mapping?: { required: InputPolicy; paused: boolean; etsyFulfillment?: EtsyProductPolicy }, answers = line.answers, allocated = false, sourceChanged = false): string[] {
   const issues: string[] = [];
   if (!order.paid) issues.push("unpaid");
   if (order.canceled) issues.push("canceled");
   if (order.refund !== "none") issues.push("refund_review");
-  if (!line.digital) issues.push("not_digital");
+  // Existing fixture/legacy eligibility remains unchanged. Only exact version-owned
+  // source policy can admit physical Etsy purchases, without changing digital=false.
+  if(line.etsySource) issues.push(...assessEtsySource(line.etsySource,mapping?.etsyFulfillment).issues);
+  else if (!line.digital) issues.push("not_digital");
+  if(mapping?.etsyFulfillment && !line.etsySource) issues.push("source_evidence_incomplete");
   if (!mapping) issues.push("unmapped_listing");
   else { if (mapping.paused) issues.push("mapping_paused"); issues.push(...validateInputs(answers, mapping.required)); }
   if (line.quantity > 1 && !allocated) issues.push("quantity_context");

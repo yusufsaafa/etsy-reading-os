@@ -41,3 +41,8 @@ The local secret boundary uses AES-256-GCM with a separately supplied 32-byte ke
 - Unknown/malformed payloads must fail schema validation or surface an input issue; never invent customer information, refund allocation or a missing transaction.
 
 The development adapter supplies canonical synthetic listings/orders covering single/mixed carts, variants, missing input, Unicode and repeats. It is visibly labeled; it cannot connect to Etsy, create a token, write listings or send customer messages. Live capabilities remain behind the same ports and explicit environment gates.
+
+
+## Purchased source foundation — 2026-10-07
+
+Part4 implements strict etsy-purchased-line/v1 and approved etsy-product-policy/v1, based on the Part3 official contract matrix. These are internal evidence/mapping contracts, not a live HTTP adapter. Purchase selections, question-linked content and unresolved file metadata remain distinct; unknown evidence is retained in bounded unsupported conditions or rejected, never silently stripped. Uploaded URLs are not persisted/downloaded. Explicit owner-approved ProductVersion policy, rather than Etsy is_digital, determines configured Reading fulfillment; source classification stays exact. Current definitions do not reinterpret historical answers. New approval cannot silently admit an earlier purchase without retained mapping provenance. See ETSY_SOURCE_CONTRACT.md and ETSY_REAL_ACCEPTANCE_REPORT.md Part4. The original live adapter/sync/webhook gates remain in place; no new network or ingestion command exists.

@@ -6,6 +6,7 @@ import { tenantWhere, verifyScope } from "../intake/service";
 import { AccessDenied } from "../identity/service";
 import { stableJson, type Scope } from "../intake/contracts";
 import { activationErrors, emptyConfiguration, orderedConfiguration } from "./contracts";
+import { etsyProductPolicySchema, selectionKey, type EtsyProductPolicy } from "../etsy/source-contract";
 async function lockedStore(tx: DbExecutor, scope: Scope) {
   await verifyScope(tx,scope,true);
   return (await tx.select().from(stores).where(and(eq(stores.organizationId,scope.organizationId),eq(stores.id,scope.storeId))).for("update"))[0];
@@ -29,6 +30,14 @@ export async function catalogData(db: DbExecutor, scope: Scope) {
   return { listings:listingRows, mappings:mappingRows, products:productRows, versions:versionRows, selections:selectionRows, lines };
 }
 export async function beginListingDraft(db: Database, scope: Scope, listingId: string, variantKey = "default") {
+  return beginProductDraft(db,scope,listingId,variantKey);
+}
+/** Backend owner command; no route/catalog inference or label-based suggestions. */
+export async function beginEtsyProductDraft(db: Database, scope: Scope, rawPolicy: unknown) {
+  const policy=etsyProductPolicySchema.parse(rawPolicy);
+  return beginProductDraft(db,scope,policy.listingId,selectionKey(policy.purchaseSelections),policy);
+}
+async function beginProductDraft(db: Database, scope: Scope, listingId: string, variantKey: string, policy?: EtsyProductPolicy) {
   z.string().regex(/^[1-9]\d{0,19}$/).parse(listingId); z.string().min(1).max(2000).parse(variantKey);
   return db.transaction(async tx=>{
     const store = await lockedStore(tx,scope);
@@ -36,7 +45,7 @@ export async function beginListingDraft(db: Database, scope: Scope, listingId: s
     if (!listing || listing.state!=="active") throw new Error("PRODUCT_UNAVAILABLE");
     const [selected] = await tx.select().from(listingSelections).where(and(tenantWhere(listingSelections,scope),eq(listingSelections.listingExternalId,listingId)));
     if (!selected && store.onboardingStage!=="complete") throw new Error("SELECT_PRODUCT_FIRST");
-    if (variantKey!=="default") {
+    if (variantKey!=="default" && !policy) {
       const [observed] = await tx.select({id:lineItems.id}).from(lineItems).where(and(tenantWhere(lineItems,scope),eq(lineItems.listingExternalId,listingId),eq(lineItems.variantKey,variantKey))).limit(1);
       if (!observed) throw new Error("VARIANT_UNAVAILABLE");
     }
@@ -47,7 +56,7 @@ export async function beginListingDraft(db: Database, scope: Scope, listingId: s
       const [product] = await tx.insert(products).values({organizationId:scope.organizationId,storeId:scope.storeId,name:listing.title.slice(0,100)}).returning();
       productId=product.id;
       await tx.insert(mappings).values({organizationId:scope.organizationId,storeId:scope.storeId,listingExternalId:listingId,variantKey,label:listing.title,required:[],paused:false,productId}).onConflictDoUpdate({target:[mappings.organizationId,mappings.storeId,mappings.listingExternalId,mappings.variantKey],set:{productId}});
-      await tx.insert(productVersions).values({organizationId:scope.organizationId,storeId:scope.storeId,productId,versionNumber:1,configuration:emptyConfiguration});
+      await tx.insert(productVersions).values({organizationId:scope.organizationId,storeId:scope.storeId,productId,versionNumber:1,configuration:policy?{...emptyConfiguration,etsyFulfillment:policy}:emptyConfiguration});
       await audit(tx,scope,"product_draft_created",productId);
     }
     return productId;
@@ -92,6 +101,11 @@ export async function activateProduct(db: Database,scope: Scope,productId:string
     const configuration=payload?.configuration??version.configuration, name=payload?.name??data.product.name;
     const errors=activationErrors(name,configuration); if(errors.length) throw new Error(errors.join(" "));
     if(!data.bindings.length) throw new Error("A valid Etsy product connection is required.");
+    if(configuration.etsyFulfillment && !data.bindings.some(b=>b.listingExternalId===configuration.etsyFulfillment!.listingId && b.variantKey===selectionKey(configuration.etsyFulfillment!.purchaseSelections)))
+      throw new Error("ETSY_SOURCE_BINDING_MISMATCH");
+    // A canonical source binding cannot silently become a different combination on edit.
+    if(data.bindings.some(b=>b.variantKey.startsWith("etsy-selection/1:")) && (!configuration.etsyFulfillment || data.bindings.some(b=>b.listingExternalId!==configuration.etsyFulfillment!.listingId||b.variantKey!==selectionKey(configuration.etsyFulfillment!.purchaseSelections))))
+      throw new Error("ETSY_SOURCE_BINDING_MISMATCH");
     for(const binding of data.bindings){
       const [listing]=await tx.select({state:listings.state}).from(listings).where(and(tenantWhere(listings,scope),eq(listings.externalId,binding.listingExternalId)));
       if(listing?.state!=="active") throw new Error("The Etsy listing is no longer active.");

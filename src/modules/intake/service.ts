@@ -1,6 +1,6 @@
 import { admitReadingInTransaction, reconcileProductionInTransaction } from "../production/service";
 import { generations, productVersions, productionQueue } from "../../db/schema";
-import { resolveConfiguration, unitPolicy } from "../products/runtime";
+import { resolveConfiguration, resolveEtsySourceConfiguration, unitPolicy } from "../products/runtime";
 import { and, eq, desc } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import type { Database, DbExecutor } from "../../db/client";
@@ -39,6 +39,10 @@ export async function ingestOrder(db: Database, scope: Scope, raw: unknown, opti
     await tx.select().from(stores).where(and(eq(stores.organizationId, scope.organizationId), eq(stores.id, scope.storeId))).for("update");
     await assertConnection(tx, scope, options.epoch);
     const where = and(tenantWhere(orders, scope), eq(orders.externalId, incoming.externalId));
+    if(incoming.lines.some(l=>l.etsySource)){
+      const [ownedStore]=await tx.select({shopId:stores.externalShopId}).from(stores).where(and(eq(stores.organizationId,scope.organizationId),eq(stores.id,scope.storeId)));
+      if(!ownedStore.shopId||incoming.lines.some(l=>l.etsySource&&l.etsySource.receipt.shopId!==ownedStore.shopId)) throw new AccessDenied();
+    }
     const [previous] = await tx.select().from(orders).where(where);
     if (previous && incoming.updatedAt < previous.sourceUpdatedAt) return previous.id;
     const effective = { ...incoming, canceled: incoming.canceled || !!previous?.canceled, refund: previous?.refund && previous.refund !== "none" && incoming.refund === "none" ? previous.refund as ExternalOrder["refund"] : incoming.refund };
@@ -49,14 +53,15 @@ export async function ingestOrder(db: Database, scope: Scope, raw: unknown, opti
       const stored = line ?? (await tx.select().from(lineItems).where(and(tenantWhere(lineItems, scope), eq(lineItems.externalId, incomingLine.externalId))))[0];
       if (stored.orderId !== order.id) throw new Error("TRANSACTION_ORDER_MISMATCH");
       const sourceChanged = stableJson(stored.snapshot) !== stableJson(incomingLine);
-      const resolution = await resolveConfiguration(tx, scope, stored.listingExternalId, stored.variantKey);
+      const sourceResolution=stored.snapshot.etsySource?await resolveEtsySourceConfiguration(tx,scope,stored.snapshot.etsySource):undefined;
+      const resolution = sourceResolution ? {mapping:"mapping" in sourceResolution?sourceResolution.mapping:undefined,version:sourceResolution.version,state:sourceResolution.version?"versioned":"unconfigured"} : await resolveConfiguration(tx, scope, stored.listingExternalId, stored.variantKey);
       const mapping = resolution.mapping;
       for (let unitIndex = 1; unitIndex <= stored.quantity; unitIndex++) {
         const [created] = await tx.insert(units).values({ organizationId: scope.organizationId, storeId: scope.storeId, lineItemId: stored.id, unitIndex, productVersionId: resolution.version?.id ?? null, configurationState: resolution.state, issues: triage(effective, stored.snapshot, undefined, stored.snapshot.answers, false, sourceChanged), sourceChanged }).onConflictDoNothing().returning();
         const unit = created ?? (await tx.select().from(units).where(and(tenantWhere(units, scope), eq(units.lineItemId, stored.id), eq(units.unitIndex, unitIndex))))[0];
-        if (created) await tx.insert(customerInputs).values({ organizationId: scope.organizationId, storeId: scope.storeId, unitId: unit.id, revision: 0, answers: stored.snapshot.answers, source: "etsy_snapshot" }).onConflictDoNothing();
+        if (created) await tx.insert(customerInputs).values({ organizationId: scope.organizationId, storeId: scope.storeId, unitId: unit.id, revision: 0, answers: sourceResolution?.answers??stored.snapshot.answers, source: "etsy_snapshot" }).onConflictDoNothing();
         const [context] = await tx.select().from(customerInputs).where(and(tenantWhere(customerInputs, scope), eq(customerInputs.unitId, unit.id))).orderBy(desc(customerInputs.revision)).limit(1);
-        await tx.update(units).set({ sourceChanged: sourceChanged || unit.sourceChanged, issues: triage(effective, stored.snapshot, await unitPolicy(tx,scope,unit,mapping), context.answers, unit.contextAllocated, sourceChanged || unit.sourceChanged) }).where(and(tenantWhere(units, scope), eq(units.id, unit.id)));
+        await tx.update(units).set({ sourceChanged: sourceChanged || unit.sourceChanged, issues: [...new Set([...triage(effective, stored.snapshot, await unitPolicy(tx,scope,unit,mapping), context.answers, unit.contextAllocated, sourceChanged || unit.sourceChanged),...(unit.configurationState==="unconfigured"?sourceResolution?.issues??[]:[])])] }).where(and(tenantWhere(units, scope), eq(units.id, unit.id)));
       }
       if (options.failAfterLines !== undefined && ++completed >= options.failAfterLines) throw new Error("TEST_PARTIAL_FAILURE");
     }

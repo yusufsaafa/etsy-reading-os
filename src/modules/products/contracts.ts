@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { readingMediaRequirementSchema } from "../media/reading-contract";
 import type { InputPolicy } from "../intake/contracts";
+import { etsyProductPolicySchema } from "../etsy/source-contract";
 const identity = z.string().min(1).max(100);
 export const inputDefinitionSchema = z.object({
   id: identity, key: z.string().regex(/^[a-z][a-z0-9_]{0,63}$/), label: z.string().max(200),
@@ -13,6 +14,7 @@ export const fulfillmentPolicySchema = z.object({
   targetCompletionMinutes: z.number().int().min(1).max(525600).nullable(),
 }).strict();
 export const configurationSchema = z.object({
+  etsyFulfillment: etsyProductPolicySchema.optional(),
   fulfillment: fulfillmentPolicySchema.optional(),
   readingMedia: readingMediaRequirementSchema.optional(),
   inputs: z.array(inputDefinitionSchema).max(20), sections: z.array(sectionSchema).max(20),
@@ -40,6 +42,8 @@ export function activationErrors(name: string, raw: unknown): string[] {
   if (!c.output) errors.push("Choose an output format.");
   if (!c.workflow) errors.push("Choose a workflow.");
   if (c.workflow === "AUTOMATIC") errors.push("Automatic workflow is not available yet. Choose Manual or Assisted.");
+  if(c.etsyFulfillment && c.etsyFulfillment.inputMappings.some(m=>!c.inputs.some(i=>i.key===m.inputKey)))
+    errors.push("Etsy question mappings must reference configured customer field keys.");
   return errors;
 }
 export function inputPolicy(configuration: Configuration): InputPolicy {

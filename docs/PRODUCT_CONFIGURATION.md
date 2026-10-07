@@ -68,3 +68,10 @@ No AI SDK/calls, prompts, seller style/profile analysis, PDF rendering, delivery
 ## Reading Media — Part 2.5B
 
 ProductVersion configuration now supports optional bounded readingMedia NONE/TAROT_CARDS (1–10 cards). Historical absence is interpreted as NONE without changing stored JSON; exact requirements freeze with GenerationContext. No deck belongs to Product config and no media UI is added. See READING_MEDIA.md.
+
+
+## Etsy source mapping — real acceptance Part 4
+
+Optional version-owned etsyFulfillment now explicitly approves READING eligibility for an exact Etsy listing/property/value combination and question-ID-to-input-key mapping. Physical and digital marketplace classifications are preserved independently of fulfillment eligibility. Canonical source bindings reuse listing_mappings uniqueness; immutable ProductVersion approval and historical unit pins remain authoritative. No label/position/SKU guess or global tier/delivery dictionary is used. Earlier purchases without retained versions are held, not rebound to today's configuration. The legacy not_digital path remains unchanged for old contracts. See [source contract and limits](ETSY_SOURCE_CONTRACT.md). This supersedes the original digital-item-only assumption for explicitly configured source-bearing purchases; no real intake/UI/sync is enabled.
+
+Reading OS must adapt to existing seller Etsy listings through explicit mapping whenever the Etsy contract provides sufficient stable source identity; sellers must not be required to rename, reorder, recreate or reclassify listings merely to conform to Reading OS terminology.
