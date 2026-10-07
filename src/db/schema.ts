@@ -60,6 +60,22 @@ export const productVersions = pgTable("product_versions", {
   check("configuration_structure",sql`jsonb_typeof(${t.configuration})='object' and jsonb_typeof(${t.configuration}->'inputs')='array' and jsonb_typeof(${t.configuration}->'sections')='array'`),
 ]);
 function ownedVersionColumns(): [AnyPgColumn,AnyPgColumn,AnyPgColumn,AnyPgColumn] { return [productVersions.organizationId,productVersions.storeId,productVersions.productId,productVersions.id]; }
+// Explicit receipt-scoped historical permission; never an automatic historical import.
+export const etsyHistoricalAdoptions = pgTable("etsy_historical_adoptions", {
+  id:id(), organizationId:org(), storeId:store(), commandId:uuid("command_id").notNull(),
+  receiptId:text("receipt_id").notNull(), listingId:text("listing_id").notNull(), selectionKey:text("selection_key").notNull(),
+  productVersionId:uuid("product_version_id").notNull(), authorizedBy:text("authorized_by").notNull().references(()=>users.id),
+  purchaseFrom:bigint("purchase_from",{mode:"number"}).notNull(), purchaseThrough:bigint("purchase_through",{mode:"number"}).notNull(),
+  createdAt:time("created_at").defaultNow().notNull(),
+},t=>[
+  unique("etsy_adoption_command_unique").on(t.organizationId,t.storeId,t.commandId),
+  unique("etsy_adoption_purchase_unique").on(t.organizationId,t.storeId,t.receiptId,t.listingId,t.selectionKey),
+  foreignKey({name:"etsy_adoption_store_fk",columns:[t.organizationId,t.storeId],foreignColumns:[stores.organizationId,stores.id]}),
+  foreignKey({name:"etsy_adoption_version_fk",columns:[t.organizationId,t.storeId,t.productVersionId],foreignColumns:[productVersions.organizationId,productVersions.storeId,productVersions.id]}),
+  check("etsy_adoption_ids",sql`${t.receiptId} ~ '^[1-9][0-9]{0,19}$' and ${t.listingId} ~ '^[1-9][0-9]{0,19}$'`),
+  check("etsy_adoption_key",sql`length(${t.selectionKey}) between 17 and 2000 and ${t.selectionKey} like 'etsy-selection/1:%'`),
+  check("etsy_adoption_bounds",sql`${t.purchaseFrom} >= 0 and ${t.purchaseThrough} >= ${t.purchaseFrom} and ${t.purchaseThrough} <= 9007199254740991`),
+]);
 export const mappings = pgTable("listing_mappings", {
   id: id(), organizationId: org(), storeId: store(), listingExternalId: text("listing_external_id").notNull(),
   productId: uuid("product_id"),

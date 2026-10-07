@@ -67,6 +67,12 @@ export const etsySourceSchema = z.object({
     listingTypeProvenance: z.enum(["PURCHASE_PINNED", "CURRENT_LISTING_OBSERVATION", "UNAVAILABLE"]),
   }).strict(),
   purchaseSelections: z.array(z.object({ sourceOrder: ordinal, propertyId: sourceId, valueIds: observed(z.array(sourceId).max(30)), formattedName: observed(display), formattedValues: observed(z.array(display).max(30)) }).strict()).max(3),
+  // Separate purchased product_data corroboration, not another variation position
+  // or an authority to repair missing purchased selection identities.
+  purchaseProductData: observed(z.array(z.object({sourceOrder:ordinal,propertyId:observed(sourceId),
+    propertyName:observed(display),scaleId:observed(sourceId),scaleName:observed(display),
+    valueIds:observed(z.array(sourceId).max(30)),values:observed(z.array(display).max(30)),
+  }).strict()).max(3)).optional(),
   buyerInputs: z.array(content).max(5),
   buyerFiles: z.array(file).max(10),
   unsupported: z.array(z.object({ sourceOrder: ordinal.optional(), code: z.enum(["UNKNOWN_INPUT", "UNKNOWN_FIELD", "UNRESOLVED_ENCODING", "INCOMPLETE_SOURCE", "LIMIT_EXCEEDED"]),
@@ -124,6 +130,17 @@ export function assessEtsySource(raw: unknown, rawPolicy?: unknown) {
     } catch {issues.push("unmapped_purchase_selection");}
   }
   if(source.unsupported.length) issues.push("unknown_buyer_input");
+  if(source.purchaseProductData?.presence==="value"){
+    const seenProperties=new Set<string>();
+    for(const p of source.purchaseProductData.value){
+      const id=p.propertyId.presence==="value"?p.propertyId.value:undefined;
+      const matches=source.purchaseSelections.filter(s=>s.propertyId===id);
+      if(!id||seenProperties.has(id)||matches.length!==1||matches[0].valueIds.presence!=="value"||p.valueIds.presence!=="value"||
+        new Set(p.valueIds.value).size!==p.valueIds.value.length||JSON.stringify([...matches[0].valueIds.value].sort())!==JSON.stringify([...p.valueIds.value].sort())||
+        p.scaleId.presence==="value"||p.scaleName.presence==="value")issues.push("source_evidence_incomplete");
+      if(id)seenProperties.add(id);
+    }
+  }
   if(source.buyerFiles.length) issues.push("unresolved_upload");
   const seen=new Set<string>();
   for(const input of source.buyerInputs){

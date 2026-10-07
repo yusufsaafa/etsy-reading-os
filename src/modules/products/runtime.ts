@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import type { DbExecutor } from "../../db/client";
-import { mappings, products, productVersions, stores } from "../../db/schema";
+import { mappings, products, productVersions, stores, etsyHistoricalAdoptions } from "../../db/schema";
 import type { Scope, InputPolicy } from "../intake/contracts";
 import { validateInputs } from "../intake/contracts";
 import { configurationSchema, inputPolicy } from "./contracts";
@@ -48,6 +48,22 @@ export async function resolveEtsySourceConfiguration(db:DbExecutor,scope:Scope,r
         if(listingMapping) resolutionIssues.push("unmapped_purchase_selection");
       }
       if(resolved.version) [version]=await db.select().from(productVersions).where(and(eq(productVersions.organizationId,scope.organizationId),eq(productVersions.storeId,scope.storeId),eq(productVersions.id,resolved.version.id)));
+  }
+  // Explicit durable historical permission takes precedence over today's activation.
+  if(!history&&source.transaction.listingId.presence==="value"){
+    let key:string|undefined;
+    try{key=selectionKey(source.purchaseSelections.map(s=>({propertyId:s.propertyId,valueIds:s.valueIds.presence==="value"?s.valueIds.value:[]})));}catch{/* Assessor holds ambiguous identities. */}
+    if(key){
+      const [adoption]=await db.select().from(etsyHistoricalAdoptions).where(and(eq(etsyHistoricalAdoptions.organizationId,scope.organizationId),eq(etsyHistoricalAdoptions.storeId,scope.storeId),eq(etsyHistoricalAdoptions.receiptId,source.receipt.receiptId),eq(etsyHistoricalAdoptions.listingId,source.transaction.listingId.value),eq(etsyHistoricalAdoptions.selectionKey,key)));
+      if(adoption){
+        if(source.receipt.createdTimestamp.presence!=="value"||source.receipt.createdTimestamp.value<adoption.purchaseFrom||source.receipt.createdTimestamp.value>adoption.purchaseThrough){version=undefined;resolutionIssues.push("ambiguous_historical_mapping");}
+        else{
+          [version]=await db.select().from(productVersions).where(and(eq(productVersions.organizationId,scope.organizationId),eq(productVersions.storeId,scope.storeId),eq(productVersions.id,adoption.productVersionId)));
+          if(!version||version.status==="DRAFT")throw new Error("CONFIGURATION_UNAVAILABLE");
+          history={productVersionId:version.id};
+        }
+      }
+    }
   }
   // Today's activation is not authority for an earlier purchase. Historical callers
   // must supply an already retained version; unresolved history stays held.
