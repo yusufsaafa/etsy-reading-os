@@ -25,7 +25,7 @@ export const fontPackageSchema = z.strictObject({
 export type FontResourceMetadata = z.infer<typeof fontResourceSchema>;
 export type ShapedRun = Readonly<{
  unitsPerEm: number; advance: number; inkLeft: number; inkRight: number;
- glyphs: readonly Readonly<{ id: number; xAdvance: number; yAdvance: number; xOffset: number; yOffset: number }>[];
+ glyphs: readonly Readonly<{ id: number; codePoints: readonly number[]; xAdvance: number; yAdvance: number; xOffset: number; yOffset: number }>[];
 }>;
 export type ControlledFont = VerifiedBytes & Readonly<{
  metadata: Readonly<FontResourceMetadata>; unitsPerEm: number; ascent: number; descent: number;
@@ -90,7 +90,7 @@ function controlledFont(meta: FontResourceMetadata, bytes: Uint8Array): Controll
     x += p.xAdvance;
    }
    return detached({ unitsPerEm: font.unitsPerEm, advance: x, inkLeft: left, inkRight: Math.max(x,right),
-    glyphs: run.glyphs.map((g,i) => ({ id:g.id, ...run.positions[i] })) });
+    glyphs: run.glyphs.map((g,i) => ({ id:g.id, codePoints:[...g.codePoints], ...run.positions[i] })) });
   },
  });
  verified.add(value); return value;

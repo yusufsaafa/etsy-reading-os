@@ -22,6 +22,7 @@ import { getApprovedReadingMedia, getApprovedReadingForDocument } from "../src/m
 import { createDocumentRenderInput,getDocumentRenderInput } from "../src/modules/documents/media-service";
 import { getDocumentLayout } from "../src/modules/documents/layout/service";
 import { prepareDocumentRendering,getProductionDocumentLayout } from "../src/modules/documents/resources/service";
+import { renderDocumentPdfForReading } from "../src/modules/documents/pdf/service";
 import { readFrozenPlatformAssetBytes } from "../src/modules/media/service";
 import { syntheticImage } from "./render-resources.fixture";
 import { platformMediaRegistry } from "../src/modules/media/platform-registry";
@@ -67,8 +68,11 @@ it("owned production preparation uses frozen resources despite preference change
  const later=await prepareDocumentRendering(db,a,input.media.id,storage);expect(later.layout).toEqual(first.layout);expect(later.resources.manifest).toEqual(first.resources.manifest);expect(await getProductionDocumentLayout(db,a,input.media.id)).toEqual(first.layout);
  for(const scope of [b,sibling,{...a,userId:b.userId}])await expect(prepareDocumentRendering(db,scope,input.media.id,storage)).rejects.toThrow();expect(reads).toBe(2);
  await expect(prepareDocumentRendering(db,a,{mediaSnapshotId:input.media.id,assetId:asset.id} as never,storage)).rejects.toThrow();expect(reads).toBe(2);
+ const pdf=await renderDocumentPdfForReading(db,a,input.media.id,storage);expect(pdf.metadata.layoutHash).toBe(first.layout.layoutHash);expect(pdf.metadata.resourceHash).toBe(first.resources.manifest.resourceHash);expect(pdf.metadata.pageCount).toBe(first.layout.pages.length);
+ for(const scope of [b,sibling,{...a,userId:b.userId}])await expect(renderDocumentPdfForReading(db,scope,input.media.id,storage)).rejects.toThrow();expect(reads).toBe(3);
+ await expect(renderDocumentPdfForReading(db,a,{mediaSnapshotId:input.media.id,assetId:asset.id,url:"https://evil.invalid"} as never,storage)).rejects.toThrow();expect(reads).toBe(3);
  if(input.media.media.mode!=="TAROT_CARDS")throw Error();const frozen=input.media.media.cards[0].asset;
- await expect(readFrozenPlatformAssetBytes(db,storage,{...frozen,contentHash:"0".repeat(64)})).rejects.toThrow("FROZEN_ASSET_METADATA_MISMATCH");expect(reads).toBe(2);
+ await expect(readFrozenPlatformAssetBytes(db,storage,{...frozen,contentHash:"0".repeat(64)})).rejects.toThrow("FROZEN_ASSET_METADATA_MISMATCH");expect(reads).toBe(3);
  await expect(readFrozenPlatformAssetBytes(db,storage,{...frozen,objectKey:"platform/foreign"})).rejects.toThrow();
  await expect(readFrozenPlatformAssetBytes(db,{read:async()=>{throw Error("offline");}},frozen)).rejects.toThrow("ASSET_STORAGE_READ_FAILED");
  await expect(readFrozenPlatformAssetBytes(db,{read:async()=>new Uint8Array()},frozen)).rejects.toThrow("ASSET_LENGTH_MISMATCH");
