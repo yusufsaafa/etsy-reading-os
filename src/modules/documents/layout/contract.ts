@@ -5,11 +5,12 @@ import { detached,hashSchema } from "../../media/contracts";
 import { documentMediaHash,documentMediaSchema } from "../media-contract";
 import { semanticCardsSchema } from "../../media/reading-contract";
 import { getCanonicalCard } from "../../media/catalog";
-import { fontSchema,wrapText,provisionalMetrics } from "./measurement";
+import { fontSchema,wrapText,provisionalMetrics,type TextMeasurement } from "./measurement";
 import { A4,layoutTemplate,templateDefinitionSchema } from "./templates";
+import { measurementDescriptorSchema,requireMeasurement } from "../resources/measurement";
 const unit=z.number().int().nonnegative().max(1000000);
 export const boxSchema=z.strictObject({x:unit,y:unit,width:unit.refine(n=>n>0),height:unit.refine(n=>n>0)});
-const typography=z.strictObject({font:fontSchema,size:z.number().int().min(7500).max(64000),lineHeight:z.number().int().min(7500).max(80000),color:z.string().regex(/^#[A-F0-9]{6}$/)});
+const typography=z.strictObject({font:fontSchema,size:z.number().int().min(7500).max(64000),lineHeight:z.number().int().min(7500).max(100000),color:z.string().regex(/^#[A-F0-9]{6}$/)});
 const line=z.strictObject({start:z.number().int().nonnegative(),end:z.number().int().positive(),width:unit});
 const textBase={box:boxSchema,text:z.string().max(40000),lines:z.array(line).min(1).max(10000),typography};
 export const elementSchema=z.discriminatedUnion("kind",[
@@ -21,7 +22,7 @@ export const elementSchema=z.discriminatedUnion("kind",[
 ]);
 export const layoutSchema=z.strictObject({
  contractVersion:z.literal("document-layout/v1"),source:z.strictObject({renderInputHash:hashSchema,snapshotHash:hashSchema,mediaHash:hashSchema}),
- engineVersion:z.literal("reading-layout/1"),measurement:z.strictObject({id:z.literal("controlled-advance"),version:z.literal(1),productionReady:z.literal(false)}),
+ engineVersion:z.literal("reading-layout/1"),measurement:measurementDescriptorSchema,
  template:templateDefinitionSchema,pageSize:z.strictObject({unit:z.literal("MILLI_POINT"),width:z.literal(A4.width),height:z.literal(A4.height)}),
  sections:z.array(z.strictObject({sectionId:z.string().min(1).max(100),title:z.string().min(1).max(200),length:z.number().int().positive().max(40000),bodyHash:hashSchema})).min(1).max(20),
  media:documentMediaSchema,footerHeight:z.number().int().min(34016).max(100000),
@@ -34,10 +35,11 @@ export function digest(value:string) {return createHash("sha256").update(value).
 export function layoutHash(value:Omit<LayoutValue,"layoutHash">|LayoutValue) {const {layoutHash:ignored,...semantic}=value as LayoutValue;return digest(stableJson(semantic));}
 function inside(a:z.infer<typeof boxSchema>,b:z.infer<typeof boxSchema>) {return a.x>=b.x&&a.y>=b.y&&a.x+a.width<=b.x+b.width&&a.y+a.height<=b.y+b.height;}
 function overlaps(a:z.infer<typeof boxSchema>,b:z.infer<typeof boxSchema>) {return a.x<b.x+b.width&&b.x<a.x+a.width&&a.y<b.y+b.height&&b.y<a.y+a.height;}
-export function immutableLayout(raw:unknown) {
+export function immutableLayout(raw:unknown,measurement:TextMeasurement=provisionalMetrics) {
  try {
   if(Buffer.byteLength(stableJson(raw))>5000000)throw new Error("LAYOUT_SIZE_BOUND");
   const v=layoutSchema.parse(raw),t=layoutTemplate(v.template.key,v.template.version);
+  requireMeasurement(v.measurement,measurement);
   if(stableJson(t)!==stableJson(v.template)||layoutHash(v)!==v.layoutHash)throw new Error("LAYOUT_TEMPLATE_OR_HASH");
   if(digest(stableJson({snapshotHash:v.source.snapshotHash,mediaHash:v.source.mediaHash}))!==v.source.renderInputHash)throw new Error("LAYOUT_SOURCE_HASH");
   if(documentMediaHash(v.media)!==v.source.mediaHash)throw new Error("LAYOUT_MEDIA_HASH");
@@ -56,9 +58,11 @@ export function immutableLayout(raw:unknown) {
     if(!inside(e.box,isFooter?footer:expected))throw new Error("LAYOUT_ELEMENT_BOUNDS");
     if(substantive.some(other=>overlaps(e.box,other.box)))throw new Error("LAYOUT_ELEMENT_OVERLAP");substantive.push(e);
     if(e.kind==="TEXT"||e.kind==="BODY") {
+     if(v.measurement.id==="controlled-advance" && e.typography.lineHeight>80000)throw new Error("LAYOUT_LINE_HEIGHT");
+     if(measurement.lineHeight && e.typography.lineHeight<measurement.lineHeight(e.typography.font,e.typography.size))throw new Error("LAYOUT_FONT_LINE_HEIGHT");
      if(e.box.height!==e.lines.length*e.typography.lineHeight||e.typography.lineHeight<e.typography.size)throw new Error("LAYOUT_LINE_HEIGHT");
      let offset=0;for(const l of e.lines){if(l.start!==offset||l.end<=l.start||l.end>e.text.length||l.width>e.box.width)throw new Error("LAYOUT_LINE_RANGE");offset=l.end;}if(offset!==e.text.length)throw new Error("LAYOUT_TEXT_COVERAGE");
-     if(stableJson(wrapText(e.text,e.typography.font,e.typography.size,e.box.width,provisionalMetrics))!==stableJson(e.lines))throw new Error("LAYOUT_LINE_MEASUREMENT");
+     if(stableJson(wrapText(e.text,e.typography.font,e.typography.size,e.box.width,measurement))!==stableJson(e.lines))throw new Error("LAYOUT_LINE_MEASUREMENT");
      if(e.kind==="TEXT"&&(e.role==="HEADING"||e.role==="CONTINUATION")) {
       const s=v.sections.find(s=>s.sectionId===e.sectionId);if(!s)throw new Error("LAYOUT_SECTION_REFERENCE");
       if(e.role==="HEADING"){if(e.text!==s.title||bodies.get(s.sectionId)!.heading)throw new Error("LAYOUT_SECTION_HEADING");bodies.get(s.sectionId)!.heading=true;}

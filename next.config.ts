@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 const config: NextConfig = {
   poweredByHeader: false,
+  // Trusted server resources must accompany deployment; never resolve from public/ or network.
+  outputFileTracingIncludes: { "/**": ["./resources/fonts/**/*"] },
   async headers() {
     return [{ source: "/:path*", headers: [
       { key: "Referrer-Policy", value: "no-referrer" },

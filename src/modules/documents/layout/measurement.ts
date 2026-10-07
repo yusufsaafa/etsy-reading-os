@@ -6,6 +6,8 @@ export type MeasuredLine=Readonly<{start:number;end:number;width:number}>;
 export interface TextMeasurement {
  readonly id:string; readonly version:number;
  measure(text:string,font:Font,size:number):number;
+ wrap?(text:string,font:Font,size:number,width:number):MeasuredLine[];
+ lineHeight?(font:Font,size:number):number;
 }
 // Explicit provisional advance metrics, NOT production font binary metrics or shaping.
 // Unicode categories are fixed ranges, not host/browser/font-dependent measurements.
@@ -32,6 +34,7 @@ export function checkedMeasure(provider:TextMeasurement,text:string,font:Font,si
 /** Greedy whitespace breaks, then code-point-safe emergency breaks. Never discards bytes. */
 export function wrapText(text:string,font:Font,size:number,width:number,provider:TextMeasurement):MeasuredLine[] {
  if(!Number.isSafeInteger(width)||width<=0)throw new Error("INVALID_TEXT_WIDTH");
+ if(provider.wrap)return provider.wrap(text,font,size,width);
  const lines:MeasuredLine[]=[];let start=0,end=0,lastBreak=0,advance=0;
  while(end<text.length) {
   const cp=text.codePointAt(end)!,char=String.fromCodePoint(cp),next=end+char.length;

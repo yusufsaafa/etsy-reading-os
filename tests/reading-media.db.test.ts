@@ -21,6 +21,9 @@ import { createDocumentSnapshot,getDocumentSnapshotForRender } from "../src/modu
 import { getApprovedReadingMedia, getApprovedReadingForDocument } from "../src/modules/review/service";
 import { createDocumentRenderInput,getDocumentRenderInput } from "../src/modules/documents/media-service";
 import { getDocumentLayout } from "../src/modules/documents/layout/service";
+import { prepareDocumentRendering,getProductionDocumentLayout } from "../src/modules/documents/resources/service";
+import { readFrozenPlatformAssetBytes } from "../src/modules/media/service";
+import { syntheticImage } from "./render-resources.fixture";
 import { platformMediaRegistry } from "../src/modules/media/platform-registry";
 import { setStorePreferredTarotDeck } from "../src/modules/media/service";
 import { assetFixture,deckFixture } from "./media.fixture";
@@ -54,6 +57,27 @@ async function setupDeck(key="synthetic",version=1) {const registry=platformMedi
 async function ready() {const d=await design();await setDefaultDocumentDesign(db,a,d.id);await approveReadingReview(db,a,orderId,readingId,null);return d;}
 async function select(key="synthetic",expectedRevision=0,version=1) {return setStorePreferredTarotDeck(db,a,{deckKey:key,deckVersion:version,expectedRevision});}
 async function unsafe(sql:string,args:unknown[]) {await pg.exec("BEGIN; SET LOCAL session_replication_role=replica");try{await pg.query(sql,args);await pg.exec("SET LOCAL session_replication_role=origin; COMMIT");}catch(e){await pg.exec("ROLLBACK");throw e;}}
+it("owned production preparation uses frozen resources despite preference change/retirement and rejects foreign/forged scope",async()=>{
+ const bytes=await syntheticImage(),asset={...assetFixture(),byteSize:bytes.length,contentHash:createHash("sha256").update(bytes).digest("hex"),width:60,height:100},registry=platformMediaRegistry(db);
+ await registry.registerAsset(asset);await registry.registerDeck({key:"resources-synthetic",name:"Synthetic solid rectangle",description:"No artwork"});await registry.publishVersion(deckFixture(asset.id,"resources-synthetic"));
+ const d=await createDocumentDesign(db,a,{name:"Visible synthetic",configuration:{...config(),display:{...config().display,cardImagery:true}}});await setDefaultDocumentDesign(db,a,d.id);await approveReadingReview(db,a,orderId,readingId,null);await select("resources-synthetic");const input=await create();
+ let reads=0;const storage={async read(request:Readonly<{objectKey:string;maxBytes:number}>){reads++;expect(request).toEqual({objectKey:asset.objectKey,maxBytes:bytes.length});return bytes;}};
+ const first=await prepareDocumentRendering(db,a,input.media.id,storage);expect(reads).toBe(1);expect(first.layout.measurement.productionReady).toBe(true);expect(first.resources.images).toHaveLength(1);expect(first.resources.manifest.cards).toHaveLength(3);expect(first.resources.images[0].copyBytes()).toEqual(Uint8Array.from(bytes));
+ await setupDeck("new-preference");await select("new-preference",1);await registry.retireVersion({deckKey:"resources-synthetic",deckVersion:1});
+ const later=await prepareDocumentRendering(db,a,input.media.id,storage);expect(later.layout).toEqual(first.layout);expect(later.resources.manifest).toEqual(first.resources.manifest);expect(await getProductionDocumentLayout(db,a,input.media.id)).toEqual(first.layout);
+ for(const scope of [b,sibling,{...a,userId:b.userId}])await expect(prepareDocumentRendering(db,scope,input.media.id,storage)).rejects.toThrow();expect(reads).toBe(2);
+ await expect(prepareDocumentRendering(db,a,{mediaSnapshotId:input.media.id,assetId:asset.id} as never,storage)).rejects.toThrow();expect(reads).toBe(2);
+ if(input.media.media.mode!=="TAROT_CARDS")throw Error();const frozen=input.media.media.cards[0].asset;
+ await expect(readFrozenPlatformAssetBytes(db,storage,{...frozen,contentHash:"0".repeat(64)})).rejects.toThrow("FROZEN_ASSET_METADATA_MISMATCH");expect(reads).toBe(2);
+ await expect(readFrozenPlatformAssetBytes(db,storage,{...frozen,objectKey:"platform/foreign"})).rejects.toThrow();
+ await expect(readFrozenPlatformAssetBytes(db,{read:async()=>{throw Error("offline");}},frozen)).rejects.toThrow("ASSET_STORAGE_READ_FAILED");
+ await expect(readFrozenPlatformAssetBytes(db,{read:async()=>new Uint8Array()},frozen)).rejects.toThrow("ASSET_LENGTH_MISMATCH");
+ const wrong=Uint8Array.from(bytes);wrong[20]^=255;await expect(readFrozenPlatformAssetBytes(db,{read:async()=>wrong},frozen)).rejects.toThrow("ASSET_DIGEST_MISMATCH");
+},20000);
+it("owned imagery-OFF rendering preparation never accesses storage",async()=>{
+ await ready();await setupDeck();await select();const input=await create();const result=await prepareDocumentRendering(db,a,input.media.id,{read:async()=>{throw Error("must not access storage");}});
+ expect(result.resources.images).toHaveLength(0);expect(input.media.media.mode).toBe("TAROT_CARDS");expect(result.layout.media).toEqual(input.media.media);
+},20000);
 it("Product/context freezes requirement; successful Generation and AI accounting retain exact semantic evidence",async()=>{
  const [g]=await db.select().from(schema.generations);expect(g.context.product.configuration.readingMedia).toEqual({mode:"TAROT_CARDS",cardCount:3});expect(g.result!.readingMedia).toMatchObject({mode:"TAROT_CARDS",cards:[{position:0},{position:1},{position:2}]});expect(g.status).toBe("SUCCEEDED");const [request]=await db.select().from(schema.aiRequests);expect(request.status).toBe("SUCCEEDED");expect(request.attemptNumber).toBe(1);expect(await db.select().from(schema.usageEvents)).toHaveLength(1);
  const product=await productData(db,a,productId);await expect(db.update(schema.productVersions).set({configuration:{...product.active!.configuration,readingMedia:{mode:"TAROT_CARDS",cardCount:5}}}).where(eq(schema.productVersions.id,g.productVersionId))).rejects.toThrow();

@@ -22,22 +22,25 @@
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",
+    "fontkit": "2.0.4",
     "next": "16.3.1",
+    "next-auth": "5.0.0-beta.30",
     "postgres": "3.4.7",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "zod": "4.6.4",
-    "next-auth": "5.0.0-beta.30"
+    "sharp": "0.35.5",
+    "zod": "4.6.4"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.4.3",
+    "@types/fontkit": "2.0.8",
     "@types/node": "22.19.17",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.5",
     "drizzle-kit": "0.31.10",
     "tsx": "4.23.13",
     "typescript": "5.9.3",
-    "vitest": "4.1.11",
-    "@electric-sql/pglite": "0.4.3"
+    "vitest": "4.1.11"
   },
   "pnpm": {
     "overrides": {

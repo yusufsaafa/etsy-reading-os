@@ -1,0 +1,51 @@
+{
+  "contractVersion": "controlled-font-package/v1",
+  "repository": "https://github.com/adobe-fonts/source-serif",
+  "releaseTag": "4.005R",
+  "sourceCommit": "2823e993c53fca27c5c8749f529b56a5a7c77b6b",
+  "releaseUrl": "https://github.com/adobe-fonts/source-serif/releases/tag/4.005R",
+  "releaseAsset": "source-serif-4.005_Desktop.zip",
+  "releaseAssetUrl": "https://github.com/adobe-fonts/source-serif/releases/download/4.005R/source-serif-4.005_Desktop.zip",
+  "archiveSha256": "549fdb8f9a682bd06944298621404969f6de77c2e422ff3b8244a1dcd6a0c425",
+  "licenseIdentifier": "OFL-1.1",
+  "licenseFile": "LICENSE.md",
+  "licenseSha256": "75784a295293a8992f5a8d99210566e0064a012e6dab6731305e3787f15896c7",
+  "resources": [
+    {
+      "fontKey": "source-serif-4",
+      "family": "Source Serif 4",
+      "style": "normal",
+      "weight": 400,
+      "resourceVersion": "4.005",
+      "filename": "SourceSerif4-Regular.ttf",
+      "upstreamPath": "source-serif-4.005_Desktop/TTF/SourceSerif4-Regular.ttf",
+      "byteLength": 261868,
+      "sha256": "e5a4ee6a3d87bb9024796be390c6771e2a0eb1883dae25effaf57ca01668e24b",
+      "format": "STATIC_TTF"
+    },
+    {
+      "fontKey": "source-serif-4",
+      "family": "Source Serif 4",
+      "style": "normal",
+      "weight": 600,
+      "resourceVersion": "4.005",
+      "filename": "SourceSerif4-Semibold.ttf",
+      "upstreamPath": "source-serif-4.005_Desktop/TTF/SourceSerif4-Semibold.ttf",
+      "byteLength": 272088,
+      "sha256": "36db62940cb5728b12b1802476dc7fcf4c6c519a7bdd476ba23a4e555fc4655f",
+      "format": "STATIC_TTF"
+    },
+    {
+      "fontKey": "source-serif-4",
+      "family": "Source Serif 4",
+      "style": "normal",
+      "weight": 700,
+      "resourceVersion": "4.005",
+      "filename": "SourceSerif4-Bold.ttf",
+      "upstreamPath": "source-serif-4.005_Desktop/TTF/SourceSerif4-Bold.ttf",
+      "byteLength": 271568,
+      "sha256": "7cf4f4e1ad74f45058d5bc61716b82560442fbdcd9d3654d2dea96bf6c683d86",
+      "format": "STATIC_TTF"
+    }
+  ]
+}

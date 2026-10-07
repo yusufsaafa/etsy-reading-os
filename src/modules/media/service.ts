@@ -93,9 +93,25 @@ export async function setStorePreferredTarotDeck(db:Database,scope:Scope,raw:unk
 export async function readPlatformAssetBytes(db:Database,storage:PlatformAssetStorage,raw:unknown):Promise<Uint8Array> {
  const {assetId}=z.strictObject({assetId:z.uuid()}).parse(raw);
  const value=await asset(db,assetId);usableAsset(value);
- const bytes=await storage.read(Object.freeze({objectKey:value.objectKey}));
- if(bytes.byteLength!==value.byteSize || createHash("sha256").update(bytes).digest("hex")!==value.contentHash)throw new MediaUnavailable();
- return Uint8Array.from(bytes);
+ try{return await readExactAssetBytes(storage,value);}catch{throw new MediaUnavailable();}
+}
+async function readExactAssetBytes(storage:PlatformAssetStorage,value:Awaited<ReturnType<typeof asset>>) {
+ let bytes:Uint8Array;
+ try{bytes=await storage.read(Object.freeze({objectKey:value.objectKey,maxBytes:value.byteSize}));}
+ catch(cause){throw new Error("ASSET_STORAGE_READ_FAILED",{cause});}
+ if(!(bytes instanceof Uint8Array)||bytes.byteLength!==value.byteSize)throw new Error("ASSET_LENGTH_MISMATCH");
+ const detachedBytes=Uint8Array.from(bytes);
+ if(createHash("sha256").update(detachedBytes).digest("hex")!==value.contentHash)throw new Error("ASSET_DIGEST_MISMATCH");
+ return detachedBytes;
+}
+/** Renderer preparation validates frozen evidence against exact server-owned immutable metadata.
+ * Never consults Store preference or the latest deck. No storage key crosses this boundary. */
+export async function readFrozenPlatformAssetBytes(db:Database,storage:PlatformAssetStorage,raw:unknown):Promise<Uint8Array> {
+ const expected=resolvedCardSchema.shape.asset.parse(raw);
+ const value=await asset(db,expected.id);usableAsset(value);
+ const exact=resolvedCardSchema.shape.asset.parse({id:value.id,contentHash:value.contentHash,mediaType:value.mediaType,byteSize:value.byteSize,width:value.width,height:value.height});
+ if(Object.keys(exact).some(k=>exact[k as keyof typeof exact]!==expected[k as keyof typeof expected]))throw new Error("FROZEN_ASSET_METADATA_MISMATCH");
+ return readExactAssetBytes(storage,value);
 }
 // No seller mutation API for assets, decks, versions, mappings or rights. Platform registry
 // provisioning is an offline privileged operator responsibility; SQL guards apply there too.

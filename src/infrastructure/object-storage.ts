@@ -8,5 +8,6 @@ export interface PrivateObjectStorage {
 /** Platform namespace in the same S3-compatible storage architecture. No tenant fiction,
  * URL resolution, upload flow or provider implementation. Implementations read exact keys. */
 export interface PlatformAssetStorage {
-  read(input: Readonly<{ objectKey: string }>): Promise<Uint8Array>;
+  /** Adapter must stop reading once maxBytes is exceeded, before buffering an unbounded object. */
+  read(input: Readonly<{ objectKey: string; maxBytes: number }>): Promise<Uint8Array>;
 }
