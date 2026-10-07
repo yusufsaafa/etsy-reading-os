@@ -7,7 +7,7 @@ import type {SecretVault} from "../../infrastructure/secrets";
 import {tokenSchema} from "../etsy/oauth";
 import {liveOAuthConfig,refreshConnection} from "../etsy/connection-service";
 import {fetchShopListings,ListingDiscoveryError} from "../etsy/listing-discovery";
-export type DiscoveredProduct={externalId:string;title:string;state:string;configured:boolean};
+export type DiscoveredProduct={externalId:string;title:string;state:string;configured:boolean;thumbnailUrl?:string|null};
 export async function discoverProducts(db:Database,scope:Scope,vault:SecretVault,options:{config?:ReturnType<typeof liveOAuthConfig>;fetcher?:typeof fetch}={}){
  await verifyScope(db,scope,true);
  const [store]=await db.select().from(stores).where(and(eq(stores.id,scope.storeId),eq(stores.organizationId,scope.organizationId)));
@@ -32,7 +32,7 @@ export async function discoverProducts(db:Database,scope:Scope,vault:SecretVault
     await tx.update(stores).set({onboardingStage:"products"}).where(and(eq(stores.id,scope.storeId),eq(stores.onboardingStage,"etsy")));
    });
    const [bindings,ownedProducts,selections]=await Promise.all([db.select().from(mappings).where(tenantWhere(mappings,scope)),db.select().from(products).where(tenantWhere(products,scope)),db.select().from(listingSelections).where(tenantWhere(listingSelections,scope))]);
-   return {products:rows.map(row=>({externalId:row.listing_id,title:row.title,state:row.state,configured:bindings.some(b=>b.listingExternalId===row.listing_id&&ownedProducts.some(p=>p.id===b.productId&&p.activeVersionId!==null))})),selected:selections.map(s=>s.listingExternalId)};
+   return {products:rows.map(row=>({externalId:row.listing_id,title:row.title,state:row.state,thumbnailUrl:row.thumbnailUrl,configured:bindings.some(b=>b.listingExternalId===row.listing_id&&ownedProducts.some(p=>p.id===b.productId&&p.activeVersionId!==null))})),selected:selections.map(s=>s.listingExternalId)};
   }catch(error){if(error instanceof ListingDiscoveryError)throw error;throw new ListingDiscoveryError("unavailable");}
  }
  // Explicit development fixture Stores retain their existing imported catalog only.

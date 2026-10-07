@@ -14,3 +14,10 @@ it("preserves int64 identifiers without numeric rounding",async()=>{const fetche
 it("rejects duplicate identities, invalid schema and oversized responses",async()=>{
  for(const result of [response([row(1),row(1)]),response([{...row(1),title:""}]),new Response("x".repeat(1048577),{headers:{"content-type":"application/json"}})])await expect(fetchShopListings("123","synthetic",{clientId:"fake",secret:"fake"},vi.fn(async()=>result) as typeof fetch)).rejects.toThrow("LISTING_DISCOVERY_FAILED");
 });
+
+it("requests Images efficiently and chooses primary rank without trusting arbitrary URLs",async()=>{
+ const fetcher=vi.fn(async(url:unknown)=>{const u=new URL(String(url));expect(u.searchParams.get("includes")).toBe("Images");return u.searchParams.get("state")==="active"?response([{...row(1),images:[{rank:2,url_75x75:"https://i.etsystatic.com/123/second.jpg"},{rank:1,url_75x75:"https://i.etsystatic.com/123/first.jpg"}]},{...row(2),images:[]},{...row(3),images:[{rank:1,url_75x75:"https://evil.test/upload?token=private"}]}]):response([]);});
+ const rows=await fetchShopListings("123","synthetic",{clientId:"fake",secret:"fake"},fetcher as typeof fetch);expect(rows.map(r=>r.thumbnailUrl)).toEqual(["https://i.etsystatic.com/123/first.jpg",null,null]);expect(fetcher).toHaveBeenCalledTimes(5);
+});
+import {safeListingThumbnail} from "../src/modules/etsy/listing-thumbnail";
+it("rejects credentials, signed query strings and non-CDN image sources",()=>{for(const url of ["http://i.etsystatic.com/a","https://user:password@i.etsystatic.com/a","https://i.etsystatic.com/a?token=x","https://i.etsystatic.com.evil.test/a","https://localhost/a"])expect(safeListingThumbnail(url)).toBeNull();});

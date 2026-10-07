@@ -1,4 +1,7 @@
 "use client";
+import Image from "next/image";
+import {safeListingThumbnail} from "@/modules/etsy/listing-thumbnail";
+import {productPage,selectProductPage,PRODUCTS_PER_PAGE,type PickerProduct} from "./product-picker-model";
 import { useActionState, useState, useEffect } from "react";
 import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
@@ -25,22 +28,32 @@ export function ImportRefresh() {
   useEffect(() => { const timer = setInterval(() => router.refresh(), 4000); return () => clearInterval(timer); }, [router]);
   return <p className={styles.importing} role="status"><span className={styles.spinner} aria-hidden="true"/>Importing your Etsy products…</p>;
 }
-export function ProductPicker({ products, initialSelection }: { products: { externalId: string; title: string; state: string; configured?: boolean }[]; initialSelection: string[] }) {
+function ListingThumbnail({url}:{url?:string|null}) {
+  const [failed,setFailed]=useState(false);const safe=safeListingThumbnail(url);
+  return <span className={styles.thumbnail}>{safe&&!failed?<Image src={safe} alt="" width={44} height={44} unoptimized referrerPolicy="no-referrer" onError={()=>setFailed(true)}/>:<Icon name="image"/>}</span>;
+}
+export function ProductPicker({ products, initialSelection }: { products: PickerProduct[]; initialSelection: string[] }) {
   const [query, setQuery] = useState("");
   const [filter,setFilter]=useState("all");
+  const [page,setPage]=useState(1);
   const [selected, setSelected] = useState(() => new Set(initialSelection.filter(id => products.some(p => p.externalId === id))));
   const [state, action] = useActionState(selectProductsAction, {});
-  const visible = products.filter(p => p.title.toLocaleLowerCase().includes(query.toLocaleLowerCase()) && (filter === "all" || p.state === filter));
+  const {visible,total,pages,current}=productPage(products,query,filter,page);
+  const statuses=["active","inactive","sold_out","draft","expired"].filter(status=>products.some(p=>p.state===status));
   const active = products.filter(p => p.state === "active");
   const toggle = (id: string) => setSelected(old => { const next = new Set(old); next.has(id) ? next.delete(id) : next.add(id); return next; });
   return <form action={action} className={styles.picker}>
-    <label className={`search-field ${styles.search}`} htmlFor="product-search"><span className="sr-only">Search products</span><Icon name="search"/><input id="product-search" type="search" placeholder="Search products" value={query} onChange={e => setQuery(e.target.value)}/></label>
-    <label className={styles.statusFilter}>Listing status<select value={filter} onChange={e=>setFilter(e.target.value)}><option value="all">All listings</option>{[...new Set(products.map(p=>p.state))].map(status=><option key={status} value={status}>{status.replaceAll("_"," ")}</option>)}</select></label>
-    <div className={styles.selectionToolbar}><span>{selected.size} selected</span><div><button type="button" className="button ghost" onClick={() => setSelected(new Set(active.slice(0,1000).map(p => p.externalId)))}>Select all</button><button type="button" className="button ghost" onClick={() => setSelected(new Set())} disabled={!selected.size}>Deselect all</button></div></div>
+    <p className={styles.listingCount}>{products.length} Etsy listings</p>
+    <label className={`search-field ${styles.search}`} htmlFor="product-search"><span className="sr-only">Search products</span><Icon name="search"/><input id="product-search" type="search" placeholder="Search products" value={query} onChange={e => {setQuery(e.target.value);setPage(1);}}/></label>
+    <div className={styles.statusFilters} role="group" aria-label="Listing status">
+      {["all",...statuses].map(status=><button key={status} type="button" className="button ghost" aria-pressed={filter===status} onClick={()=>{setFilter(status);setPage(1);}}>{status==="all"?"All":status.replaceAll("_"," ").replace(/^./,c=>c.toUpperCase())} ({status==="all"?products.length:products.filter(p=>p.state===status).length})</button>)}
+    </div>
+    <div className={styles.selectionToolbar}><span aria-live="polite">{selected.size} selected</span><div><button type="button" className="button ghost" onClick={()=>setSelected(old=>selectProductPage(old,visible,true))}>Select page</button><button type="button" className="button ghost" onClick={()=>setSelected(old=>selectProductPage(old,visible,false))} disabled={!visible.some(p=>selected.has(p.externalId))}>Deselect page</button></div></div>
     <div className={styles.list}>
-      {visible.map(product => <label className={styles.productRow} key={product.externalId}><span className={styles.thumbnail}><Icon name="image"/></span><span className={styles.productInfo}><strong>{product.title}</strong><span>{`${product.state.replaceAll("_"," ")} on Etsy`}</span></span><Badge>{product.configured ? "Configured" : selected.has(product.externalId) ? "Needs setup" : "Not selected"}</Badge><input type="checkbox" checked={selected.has(product.externalId)} disabled={!selected.has(product.externalId) && (product.state !== "active" || selected.size >= 1000)} onChange={() => toggle(product.externalId)} aria-label={`Select ${product.title}`}/></label>)}
+      {visible.map(product => <label className={styles.productRow} key={product.externalId}><ListingThumbnail key={product.thumbnailUrl??"placeholder"} url={product.thumbnailUrl}/><span className={styles.productInfo}><strong>{product.title}</strong><span>{`${product.state.replaceAll("_"," ")} on Etsy`}</span></span><Badge>{product.configured ? "Configured" : selected.has(product.externalId) ? "Needs setup" : "Not selected"}</Badge><input type="checkbox" checked={selected.has(product.externalId)} disabled={!selected.has(product.externalId) && (product.state !== "active" || selected.size >= 1000)} onChange={() => toggle(product.externalId)} aria-label={`Select ${product.title}`}/></label>)}
       {!visible.length && <div className={styles.empty}><h2>No matching products</h2><p>Try another product name.</p></div>}
     </div>
+    <div className={styles.pagination}><span>{total?`Showing ${(current-1)*PRODUCTS_PER_PAGE+1}–${Math.min(current*PRODUCTS_PER_PAGE,total)} of ${total}`:"Showing 0 listings"}</span><nav aria-label="Product pages"><button type="button" className="button ghost" aria-label="Previous page" disabled={current===1} onClick={()=>setPage(current-1)}>←</button>{(pages<=7?Array.from({length:pages},(_,i)=>i+1):Array.from(new Set([1,current-1,current,current+1,pages].filter(n=>n>=1&&n<=pages)))).sort((a,b)=>a-b).map((n,i,all)=><span key={n}>{i>0&&n>all[i-1]+1&&<span aria-hidden="true">…</span>}<button type="button" className="button ghost" aria-label={`Page ${n}`} aria-current={n===current?"page":undefined} onClick={()=>setPage(n)}>{n}</button></span>)}<button type="button" className="button ghost" aria-label="Next page" disabled={current===pages} onClick={()=>setPage(current+1)}>→</button></nav></div>
     {[...selected].map(id => <input key={id} type="hidden" name="listing" value={id}/>)}
     <ErrorMessage {...state}/><div className={styles.selectionFooter}><p>Selection only saves the products you want to configure. Choose up to 1,000 active listings. Products still need configuration before fulfillment can begin.</p><Submit disabled={!selected.size || [...selected].some(id=>!active.some(p=>p.externalId===id))} pendingText="Saving your products…">Continue to product setup<Icon name="arrow"/></Submit></div>
   </form>;

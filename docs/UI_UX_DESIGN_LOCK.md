@@ -110,3 +110,8 @@ Order detail now enables Prepare reading for eligible version-bound readings wit
 ## Production policy — Part 1
 
 Product Setup retains its existing controls and adds Standard/Express plus optional target minutes. Production labels are Manual/Automatically prepare; the latter truthfully explains that waiting admission is implemented and execution remains unavailable. No delivery semantics, raw computed deadline or infrastructure settings appear. Orders/Home and manual Prepare reading remain visually unchanged.
+
+
+## Product Step 3 polish — 2026-10-08
+
+The authorized Step 3 presentation supersedes the earlier placeholder-only and select-all guidance: use verified primary public Etsy listing thumbnails from server-owned discovery, compact counted status chips, eight-row local pagination, persistent selection count and Select page / Deselect page. Missing/unusable thumbnails retain the neutral placeholder. No canonical Listing schema, Product configuration or Step 4 behavior changes.
