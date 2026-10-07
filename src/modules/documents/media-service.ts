@@ -13,7 +13,11 @@ import { documentMediaHash, immutableDocumentMedia, immutableRenderInput, Docume
 /** Caller submits Reading/order intent only. Text/design/media freeze in one Store-locked transaction. */
 export async function createDocumentRenderInput(db:Database,scope:Scope,raw:unknown):Promise<DocumentRenderInput> {
  const command=createDocumentSnapshotCommand.parse(raw);
- return db.transaction(async tx=>{
+ return db.transaction(tx=>createDocumentRenderInputInTransaction(tx,scope,command));
+}
+/** Transaction composition retains original input semantics under the existing Store lock. */
+export async function createDocumentRenderInputInTransaction(tx:DbExecutor,scope:Scope,raw:unknown):Promise<DocumentRenderInput> {
+ const command=createDocumentSnapshotCommand.parse(raw);
   const snapshot=await createDocumentSnapshotInTransaction(tx,scope,command);
   const approved=await getApprovedReadingMediaInTransaction(tx,scope,command.orderId,command.readingId);
   let media:import("zod").infer<typeof import("./media-contract").documentMediaSchema>={mode:"NONE"};
@@ -30,7 +34,6 @@ export async function createDocumentRenderInput(db:Database,scope:Scope,raw:unkn
   if(existing)return readStored(tx,scope,existing);
   const [saved]=await tx.insert(documentMediaSnapshots).values({id:value.id,organizationId:scope.organizationId,storeId:scope.storeId,documentSnapshotId:snapshot.id,readingId:command.readingId,reviewId:approved.provenance.reviewId,generationId:approved.provenance.generationId,mediaHash:value.mediaHash,payload:value,createdAt:new Date(value.createdAt)}).returning();
   return readStored(tx,scope,saved);
- });
 }
 async function readStored(tx:DbExecutor,scope:Scope,row:typeof documentMediaSnapshots.$inferSelect):Promise<DocumentRenderInput> {
  try {

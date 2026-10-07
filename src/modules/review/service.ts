@@ -1,3 +1,4 @@
+import { admitDocumentProductionInTransaction } from "../production/documents";
 import { readingMediaRequirement, readingMediaHash } from "../media/reading-contract";
 import { detached } from "../media/contracts";
 import { immutableApprovedReadingMedia, type ApprovedReadingMedia } from "./approved-media";
@@ -109,7 +110,7 @@ export async function approveReadingReview(db:Database,scope:Scope,orderId:strin
   const data=await candidate(tx,scope,orderId,readingId),review=data.review;
   if(!review)throw new ReviewUnavailable();
   const base=validateCanonical(JSON.stringify(data.generation.result),data.generation.context);
-  if(review.state==="APPROVED"){approvedReviewContent(review,base);approvedMediaForReview(review,data.generation);return review;}
+  if(review.state==="APPROVED"){approvedReviewContent(review,base);approvedMediaForReview(review,data.generation);await admitDocumentProductionInTransaction(tx,scope,review.id,orderId);return review;}
   if(review.state!=="PENDING")throw new ReviewUnavailable();
   const [draft]=await tx.select().from(readingReviewDrafts).where(and(tenantWhere(readingReviewDrafts,scope),eq(readingReviewDrafts.reviewId,review.id))).for("update");
   if((draft?.revision??null)!==expectedRevision)throw new ReviewDraftError("CONFLICT");
@@ -118,6 +119,7 @@ export async function approveReadingReview(db:Database,scope:Scope,orderId:strin
   const approvedMedia=createApprovedMedia(data.review!,data.generation,approvedAt);
   const [approved]=await tx.update(readingReviews).set({state:"APPROVED",approvedByUserId:scope.userId,approvedContent:content,approvedDraftRevision:draft?.revision??null,approvedContentHash:reviewContentHash(content),approvedAt,approvedMedia}).where(and(tenantWhere(readingReviews,scope),eq(readingReviews.id,review.id),eq(readingReviews.state,"PENDING"))).returning();
   if(!approved)throw new ReviewUnavailable();
+  await admitDocumentProductionInTransaction(tx,scope,approved.id,orderId);
   return approved;
  });
 }

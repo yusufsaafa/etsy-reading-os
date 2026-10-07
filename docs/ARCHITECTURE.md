@@ -228,3 +228,7 @@ New Generation admission pins latest owned READY analysis from the same stable S
 ## Style Intelligence — Part 4 workflow
 
 The existing seller-style Settings surface invokes the shared execution service through an owner-authenticated server action. Durable commands and an additive Store-locked all-history safety gate suppress parallel new commands and prevent paid retry of ambiguous/unmeasured history. Read-only product projections combine latest attempt/latest READY and durable source/provenance changes. No schema, queue, generation admission or navigation change. Optional isolated synthetic acceptance is offline by default and has not been run live. See STYLE_INTELLIGENCE.md.
+
+## Document/PDF Part 4 storage boundary
+
+Documents owns immutable PDF artifact evidence and recoverable downstream work. Database PENDING evidence precedes conditional external writes; AVAILABLE follows bounded key/MIME/length/SHA verification. ImmutableArtifactStorage is a provider-neutral capability alongside existing ports, not an AWS/CloudFront adapter. PDF bytes never enter PostgreSQL. Retrieval authorizes Store/Reading/artifact ownership and returns private bytes/versioned metadata without exposing keys or URLs. Real conditional creation, retention, bounded reads and native concurrency require separate acceptance. See DOCUMENT_ENGINE.md and PILOT_ACCEPTANCE.md.

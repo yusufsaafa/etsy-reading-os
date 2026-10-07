@@ -50,3 +50,26 @@ TAROT-ASSETS-01 still requires approved real commercial artwork/evidence, exact 
 2026-10-07, base dfbeea7248f354e597aa5e694566b4eebc289716: reading-pdf/1 with pdf-lib 1.17.1 embeds exact normal/400 Inter/Source Serif TTFs and paints production-font-metrics/1 glyphs at authoritative layout positions. Synthetic PNG/JPEG/WebP artwork, reversed transforms, long sections, footer, Latin/Turkish, deterministic metadata/bytes and six templates are implemented/tested. Independent local PyMuPDF 1.26.7 reopened/rasterized six deterministic synthetic PDFs (35 pages), matched every original glyph ID/origin and checked repeated pixels/reversal markers. Representative page PNGs were visually inspected locally. This is implementation/regression evidence, not intended-host or actual-Reading/artwork acceptance.
 
 PDF-REAL-01 remains OPEN: obtain real intended-host visual/long-content/font/image/error/memory/codec/output evidence, representative approved payloads and legally approved actual tarot assets; prove preview/PDF parity when preview exists and validate the Part 4 artifact/storage path. TAROT-ASSETS-01 and STORAGE-REAL-01 remain OPEN with unchanged independent criteria. GEMINI-TAROT-01 remains ACCEPTED with its evidence untouched; all other row statuses are unchanged. No live AI, Etsy, storage or real-artwork acceptance was executed.
+
+## Part 4 implementation prerequisites — no real acceptance closure
+
+2026-10-07, base cdc509b1c709b5e565d34590c7d44ec07087f238: owned immutable PDF artifacts, pending-before-write recovery, write-once/bounded-read storage port, integrity-verified retrieval and downstream PostgreSQL production are implemented. The adapter is test memory storage only; productionRuntime requires server-injected document ports and otherwise reports STORAGE_NOT_CONFIGURED. GEMINI-TAROT-01 remains ACCEPTED; all other nine statuses remain OPEN. No actual environment acceptance was executed.
+
+- **PDF-REAL-01 / OPEN — BLOCKS MRH PILOT:** intended host/runtime, representative actual approved Readings, permitted actual artwork when applicable, actual artifact/storage path; final visual/long-content/Unicode/error/determinism evidence; memory/concurrency/Sharp codec behavior; eventual shared preview/PDF parity. Internal artifact persistence/retrieval is now implemented, not real accepted.
+- **TAROT-ASSETS-01 / OPEN — BLOCKS MRH PILOT:** actual commercial SaaS/PDF rights/evidence, complete exact 78-card mapping, real MIME/dimensions/SHA/length and immutable availability/retention. Synthetic rectangles do not close this.
+- **STORAGE-REAL-01 / OPEN — BLOCKS PRODUCTION LAUNCH:** intended private S3-compatible asset/artifact adapter; real atomic conditional writes under contention; identical replay/different-byte or MIME conflict; ambiguous successful writes/pending adoption; bounded reads/key/MIME/length/SHA; tenant access policy, retention/no destructive overwrite and recovery/availability. Optional future private distribution does not replace this evidence. Port/fake tests are not acceptance.
+- **MEDIA-NATIVE-01 / OPEN — BLOCKS MRH PILOT:** extend native PostgreSQL separate-connection evidence to Store→work/artifact locks, duplicate approval/admission/render intents/finalization, concurrent and expired/late workers, crashes around writes/finalization, holds versus input pinning, explicit recovery and historical retrieval. PGlite cannot prove native lock timing/deadlock freedom.
+
+ETSY-E2E-01 and ETSY-CARDINALITY-01 remain OPEN with their existing authorized real-intake/cardinality/replay criteria. ETSY-DELIVERY-01, AI-CONFIG-01 and REVIEW-CARDS-UI-01 retain existing independent classifications/criteria. No live gate is removed.
+
+### Roadmap: backend acceptance is not seller pilot
+
+1. **MRH backend real acceptance:** MEDIA-NATIVE-01; authorized real Etsy intake/E2E; real cardinality/replay; backend PDF host/artifact acceptance; permitted actual tarot asset acceptance. STORAGE-REAL-01 remains separately controlled and blocks production launch.
+2. **Final seller UI:** Connect Etsy, Products, Style setup, Orders, Review/Approve, Document Design, PDF ready/download and operational mobile behavior. Current Part 4 backend does not complete this UI.
+3. **MRH seller pilot:** actual seller UI, authorized real Store/products/orders, review/approval/artifact production and initially manual Etsy delivery. Backend test completion alone does not authorize or prove this pilot.
+4. Delivery.
+5. Telegram operations.
+6. Billing.
+7. Production hardening.
+
+No later stage or real external acceptance starts automatically during Part 4.

@@ -9,8 +9,8 @@ import { ProductionExecutor,type ExecutionResult } from "./execution";
 import { productionRecoveryPolicy,PRODUCTION_TICK_LOCK } from "./recovery-policy";
 // DB-coordinated bounded tick. No open transaction across external execution.
 export class ProductionTick {
- private constructor(private readonly db:Database,private readonly recovery:ProductionRecovery,private readonly scheduler:ProductionScheduler,private readonly executor:ProductionExecutor){}
- static forInternalWorker(db:Database,recovery:ProductionRecovery,scheduler:ProductionScheduler,executor:ProductionExecutor){return new ProductionTick(db,recovery,scheduler,executor);}
+ private constructor(private readonly db:Database,private readonly recovery:ProductionRecovery,private readonly scheduler:ProductionScheduler,private readonly executor:ProductionExecutor,private readonly documentStage?:()=>Promise<unknown>){}
+ static forInternalWorker(db:Database,recovery:ProductionRecovery,scheduler:ProductionScheduler,executor:ProductionExecutor,documentStage?:()=>Promise<unknown>){return new ProductionTick(db,recovery,scheduler,executor,documentStage);}
  async runProductionTick(){
   const token=await this.db.transaction(async tx=>{
    await tx.execute(sql`select pg_advisory_xact_lock(${PRODUCTION_TICK_LOCK})`);
@@ -28,7 +28,9 @@ export class ProductionTick {
     if(!await this.renew(token))return {status:"SUPERSEDED" as const,claimed:cycle.claimed.length,outcomes,recovery};
     outcomes.push(await this.executor.execute(item.id,item.claimToken!));
    }
-   return {status:"FINISHED" as const,claimed:cycle.claimed.length,outcomes,recovery};
+   if(!await this.renew(token))return {status:"SUPERSEDED" as const,claimed:cycle.claimed.length,outcomes,recovery};
+   const documents=this.documentStage?await this.documentStage():{status:"STORAGE_NOT_CONFIGURED"};
+   return {status:"FINISHED" as const,claimed:cycle.claimed.length,outcomes,recovery,documents};
   }finally{
    await this.db.update(productionTick).set({token:null,expiresAt:null}).where(and(eq(productionTick.id,"production"),eq(productionTick.token,token)));
   }

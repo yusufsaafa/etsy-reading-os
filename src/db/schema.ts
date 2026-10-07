@@ -349,3 +349,40 @@ export const documentMediaSnapshots=pgTable("document_media_snapshots",{
  foreignKey({columns:[t.organizationId,t.storeId,t.generationId],foreignColumns:[generations.organizationId,generations.storeId,generations.id]}),
  foreignKey({columns:[t.documentSnapshotId],foreignColumns:[documentSnapshots.id]}),
  check("document_media_bounds",sql`${t.mediaHash} ~ '^[a-f0-9]{64}$' and jsonb_typeof(${t.payload})='object' and octet_length(${t.payload}::text)<=30000 and ${t.payload}->>'contractVersion'='document-media-snapshot/v1'`)]);
+
+// Immutable output evidence; only PENDING -> AVAILABLE lifecycle finalization is mutable.
+export const documentArtifacts=pgTable("document_artifacts",{
+ id:id(),organizationId:org(),storeId:store(),orderId:uuid("order_id").notNull(),readingId:uuid("reading_id").notNull(),
+ documentSnapshotId:uuid("document_snapshot_id").notNull(),mediaSnapshotId:uuid("media_snapshot_id").notNull(),
+ rendererVersion:text("renderer_version").notNull(),layoutHash:text("layout_hash").notNull(),resourceHash:text("resource_hash").notNull(),
+ sha256:text("sha256").notNull(),byteLength:integer("byte_length").notNull(),pageCount:integer("page_count").notNull(),
+ contentType:text("content_type").notNull().default("application/pdf"),objectKey:text("object_key").notNull(),
+ state:text("state").notNull().default("PENDING"),createdAt:time("created_at").defaultNow().notNull(),availableAt:time("available_at"),
+},t=>[unique("artifact_owned_identity").on(t.organizationId,t.storeId,t.id),
+ unique("artifact_render_intent").on(t.organizationId,t.storeId,t.readingId,t.documentSnapshotId,t.mediaSnapshotId,t.rendererVersion),
+ unique("artifact_object_identity").on(t.objectKey),
+ foreignKey({columns:[t.organizationId,t.storeId,t.readingId],foreignColumns:[units.organizationId,units.storeId,units.id]}),
+ foreignKey({columns:[t.organizationId,t.storeId,t.orderId],foreignColumns:[orders.organizationId,orders.storeId,orders.id]}),
+ foreignKey({columns:[t.documentSnapshotId],foreignColumns:[documentSnapshots.id]}),
+ foreignKey({columns:[t.mediaSnapshotId],foreignColumns:[documentMediaSnapshots.id]}),
+ check("artifact_bounds",sql`${t.rendererVersion}='reading-pdf/1' and ${t.contentType}='application/pdf' and ${t.layoutHash} ~ '^[a-f0-9]{64}$' and ${t.resourceHash} ~ '^[a-f0-9]{64}$' and ${t.sha256} ~ '^[a-f0-9]{64}$' and ${t.byteLength} between 1 and 134217728 and ${t.pageCount} between 2 and 1000 and length(${t.objectKey})<=400`),
+ check("artifact_lifecycle",sql`${t.state} in ('PENDING','AVAILABLE') and ((${t.state}='AVAILABLE')=(${t.availableAt} is not null)) and (${t.availableAt} is null or ${t.availableAt}>=${t.createdAt})`),
+ index("artifact_owned_reading").on(t.organizationId,t.storeId,t.readingId,t.createdAt),
+]);
+
+// Downstream stage of PostgreSQL production, not a second Reading/AI state machine.
+export const documentProduction=pgTable("document_production",{
+ id:id(),organizationId:org(),storeId:store(),orderId:uuid("order_id").notNull(),readingId:uuid("reading_id").notNull(),reviewId:uuid("review_id").notNull(),
+ mediaSnapshotId:uuid("media_snapshot_id"),artifactId:uuid("artifact_id"),
+ state:text("state").notNull().default("WAITING"),attempt:integer("attempt").notNull().default(0),
+ claimToken:uuid("claim_token"),claimExpiresAt:time("claim_expires_at"),availableAt:time("available_at"),failureCode:text("failure_code"),
+ createdAt:time("created_at").defaultNow().notNull(),updatedAt:time("updated_at").defaultNow().notNull(),
+},t=>[unique("document_production_approval").on(t.organizationId,t.storeId,t.readingId,t.reviewId),
+ foreignKey({columns:[t.organizationId,t.storeId,t.readingId],foreignColumns:[units.organizationId,units.storeId,units.id]}),
+ foreignKey({columns:[t.organizationId,t.storeId,t.orderId],foreignColumns:[orders.organizationId,orders.storeId,orders.id]}),
+ foreignKey({columns:[t.organizationId,t.storeId,t.reviewId],foreignColumns:[readingReviews.organizationId,readingReviews.storeId,readingReviews.id]}),
+ foreignKey({columns:[t.mediaSnapshotId],foreignColumns:[documentMediaSnapshots.id]}),
+ foreignKey({columns:[t.organizationId,t.storeId,t.artifactId],foreignColumns:[documentArtifacts.organizationId,documentArtifacts.storeId,documentArtifacts.id]}),
+ check("document_work_state",sql`${t.state} in ('WAITING','PROCESSING','RETRY_WAIT','ATTENTION','COMPLETED') and ${t.attempt} between 0 and 3 and ((${t.state}='PROCESSING')=(${t.claimToken} is not null and ${t.claimExpiresAt} is not null)) and ((${t.state}='RETRY_WAIT')=(${t.availableAt} is not null)) and (${t.state}<>'COMPLETED' or ${t.artifactId} is not null) and (${t.failureCode} is null or ${t.failureCode} in ('STORAGE_UNAVAILABLE','STORAGE_MISSING','STORAGE_CONFLICT','STORAGE_INTEGRITY','DOCUMENT_INVALID','SETUP_REQUIRED','READING_HOLD','MAX_ATTEMPTS'))`),
+ index("document_work_due").on(t.state,t.availableAt,t.updatedAt),
+]);
