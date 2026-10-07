@@ -32,8 +32,8 @@ export async function connectAction(_previous: FormState): Promise<FormState> {
 }
 export async function continueToProductsAction(_previous: FormState): Promise<FormState> {
   const scope = await currentStoreScope();
-  try { await startProductImport(database(), new PostgresSyncJobs(database()), scope); }
-  catch { return { error: "Your shop is connected, but product imports aren't available yet. Your products have not been imported. Please try again when Etsy imports are enabled." }; }
+  try { const data=await onboardingData(database(),scope); if(data.store.source === "fixtures") await startProductImport(database(), new PostgresSyncJobs(database()), scope); else if(data.connection.kind === "disconnected") throw new Error("CONNECT_STORE_FIRST"); }
+  catch { return { error: "Products couldn't be loaded. Check your Etsy connection and try again." }; }
   redirect("/onboarding/products");
 }
 export async function selectProductsAction(_previous: FormState, form: FormData): Promise<FormState> {
@@ -46,8 +46,8 @@ export async function selectProductsAction(_previous: FormState, form: FormData)
 }
 export async function retryImportAction(_previous: FormState): Promise<FormState> {
   const scope = await currentStoreScope();
-  try { await new PostgresSyncJobs(database()).enqueueSync(scope, `onboarding-retry-${randomUUID()}`); }
-  catch { return { error: "Products couldn't be imported. Check your Etsy connection and try again." }; }
+  try { const data=await onboardingData(database(),scope); if(data.store.source === "fixtures") await new PostgresSyncJobs(database()).enqueueSync(scope, `onboarding-retry-${randomUUID()}`); }
+  catch { return { error: "Products couldn't be loaded. Check your Etsy connection and try again." }; }
   revalidatePath("/onboarding/products");
   return {};
 }

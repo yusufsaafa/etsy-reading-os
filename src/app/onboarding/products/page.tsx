@@ -1,19 +1,21 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { database } from "@/db/client";
-import { currentStoreScope } from "@/modules/identity/session";
-import { onboardingData } from "@/modules/onboarding/service";
-import { StepHeader } from "@/components/onboarding/shell";
-import { ProductPicker, ImportRefresh, ActionForm } from "@/components/onboarding/forms";
-import { retryImportAction, continueToProductsAction } from "../actions";
+import {redirect} from "next/navigation";
+import {database} from "@/db/client";
+import {currentStoreScope} from "@/modules/identity/session";
+import {onboardingData} from "@/modules/onboarding/service";
+import {discoverProducts} from "@/modules/onboarding/discovery";
+import {ListingDiscoveryError} from "@/modules/etsy/listing-discovery";
+import {vault} from "@/infrastructure/secrets";
+import {StepHeader} from "@/components/onboarding/shell";
+import {ProductPicker,ActionForm} from "@/components/onboarding/forms";
+import {retryImportAction} from "../actions";
 import styles from "@/components/onboarding/onboarding.module.css";
-export default async function ChooseProducts() {
-  const data = await onboardingData(database(), await currentStoreScope());
-  if (data.store.stage === "complete") redirect("/");
-  if (data.connection.kind !== "connected") redirect("/onboarding/etsy");
-  const pending = ["queued", "running"].includes(data.importStatus);
-  return <><StepHeader step={3} title="Choose your products" description="Select the Etsy listings you want to set up in Reading OS."/>
-    {pending ? <><ImportRefresh/><p className={styles.note}>Your products will appear here when the import finishes.</p>{data.store.source === "fixtures" && <details><summary>Development help</summary><p className={styles.note}>Run the background worker with <code>pnpm worker</code> to import the demo shop.</p></details>}</> : data.importStatus === "failed" || data.importStatus === "canceled" ? <div className={styles.empty} role="alert"><h2>Your products couldn't be imported</h2><p>Your selection hasn't changed. Check your connection and try again.</p><ActionForm action={retryImportAction} label="Try import again" pendingText="Requesting your products…" secondary/></div> : data.importStatus === "not_started" ? <div className={styles.empty}><h2>Your products haven't been imported yet</h2><p>Import your Etsy products to choose which ones to set up.</p><ActionForm action={continueToProductsAction} label="Import products" pendingText="Importing your products…"/></div> : data.products.length ? <><p className={styles.note}>We found {data.products.filter(p => p.state === "active").length} active listings in your Etsy shop.</p><ProductPicker products={data.products} initialSelection={data.selected}/></> : <div className={styles.empty}><h2>No Etsy products found</h2><p>Add or activate a listing in Etsy, then try importing again.</p><ActionForm action={retryImportAction} label="Check for products" pendingText="Requesting your products…" secondary/></div>}
-    <Link href="/onboarding/etsy" className="back-link">Back to Etsy connection</Link>
-  </>;
+export default async function ChooseProducts(){
+ const scope=await currentStoreScope(),data=await onboardingData(database(),scope);
+ if(data.store.stage==="complete")redirect("/");
+ let discovery:Awaited<ReturnType<typeof discoverProducts>>|undefined,connectionProblem=false;
+ try{discovery=await discoverProducts(database(),scope,vault());}catch(error){connectionProblem=error instanceof ListingDiscoveryError&&error.kind==="connection";}
+ return <><StepHeader step={3} title="Products" description="Choose the Etsy listings you want Reading OS to fulfill."/>
+ {discovery ? discovery.products.length ? <ProductPicker products={discovery.products} initialSelection={discovery.selected}/> : <div className={styles.empty}><h2>No listings found</h2><p>No listings are available in your connected shop yet.</p><ActionForm action={retryImportAction} label="Check again" pendingText="Checking products…" secondary/></div> : <div className={styles.empty} role="alert"><h2>{connectionProblem?"Reconnect your Etsy shop":"Products couldn't be loaded"}</h2><p>{connectionProblem?"Your saved Etsy connection needs attention before products can be loaded.":"Your selection hasn't changed. Try loading your products again."}</p>{connectionProblem?<Link className="button secondary" href="/onboarding/etsy">Reconnect Etsy</Link>:<ActionForm action={retryImportAction} label="Try again" pendingText="Loading products…" secondary/>}</div>}
+ <Link href="/onboarding/etsy" className="back-link">Back to Etsy connection</Link></>;
 }
