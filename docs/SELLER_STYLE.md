@@ -108,3 +108,7 @@ New customer generations now optionally pin latest usable READY analysis from th
 ## Style Intelligence Part 4 seller workflow
 
 The existing Settings/profile area now offers optional Learn/Update writing style, compact product status and a bounded read-only preview. Manual preferences remain authoritative. Previous-work additions do not trigger analysis. Referenced examples retain their deletion restriction with human-readable feedback. Seller requests use existing execution/accounting with Store-locked unresolved-history protection; older READY stays usable during/after updates. No onboarding/navigation change, uploads or raw infrastructure data. STYLE_INTELLIGENCE.md defines the full workflow and the unexecuted live acceptance gate.
+
+## MVP optional setup
+
+Historical readings, manual style and READY Style Intelligence are optional for generation. Missing style uses the server-owned reading-os-default-style/v1 snapshot; missing seller identity uses explicit owned Store identity without creating a SellerProfile. Existing published manual preferences and applicable READY intelligence remain snapshotted with their actual immutable identities. New contexts distinguish PLATFORM_DEFAULT from SELLER_STYLE_INTELLIGENCE and pin English output; retries never adopt later setup. See GENERATION_ENGINE.md MVP defaults. Style setup UI/readiness reports remain about optional setup, not a generation prerequisite.

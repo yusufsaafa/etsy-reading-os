@@ -9,10 +9,13 @@ export const ENGINE_VERSION = "personalized-content-v1";
 export type GenerationContext = {
   version: typeof ENGINE_VERSION;
   unitId: string; orderId: string; lineItemId: string;
-  seller: { id: string; displayName: string; shortBio: string };
+  seller: { id: string; displayName: string; shortBio: string; source?: "SELLER_PROFILE"|"STORE" };
   style: { id: string; versionNumber: number; configuration: StyleConfiguration };
   product: { id: string; versionNumber: number; configuration: Configuration };
   styleIntelligence?: import("../seller-style/analysis-contracts").PinnedStyleIntelligence;
+  // Optional only for immutable legacy contexts. New admission always pins both.
+  styleResolution?: import("zod").infer<typeof import("./defaults").resolvedStyleSchema>;
+  outputLanguage?: "en";
   customer: { revision: number; answers: Answer[] };
 };
 export const canonicalTextSchema = z.object({

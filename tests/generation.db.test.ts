@@ -53,12 +53,12 @@ it("missing required customer input fails closed without a request/accounting or
  await correctInput(db,a,unitId,0,[],false);const provider=new FakeGenerationProvider();
  await expect(service(provider).prepare(a,command())).rejects.toThrow("CUSTOMER_INFORMATION");expect(provider.calls).toBe(0);expect(await db.select().from(schema.aiRequests)).toHaveLength(0);
 });
-it("missing seller profile prevents a provider call",async()=>{
- await db.delete(schema.sellerProfiles).where(eq(schema.sellerProfiles.storeId,a.storeId));const p=new FakeGenerationProvider();await expect(service(p).prepare(a,command())).rejects.toThrow("SELLER_SETUP");expect(p.calls).toBe(0);
+it("missing seller profile uses owned Store identity without a fake profile",async()=>{
+ await db.delete(schema.sellerProfiles).where(eq(schema.sellerProfiles.storeId,a.storeId));const p=new FakeGenerationProvider();const r=await service(p).prepare(a,command());expect(r.status).toBe("SUCCEEDED");expect(r.sellerProfileId).toBeNull();expect(r.context.seller.source).toBe("STORE");expect(p.calls).toBe(1);
 });
-it("no usable active style prevents a provider call",async()=>{
+it("no active manual style uses platform fallback without creating a replacement",async()=>{
  await db.transaction(async tx=>{await tx.update(schema.styleVersions).set({status:"ARCHIVED"}).where(eq(schema.styleVersions.id,styleId));await tx.update(schema.styleProfiles).set({activeVersionId:null}).where(eq(schema.styleProfiles.storeId,a.storeId));});
- const p=new FakeGenerationProvider();await expect(service(p).prepare(a,command())).rejects.toThrow("STYLE_SETUP");expect(p.calls).toBe(0);
+ const p=new FakeGenerationProvider();const r=await service(p).prepare(a,command());expect(r.status).toBe("SUCCEEDED");expect(r.styleVersionId).toBeNull();expect(r.context.styleResolution).toMatchObject({source:"PLATFORM_DEFAULT",version:"reading-os-default-style/v1"});expect(p.calls).toBe(1);
 });
 it("legacy/unconfigured readings cannot bypass product admission",async()=>{
  await ingestOrder(db,a,{...fixtureOrders[0],externalId:"9910",lines:[{...fixtureOrders[0].lines[0],externalId:"9911",listingId:"102",quantity:1}]});const units=(await workspaceData(db,a)).units;const legacy=units.find(u=>u.id!==unitId)!;
@@ -565,3 +565,44 @@ it("approved handoff never replaces content with later successful evidence or mu
  await pg.exec("BEGIN; SET LOCAL session_replication_role=replica");await pg.query("UPDATE reading_review_drafts SET content=$1 WHERE review_id=$2",[JSON.stringify(changed),approved.id]);await pg.exec("SET LOCAL session_replication_role=origin; COMMIT");
  expect(await getApprovedReadingForDocument(db,a,orderId,unitId)).toEqual(original);
 });
+
+// MVP defaults: a fresh owned Store with no seller/style/history setup.
+async function zeroStyleUnit(){
+ await ingestListing(db,b,fixtureListings[0]);const id=await beginListingDraft(db,b,"101"),d=(await productData(db,b,id)).draft!;
+ await activateProduct(db,b,id,d.id,d.revision,{name:"Fresh seller reading",configuration});
+ await ingestOrder(db,b,{...fixtureOrders[0],externalId:"8000",lines:[{...fixtureOrders[0].lines[0],externalId:"8001",quantity:1,answers:[{label:"Name",value:"Synthetic",kind:"text"}]}]});
+ return (await workspaceData(db,b)).units[0].id;
+}
+it("zero history/style/profile generates with versioned default and pinned English, without fake records",async()=>{
+ const id=await zeroStyleUnit();let sent!:import("../src/infrastructure/ai/provider").ProviderRequest;const p=new FakeGenerationProvider();
+ const c=command(id),r=await service({name:"fake",generate:req=>{sent=req;return p.generate(req);}}).prepare(b,c);
+ expect(r.status).toBe("SUCCEEDED");expect(r.styleVersionId).toBeNull();expect(r.sellerProfileId).toBeNull();
+ expect(r.context.style.id).toBe("reading-os-default-style/v1");expect(r.context.styleResolution).toMatchObject({source:"PLATFORM_DEFAULT",version:"reading-os-default-style/v1"});expect(r.context.outputLanguage).toBe("en");
+ expect(sent.system).toContain("in English (en)");expect(JSON.parse(sent.data).outputRequirements.language).toBe("en");
+ for(const table of [schema.styleSources,schema.styleProfiles,schema.styleVersions,schema.styleAnalysisVersions,schema.sellerProfiles])expect(await db.select().from(table).where(tenantWhere(table,b))).toHaveLength(0);
+ expect((await service(p).prepare(b,c)).context).toEqual(r.context);expect(p.calls).toBe(1);
+ expect((await db.select().from(schema.productionQueue).where(tenantWhere(schema.productionQueue,b)))).toHaveLength(1);
+});
+it("READY owned intelligence wins even without a published manual style; provenance is exact",async()=>{
+ const id=await zeroStyleUnit(),ready=await analysis(b);const r=await service().prepare(b,command(id));
+ expect(r.context.styleResolution).toEqual({source:"SELLER_STYLE_INTELLIGENCE",analysisVersionId:ready.id,versionNumber:ready.versionNumber,contractVersion:"style-intelligence/v1"});expect(r.context.styleIntelligence?.analysisVersionId).toBe(ready.id);expect(r.context.outputLanguage).toBe("en");expect(r.styleVersionId).toBeNull();
+});
+it("later seller setup/intelligence cannot replace pinned default or English on retry",async()=>{
+ const id=await zeroStyleUnit(),failed=await service(new FakeGenerationProvider({output:"bad"})).prepare(b,command(id));
+ await saveSellerProfile(db,b,{displayName:"Later seller",shortBio:""});const d=await editStyle(db,b);await applyStyle(db,b,d.id,d.revision,style);await analysis(b);
+ const p=new FakeGenerationProvider(),c={...command(id),retryGenerationId:failed.id},retry=await service(p).prepare(b,c),replay=await service(p).prepare(b,c);
+ expect(retry.status).toBe("SUCCEEDED");expect(retry.context).toEqual(failed.context);expect(retry.contextHash).toBe(failed.contextHash);expect(replay.context).toEqual(failed.context);expect(retry.context.outputLanguage).toBe("en");expect(retry.context.styleResolution?.source).toBe("PLATFORM_DEFAULT");expect(p.calls).toBe(1);
+ await expect(db.update(schema.generations).set({context:{...retry.context,outputLanguage:undefined}}).where(eq(schema.generations.id,retry.id))).rejects.toThrow();
+});
+it("default SQL bindings reject fabricated seller/style identities",async()=>{
+ const id=await zeroStyleUnit();const context=await db.transaction(tx=>buildGenerationContext(tx,b,id));
+ const row={organizationId:b.organizationId,storeId:b.storeId,unitId:id,productVersionId:context.product.id,styleVersionId:null,sellerProfileId:null,customerRevision:0,context,contextHash:"a".repeat(64)};
+ await expect(db.insert(schema.generations).values({...row,context:{...context,seller:{...context.seller,id:a.storeId}}})).rejects.toThrow();
+ await expect(db.insert(schema.generations).values({...row,context:{...context,style:{...context.style,id:styleId}}})).rejects.toThrow();
+});
+it("defaults migration preserves old generations and repeat migration is a no-op",async()=>{
+ const {result}=await prepare();const old=(await pg.query("SELECT * FROM generations")).rows;
+ await pg.exec(readFileSync("drizzle/0022_bored_eddie_brock.sql","utf8"));expect((await pg.query("SELECT * FROM generations")).rows).toEqual(old);
+ expect((await readGeneration(db,a,result.id)).context.style.id).toBe(styleId);
+ const {migrate}=await import("drizzle-orm/pglite/migrator");const runner=new PGlite();try{const d=drizzle(runner,{schema});await migrate(d,{migrationsFolder:"drizzle"});await migrate(d,{migrationsFolder:"drizzle"});const journal=JSON.parse(readFileSync("drizzle/meta/_journal.json","utf8"));expect((await runner.query("SELECT * FROM drizzle.__drizzle_migrations")).rows).toHaveLength(journal.entries.length);}finally{await runner.close();}
+},20000);

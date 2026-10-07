@@ -65,10 +65,10 @@ it("missing customer information does not queue; correction automatically admits
  await correctInput(db,a,unit.id,0,[{label:"Name",value:"Completed",kind:"text"}],false);expect((await admitReading(db,a,unit.id)).outcome).toBe("already_queued");
  expect((await db.select().from(schema.productionQueue)).filter(q=>q.unitId===unit.id)).toHaveLength(1);
 });
-it.each(["seller","style"])("missing %s setup prevents admission and completing setup auto-admits",async missing=>{
+it.each(["seller","style"])("missing %s setup admits with defaults and later setup does not duplicate admission",async missing=>{
  await clearWaiting();
  if(missing==="seller")await db.delete(schema.sellerProfiles);else await db.transaction(async tx=>{await tx.update(schema.styleVersions).set({status:"ARCHIVED"}).where(eq(schema.styleVersions.id,styleId));await tx.update(schema.styleProfiles).set({activeVersionId:null});});
- expect((await admitReading(db,a,unitId)).outcome).toBe("ineligible");
+ expect((await admitReading(db,a,unitId)).outcome).toBe("queued");
  if(missing==="seller")await saveSellerProfile(db,a,{displayName:"Restored",shortBio:""});else {const d=await editStyle(db,a);await applyStyle(db,a,d.id,d.revision,style);}
  expect(await db.select().from(schema.productionQueue)).toHaveLength(1);
 });

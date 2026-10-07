@@ -153,7 +153,7 @@ export const styleSources = pgTable("style_sources", {
 
 export const generations = pgTable("generations", {
  id:id(),organizationId:org(),storeId:store(),unitId:uuid("unit_id").notNull(),productVersionId:uuid("product_version_id").notNull(),
- styleVersionId:uuid("style_version_id").notNull(),sellerProfileId:uuid("seller_profile_id").notNull(),customerRevision:integer("customer_revision").notNull(),
+ styleVersionId:uuid("style_version_id"),sellerProfileId:uuid("seller_profile_id"),customerRevision:integer("customer_revision").notNull(),
  context:jsonb("context").$type<import("../modules/generation/contracts").GenerationContext>().notNull(),contextHash:text("context_hash").notNull(),
  status:text("status").notNull().default("PROCESSING"),result:jsonb("result").$type<import("../modules/generation/contracts").CanonicalResult>(),
  createdAt:time("created_at").defaultNow().notNull(),completedAt:time("completed_at"),

@@ -206,6 +206,9 @@ it("settlement interruption after successful canonical persistence is acknowledg
  vi.spyOn(g,"prepareProduction").mockImplementation(async authority=>{await original(authority);throw new Error("return path interrupted");});
  const out=await ProductionExecutor.forInternalWorker(db,g).execute(q.id,q.claimToken!);expect(out.status).toBe("COMPLETED");expect((await executor(p).acknowledge(q.id,q.claimToken!)).status).toBe("COMPLETED");expect(p.calls).toBe(1);
 });
-it.each(["seller","style"])("missing %s after claim prevents paid dispatch",async missing=>{
- const q=await claimed(),p=new FakeGenerationProvider();if(missing==="seller")await db.delete(schema.sellerProfiles).where(eq(schema.sellerProfiles.storeId,a.storeId));else await db.transaction(async tx=>{await tx.update(schema.styleVersions).set({status:"ARCHIVED"}).where(eq(schema.styleVersions.id,styleId));await tx.update(schema.styleProfiles).set({activeVersionId:null}).where(eq(schema.styleProfiles.storeId,a.storeId));});expect((await executor(p).execute(q.id,q.claimToken!)).status).toBe("SKIPPED");expect(p.calls).toBe(0);expect(await db.select().from(schema.aiRequests)).toHaveLength(0);
+it.each(["seller","style"])("missing %s after claim uses optional setup fallback",async missing=>{
+ const q=await claimed(),p=new FakeGenerationProvider();if(missing==="seller")await db.delete(schema.sellerProfiles).where(eq(schema.sellerProfiles.storeId,a.storeId));else await db.transaction(async tx=>{await tx.update(schema.styleVersions).set({status:"ARCHIVED"}).where(eq(schema.styleVersions.id,styleId));await tx.update(schema.styleProfiles).set({activeVersionId:null}).where(eq(schema.styleProfiles.storeId,a.storeId));});
+ const out=await executor(p).execute(q.id,q.claimToken!);expect(out.status).toBe("COMPLETED");expect(p.calls).toBe(1);expect(await db.select().from(schema.aiRequests)).toHaveLength(1);
+ const gen=await readGeneration(db,a,out.generationId!);expect(gen.context.outputLanguage).toBe("en");expect(gen.context.styleResolution).toMatchObject({source:"PLATFORM_DEFAULT",version:"reading-os-default-style/v1"});
+ if(missing==="seller"){expect(gen.sellerProfileId).toBeNull();expect(gen.context.seller.source).toBe("STORE");}else expect(gen.styleVersionId).toBeNull();
 });

@@ -1,11 +1,12 @@
 import { and, desc, eq } from "drizzle-orm";
 import type { DbExecutor } from "../../db/client";
-import { units, orders, lineItems, customerInputs, productVersions, mappings } from "../../db/schema";
+import { units, orders, lineItems, customerInputs, productVersions, mappings, stores } from "../../db/schema";
 import { tenantWhere, verifyScope } from "../intake/service";
 import { triage, type Scope } from "../intake/contracts";
 import { AccessDenied } from "../identity/service";
 import { activationErrors, configurationSchema, inputPolicy } from "../products/contracts";
-import { sellerProductionContextForStoreInTransaction } from "../seller-style/context";
+import { sellerStyleDataForStoreInTransaction } from "../seller-style/service";
+import { defaultStyle, DEFAULT_STYLE_VERSION, READING_OUTPUT_LANGUAGE } from "./defaults";
 import { sellerIdentity, styleConfiguration, publishErrors } from "../seller-style/contracts";
 import { AdmissionError, ENGINE_VERSION, type GenerationContext } from "./contracts";
 // Caller holds the Store lock; standalone reads use a repeatable-read transaction.
@@ -33,14 +34,17 @@ export async function buildProductionContextForStoreInTransaction(tx:DbExecutor,
   const issues = triage(order.latestSnapshot,line.snapshot,{ required:inputPolicy(parsed.data),paused:mapping?.paused??false },input.answers,unit.contextAllocated,unit.sourceChanged);
   if (issues.some(i=>["missing_input","unusable_input","quantity_context"].includes(i))) throw new AdmissionError("CUSTOMER_INFORMATION");
   if (issues.length || unit.issues.length) throw new AdmissionError("READING_HOLD");
-  const data = await sellerProductionContextForStoreInTransaction(tx,scope);
-  if(!data.ready)throw new AdmissionError(data.missing.includes("profile")?"SELLER_SETUP":"STYLE_SETUP");
-  const seller = sellerIdentity.safeParse(data.seller && {displayName:data.seller.displayName,shortBio:data.seller.shortBio});
-  if (!data.seller || !seller.success) throw new AdmissionError("SELLER_SETUP");
-  const style = styleConfiguration.safeParse(data.style.configuration);
+  const data = await sellerStyleDataForStoreInTransaction(tx,scope);
+  const [store]=await tx.select().from(stores).where(and(eq(stores.organizationId,scope.organizationId),eq(stores.id,scope.storeId)));
+  if(!store)throw new AccessDenied();
+  const seller = sellerIdentity.safeParse(data.seller ? {displayName:data.seller.displayName,shortBio:data.seller.shortBio}:{displayName:store.name.slice(0,100),shortBio:""});
+  if (!seller.success) throw new AdmissionError("SELLER_SETUP");
+  const selectedStyle=data.active??defaultStyle();
+  const style = styleConfiguration.safeParse(selectedStyle.configuration);
   if (!style.success || publishErrors(style.data).length) throw new AdmissionError("STYLE_SETUP");
   return { version:ENGINE_VERSION,unitId:unit.id,orderId:order.id,lineItemId:line.id,
-    seller:{id:data.seller.id,...seller.data}, style:{id:data.style.id,versionNumber:data.style.versionNumber,configuration:style.data},
+    seller:{id:data.seller?.id??store.id,source:data.seller?"SELLER_PROFILE":"STORE",...seller.data}, style:{id:selectedStyle.id,versionNumber:selectedStyle.versionNumber,configuration:style.data},
+    styleResolution:{source:"PLATFORM_DEFAULT",version:DEFAULT_STYLE_VERSION,configuration:defaultStyle().configuration},outputLanguage:READING_OUTPUT_LANGUAGE,
     product:{id:version.id,versionNumber:version.versionNumber,configuration:parsed.data},
     customer:{revision:input.revision,answers:input.answers} };
 }

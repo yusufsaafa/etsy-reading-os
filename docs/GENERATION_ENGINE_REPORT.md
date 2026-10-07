@@ -121,3 +121,13 @@ The detailed contract, official pricing references, diagrams-free pipeline descr
 - `src/modules/seller-style/context.ts`
 - `tests/generation.db.test.ts`
 - `tests/generation.test.ts`
+
+## MVP defaults validation (2026-10-08)
+
+Starting commit: 5a021f2298888faa2c6b568c087a4475985d032b. Missing READY intelligence was already optional, but generation required a SellerProfile and published manual style. Generation now snapshots owned Store identity when necessary, versioned PLATFORM_DEFAULT or exact READY intelligence provenance, and English output. Manual style preferences retain their existing precedence. No fabricated setup rows or automatic analysis. See GENERATION_ENGINE.md.
+
+Focused validation: 21 unit tests and 156 DB tests passed. Full validation: 438 unit tests across 37 files and 380 DB tests across 18 files passed; typecheck, production build and git diff check passed. The first full DB run exposed four obsolete missing-setup expectations; these were replaced with admission/execution fallback and duplicate-admission checks, then the affected suites and complete DB suite passed. Five unit and five DB tests were added.
+
+Additive migration0022 makes the two optional generation setup references nullable while retaining ownership FKs and snapshot immutability; explicit default insert guards replace the original mandatory-reference assumption. Fresh migration, populated-history preservation and migrator repeat/no-op were verified in PGlite. db:generate reports no schema drift. No native migration acceptance is claimed by these tests. Existing generated next-env.d.ts/tsconfig.json changes were preserved and excluded from the milestone commit.
+
+No real Etsy or Gemini calls, ingestion, buyer files, UI, push or deployment. All pilot ledger statuses unchanged. The existing Etsy source-policy forwarding limitation is recorded in PILOT_ACCEPTANCE.md and remains outside this milestone.

@@ -9,6 +9,7 @@ import { AccessDenied } from "../identity/service";
 import { CentralAIGateway } from "../../infrastructure/ai/gateway";
 import { pinStyleIntelligenceInTransaction } from "../seller-style/analysis-generation";
 import { assembleInstructions } from "./instructions";
+import {DEFAULT_STYLE_VERSION} from "./defaults";
 import { buildGenerationContext, buildProductionContextForStoreInTransaction } from "./context";
 import { commandSchema, AdmissionError, OPERATION, validateCanonical, generationStructuredOutput, MAX_GENERATION_ATTEMPTS } from "./contracts";
 const hash=(data:unknown)=>createHash("sha256").update(stableJson(data)).digest("hex");
@@ -57,10 +58,10 @@ export class GenerationService {
    }else{
     // This slice does not offer regeneration. Another command cannot replace existing work.
     if(generation)throw new AdmissionError("COMMAND_CONFLICT");
-    const styleIntelligence=await pinStyleIntelligenceInTransaction(tx,scope,current.style.id);
-    const admitted=styleIntelligence?{...current,styleIntelligence}:current;
+    const styleIntelligence=await pinStyleIntelligenceInTransaction(tx,scope,current.style.id===DEFAULT_STYLE_VERSION?undefined:current.style.id);
+    const admitted=styleIntelligence?{...current,styleIntelligence,styleResolution:{source:"SELLER_STYLE_INTELLIGENCE" as const,analysisVersionId:styleIntelligence.analysisVersionId,versionNumber:styleIntelligence.versionNumber,contractVersion:styleIntelligence.contractVersion}}:current;
     [generation]=await tx.insert(generations).values({organizationId:scope.organizationId,storeId:scope.storeId,unitId:current.unitId,
-     productVersionId:current.product.id,styleVersionId:current.style.id,sellerProfileId:current.seller.id,customerRevision:current.customer.revision,
+     productVersionId:current.product.id,styleVersionId:current.style.id===DEFAULT_STYLE_VERSION?null:current.style.id,sellerProfileId:current.seller.source==="STORE"?null:current.seller.id,customerRevision:current.customer.revision,
      context:admitted,contextHash:hash(admitted)}).returning();
    }
    if(isProductionAuthority(scope)){
