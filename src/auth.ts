@@ -11,7 +11,11 @@ export function devLoginAllowed() {
   return developmentLoginAllowed();
 }
 const providers = [];
-if (process.env.AUTH_GITHUB_ID && process.env.AUTH_GITHUB_SECRET) providers.push(GitHub({ clientId: process.env.AUTH_GITHUB_ID, clientSecret: process.env.AUTH_GITHUB_SECRET }));
+if (process.env.AUTH_GITHUB_ID && process.env.AUTH_GITHUB_SECRET) providers.push(GitHub({
+  clientId: process.env.AUTH_GITHUB_ID, clientSecret: process.env.AUTH_GITHUB_SECRET,
+  // Match GitHub's RFC 9207 authorization-response issuer; retain validation.
+  issuer: "https://github.com/login/oauth",
+}));
 if (devLoginAllowed()) providers.push(Credentials({
   id: "development", name: "Development workspace", credentials: { password: { label: "Development password", type: "password" } },
   async authorize(credentials) {

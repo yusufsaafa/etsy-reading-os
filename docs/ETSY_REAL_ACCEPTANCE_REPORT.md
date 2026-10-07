@@ -1,6 +1,6 @@
-# Etsy real acceptance — blocked at authorization
+# Etsy real acceptance — OAuth accepted; receipt intake pending
 
-Date: 2026-10-07 (Europe/Istanbul). Starting HEAD: fdd7572b3624b17e6714484900283cacd40bcec1. Branch: codex/ui-ux-design-lock; preflight clean, required ancestor verified.
+Initial blocked audit (superseded by the OAuth update below). Date: 2026-10-07 (Europe/Istanbul). Starting HEAD: fdd7572b3624b17e6714484900283cacd40bcec1. Branch: codex/ui-ux-design-lock; preflight clean, required ancestor verified.
 
 **ETSY-E2E-01: OPEN. ETSY-CARDINALITY-01: OPEN.** No real authorization, shop verification, receipt fetch, payload capture, replay, quantity/mixed-cart observation or real-derived persistence occurred. Real receipts exercised = 0, replay count = 0; new acceptance Orders/lines/Readings/production admissions = 0. No contract-derived quantity mutation was made because there is no captured real contract. Local connection inventory was read only, with aggregate booleans/statuses rather than tokens, identities or buyer data.
 
@@ -41,3 +41,27 @@ Focused `vitest run tests/intake.test.ts`: **9 passed**. Focused DB `vitest run 
 Both debts remain OPEN — BLOCKS MRH PILOT. MEDIA-NATIVE-01 and GEMINI-TAROT-01 remain ACCEPTED; every other status unchanged. Remaining backend blockers: these two Etsy debts, PDF-REAL-01 and TAROT-ASSETS-01. Backend acceptance still precedes Final Seller UI and MRH Seller Pilot.
 
 Etsy mutations = 0; real Etsy API calls = 0; Gemini calls = 0; real artwork = 0; production storage credentials = 0. No push/deployment. This commit records a blocked acceptance audit, not successful real Etsy acceptance.
+
+
+## Real OAuth acceptance update — 2026-10-07
+
+Session starting HEAD: `9392b29477138433623d852bce57296866a89243`.
+**OAuth/shop-connection subcriterion: ACCEPTED. ETSY-E2E-01 and ETSY-CARDINALITY-01: OPEN — BLOCKS MRH PILOT.** This supersedes the initial authorization/configuration inventory above; it does not accept receipt intake, cardinality, webhook delivery or production admission.
+
+The operator reports a successful real browser chain: GitHub authorize → callback → authenticated Reading OS session → onboarding; then Etsy authorize → Grant access → callback → verified MysticReadingHouse shop → “Etsy connected”. Products onboarding was not continued. The Store was entered as Mystic Reading House; the connection service replaces its display name with the verified Etsy shop name, so the persisted name is MysticReadingHouse.
+
+Read-only local PostgreSQL inspection independently verified one Etsy-source Store: connection Organization/Store composite ownership join, GitHub owner membership, nonempty external shop identity, connected status, positive connection epoch, future expiry, and etsy_connected audit evidence. Required scopes listings_r and transactions_r are present, with no other scopes. An AES-256-GCM version-1 envelope exists; authenticated decryption with the Organization/Store-bound vault context succeeded and the decrypted token contract validates. Neither envelope contents, token material, owner IDs nor shop IDs were emitted or saved in this report. The persisted onboarding stage remains etsy; successful authorization is not Product setup completion. This local inspection made no external call or DB write.
+
+The GitHub compatibility fix narrowly sets the provider issuer to https://github.com/login/oauth. Installed next-auth 5.0.0-beta.30 / @auth/core 0.41.0 omitted it and expected the https://authjs.dev fallback, rejecting the real callback iss before exchange. Existing PKCE/state/issuer checks are preserved. Temporary diagnostics were removed; their output contained booleans, recognized invariant/stage/error codes and safe metadata only. No diagnostic persistence was added. The existing local database migration 0002 was applied earlier to supply missing user columns; no migration file changed here.
+
+Development-only acceptance config retains the exact Cloudflare hostname allowlist and a /sign-in Referrer-Policy same-origin override for native form POSTs; production headers and Server Action origin validation are unchanged. Generated next-env.d.ts/tsconfig.json changes are excluded from the acceptance commit.
+
+### Next backend action — not executed
+
+There is currently **no runnable real receipt ingestion command**. UnverifiedLiveIntakeAdapter still fails with LIVE_INTAKE_CONTRACT_NOT_VERIFIED, and PostgresSyncJobs.enqueueSync rejects non-fixture Stores. Do not use pnpm worker, Products onboarding, fixture conversion or a direct gate bypass to claim real intake.
+
+The next controlled milestone must provide a narrow backend acceptance harness that resolves this owned connected Store and decrypts its grant server-side, then makes read-only GET /v3/application/shops/{verified-shop-id}/receipts?was_paid=true&limit=1 (with complete transaction evidence fetched/verified as required). It must use the existing bounded request conventions, API-key and bearer headers without logging them; emit only sanitized contract/count evidence. Verify actual paid/canceled/refund and transaction identity/quantity fields before implementing the minimum normalization adapter. After that contract is verified, pass the normalized receipt through existing ingestOrder with the exact ownership scope and connection epoch, in an isolated acceptance database, and test replay convergence. Legitimate local ProductVersion/mapping prerequisites must be identified explicitly; they cannot be fabricated or silently changed. An unmapped receipt can prove fetch/normalization/holds, but cannot establish the full Product-mapping/production-admission E2E criterion. No seller Product onboarding or Etsy mutation is needed for the initial contract read. No executable harness is claimed to exist yet.
+
+Real receipts exercised in this update = 0; replay count = 0; new acceptance Orders/lines/Readings/admissions = 0. Quantity >1/mixed-cart real evidence = none. Webhook subscription/signature/event acceptance remains pending. OAuth entails real authorization/token/shop-read calls performed by the browser flow, so the initial audit's zero-real-call statement applies only to that earlier audit. Etsy order/listing/message/delivery mutations = 0.
+
+Validation for the OAuth update: focused auth/onboarding/security/intake unit tests **18 passed**; focused intake DB tests **12 passed** (PGlite/synthetic, not real receipt acceptance); typecheck PASS; git diff --check PASS. Temporary diagnostic hooks/helpers are absent from src/auth.ts. Only src/auth.ts, next.config.ts and these two acceptance documents are included in the local commit; no env files, credentials, raw payloads or generated tooling files are included. No push/deployment.
