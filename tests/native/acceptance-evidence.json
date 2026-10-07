@@ -1,0 +1,42 @@
+{
+  "date": "2026-10-07",
+  "startingCommit": "33455f660cc674d114a442676043fe95c2332c40",
+  "server": "PostgreSQL 16.14 Homebrew aarch64",
+  "runtime": "Node 22.23.1",
+  "driver": "postgres 3.4.7 / drizzle-orm postgres-js 0.45.2",
+  "decision": "ACCEPTED",
+  "runs": [
+    {
+      "run": 1,
+      "passed": 82,
+      "failed": 0,
+      "filesPassed": 3,
+      "durationSeconds": 36.53
+    },
+    {
+      "run": 2,
+      "passed": 82,
+      "failed": 0,
+      "filesPassed": 3,
+      "durationSeconds": 33.78
+    },
+    {
+      "run": 3,
+      "passed": 82,
+      "failed": 0,
+      "filesPassed": 3,
+      "durationSeconds": 31.31
+    }
+  ],
+  "synchronizedScenarioFamilies": 7,
+  "iterationsPerFamilyPerRun": 5,
+  "iterationsPerFamilyTotal": 15,
+  "distinctWorkerBackendsAsserted": 2,
+  "observedBarrierConnections": 6,
+  "maximumFixtureConnectionCapacity": 8,
+  "productionChanges": false,
+  "focusedUnitPassed": 18,
+  "focusedPglitePassed": 46,
+  "typecheck": "PASS",
+  "diffCheck": "PASS"
+}

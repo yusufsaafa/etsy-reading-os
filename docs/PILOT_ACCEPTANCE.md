@@ -4,7 +4,7 @@ This ledger tracks work deliberately deferred from implementation. A passing fak
 
 | ID | Classification | Acceptance debt / completion evidence | Status |
 | --- | --- | --- | --- |
-| MEDIA-NATIVE-01 | BLOCKS MRH PILOT | Native PostgreSQL, separate concurrent connections: expected-revision Store preference changes; selection vs deck publication/retirement; document input creation vs preference/retirement/design assignment/default/update; duplicate creation; Review approval/pinning. Prove coherent commits or safe conflicts, no hybrid evidence. PGlite overlap tests do not prove native lock timing. Part 2.5A sandbox initdb failed at shmget/shared-memory permission; this debt remains unresolved. | OPEN |
+| MEDIA-NATIVE-01 | BLOCKS MRH PILOT (closed) | ACCEPTED 2026-10-07 on local native PostgreSQL 16.14 with independent connections, observed Store/version lock contention, preference/publication/retirement/design/approval races, duplicate artifacts, distinct-backend expired/late claim fencing and crash/finalization/ambiguous-write recovery. Three final 82-test runs passed; seven synchronized families × 15 iterations each. See MEDIA_NATIVE_ACCEPTANCE_REPORT.md. No universal deadlock or real storage claim. | ACCEPTED |
 | ETSY-E2E-01 | BLOCKS MRH PILOT | Authorized real Store paid-order event → OAuth/API receipt fetch → intake → Product mapping → individual FulfillmentUnit/Reading → production. Validate supported `order.paid` webhook/event contract, subscription/access/signature and replay behavior; the desired chain is not a claim that any unverified webhook capability is available. Preserve ETSY_INTEGRATION.md live gate until evidence exists. | OPEN |
 | ETSY-CARDINALITY-01 | BLOCKS MRH PILOT | Real authorized/redacted payloads: duplicate/replay/out-of-order events, mixed carts, quantity allocation and stable unit expansion. Evidence must show no duplicated or rebound readings and correct holds. | OPEN |
 | PDF-REAL-01 | BLOCKS MRH PILOT | Before a PDF pilot, after Parts 3/4: intended runtime/host and representative actual approved Readings; actual approved assets once TAROT-ASSETS-01 permits them; final visual inspection, long content/pagination, Unicode capability/failure behavior, deterministic output, production memory/concurrency and codec behavior; exact font/shaping equivalence and shared preview/PDF page/line parity once preview exists; intended artifact/storage workflow. Part 3B-2 implements rendering and synthetic glyph/raster checks, not this real acceptance. A separately scoped text-only pilot does not imply PDF acceptance. | OPEN |
@@ -73,3 +73,9 @@ ETSY-E2E-01 and ETSY-CARDINALITY-01 remain OPEN with their existing authorized r
 7. Production hardening.
 
 No later stage or real external acceptance starts automatically during Part 4.
+
+## Native PostgreSQL acceptance — 2026-10-07
+
+MEDIA-NATIVE-01 is now ACCEPTED, superseding its historical OPEN references above. [Native evidence](MEDIA_NATIVE_ACCEPTANCE_REPORT.md) records PostgreSQL 16.14, disposable local databases, separate backend PIDs, actual lock waiters, three unchanged 82-test runs and explicit limitations. Production implementation/schema were unchanged; test memory storage accepts only DB protocol recovery, not STORAGE-REAL-01.
+
+All other statuses remain unchanged. Remaining MRH backend blockers: ETSY-E2E-01, ETSY-CARDINALITY-01, PDF-REAL-01 and TAROT-ASSETS-01. STORAGE-REAL-01/ETSY-DELIVERY-01/AI-CONFIG-01 remain OPEN production-launch debts; REVIEW-CARDS-UI-01 remains OPEN; GEMINI-TAROT-01 remains ACCEPTED. Next is controlled MRH backend real acceptance, then Final Seller UI, then MRH Seller Pilot. Native backend acceptance does not establish seller UI readiness.
