@@ -144,3 +144,7 @@ Store-first locking serializes preference/approval/design/input creation. Exact 
 Reading semantic cards are not PDF-only: future text delivery can consume the approved media handoff without any deck/assets. Future capabilities remain independent of plan names; no entitlement enforcement exists. Part 3 consumes document-render-input/v1 and owns fit/layout/reversed transforms, fonts/pagination, preview and PDF. It must not reconstruct media from mutable preferences or latest Reading state.
 
 A fresh controlled real Gemini acceptance is required before enabling TAROT_CARDS products in MRH pilot because prompt/schema/output validation changed. No real provider request was made here. Real artwork/storage, Etsy end-to-end/cardinality, PDF and Delivery capability checks remain separate ledger tasks.
+
+## Part 3A layout consumer
+
+The ephemeral document-layout/v1 engine consumes validated document-render-input/v1, preserving exact ordered card/deck/asset evidence. cardImagery OFF suppresses artwork slots only. Adaptive gallery pages resolve deterministic slots from frozen dimensions, without storage reads or byte decoding. Renderer-neutral positions reference the retained media evidence, including REVERSED semantics; visual rotation/byte verification belongs to Part 3B. See DOCUMENT_ENGINE.md for units, measurement limits, shared preview/PDF pagination and version retention. No Generation/Review/media snapshot semantics changed.

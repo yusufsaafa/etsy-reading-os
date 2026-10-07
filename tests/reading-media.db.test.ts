@@ -20,6 +20,7 @@ import { createDocumentDesign,updateDocumentDesign,setDefaultDocumentDesign,assi
 import { createDocumentSnapshot,getDocumentSnapshotForRender } from "../src/modules/documents/snapshot-service";
 import { getApprovedReadingMedia, getApprovedReadingForDocument } from "../src/modules/review/service";
 import { createDocumentRenderInput,getDocumentRenderInput } from "../src/modules/documents/media-service";
+import { getDocumentLayout } from "../src/modules/documents/layout/service";
 import { platformMediaRegistry } from "../src/modules/media/platform-registry";
 import { setStorePreferredTarotDeck } from "../src/modules/media/service";
 import { assetFixture,deckFixture } from "./media.fixture";
@@ -114,3 +115,7 @@ it("additive migration preserves populated historical text Generation/Review/Sna
   const native=drizzle(runner,{schema});await migrate(native,{migrationsFolder:"drizzle"});await migrate(native,{migrationsFolder:"drizzle"});expect((await runner.query("SELECT * FROM document_media_snapshots")).rows).toHaveLength(0);
  }finally {await legacy.close();await runner.close();}
 },20000);
+
+it("layout derives owned immutable input without writes; additive template and foreign scope fail closed",async()=>{
+ const d=await createDocumentDesign(db,a,{name:"Atelier",configuration:{...config(),template:"tarot-atelier",display:{...config().display,cardImagery:true}}});await setDefaultDocumentDesign(db,a,d.id);await approveReadingReview(db,a,orderId,readingId,null);await setupDeck();await select();const input=await create();const before=await db.select().from(schema.documentMediaSnapshots);const layout=await getDocumentLayout(db,a,input.media.id);expect(layout.template.key).toBe("tarot-atelier");expect(layout.source.renderInputHash).toBe(input.renderInputHash);expect(layout.pages.some(p=>p.archetype==="MEDIA")).toBe(true);expect(await getDocumentLayout(db,a,input.media.id)).toEqual(layout);expect(await db.select().from(schema.documentMediaSnapshots)).toEqual(before);for(const scope of [b,sibling,{...a,userId:b.userId}])await expect(getDocumentLayout(db,scope,input.media.id)).rejects.toThrow();await expect(getDocumentLayout(db,a,randomUUID())).rejects.toThrow();
+});

@@ -4,12 +4,15 @@ import { stableJson } from "../intake/contracts";
 
 // Historical definitions are retained independently of current template selection.
 export const DOCUMENT_TEMPLATE_VERSIONS = Object.freeze({
+  "luxury-editorial": Object.freeze({1:Object.freeze({ name: "Luxury Editorial", contractVersion: "document-template/v1", version: 1, cardImagery: true })}),
+  "tarot-atelier": Object.freeze({1:Object.freeze({ name: "Tarot Atelier", contractVersion: "document-template/v1", version: 1, cardImagery: true })}),
   classic: Object.freeze({1:Object.freeze({ name: "Classic", contractVersion: "document-template/v1", version: 1, cardImagery: true })}),
   mystic: Object.freeze({1:Object.freeze({ name: "Mystic", contractVersion: "document-template/v1", version: 1, cardImagery: true })}),
   minimal: Object.freeze({1:Object.freeze({ name: "Minimal", contractVersion: "document-template/v1", version: 1, cardImagery: false })}),
   modern: Object.freeze({1:Object.freeze({ name: "Modern", contractVersion: "document-template/v1", version: 1, cardImagery: false })}),
 });
 export const DOCUMENT_TEMPLATES = Object.freeze({
+  "luxury-editorial":DOCUMENT_TEMPLATE_VERSIONS["luxury-editorial"][1], "tarot-atelier":DOCUMENT_TEMPLATE_VERSIONS["tarot-atelier"][1],
   classic:DOCUMENT_TEMPLATE_VERSIONS.classic[1], mystic:DOCUMENT_TEMPLATE_VERSIONS.mystic[1],
   minimal:DOCUMENT_TEMPLATE_VERSIONS.minimal[1], modern:DOCUMENT_TEMPLATE_VERSIONS.modern[1],
 });
@@ -19,7 +22,7 @@ const color = z.string().regex(/^#[0-9a-fA-F]{6}$/).transform(v => v.toUpperCase
 const plain = (max: number) => z.string().max(max).refine(v => !/[<>]/.test(v), "Plain text only");
 export const documentDesignSchema = z.strictObject({
   contractVersion: z.literal("document-design/v1"),
-  template: z.enum(["classic", "mystic", "minimal", "modern"]),
+  template: z.enum(["classic", "mystic", "minimal", "modern", "luxury-editorial", "tarot-atelier"]),
   brand: z.strictObject({ name: plain(120), primaryColor: color, accentColor: color }),
   typography: z.strictObject({ heading: z.enum(["inter", "source-serif-4"]), body: z.enum(["inter", "source-serif-4"]) }),
   cover: z.enum(["SIMPLE", "BRAND"]),
