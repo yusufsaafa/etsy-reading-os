@@ -31,13 +31,21 @@ async function version(db:DbExecutor,key:string,number:number,historical:boolean
 }
 /** Exact historical read: retirement does not float to a newer version. */
 export async function resolveTarotCardAsset(db:Database,raw:unknown):Promise<ResolvedTarotCardAsset> {
+ return db.transaction(tx=>resolveTarotCardAssetInTransaction(tx,raw),{isolationLevel:"repeatable read"});
+}
+export async function resolveTarotCardAssetInTransaction(tx:DbExecutor,raw:unknown):Promise<ResolvedTarotCardAsset> {
  const input=deckReferenceSchema.extend({cardKey:cardKeySchema}).parse(raw);
- return db.transaction(async tx=>{
-  const value=await version(tx,input.deckKey,input.deckVersion,true);
-  const mapping=value.manifest.mappings.find(m=>m.cardKey===input.cardKey)!;
-  const selected=value.assets.find(a=>a.id===mapping.assetId)!;
-  return detached(resolvedCardSchema.parse({contractVersion:"tarot-card-asset/v1",...input,asset:{id:selected.id,contentHash:selected.contentHash,mediaType:selected.mediaType,byteSize:selected.byteSize,width:selected.width,height:selected.height}}));
- },{isolationLevel:"repeatable read"});
+ const value=await version(tx,input.deckKey,input.deckVersion,true);
+ const mapping=value.manifest.mappings.find(m=>m.cardKey===input.cardKey)!;
+ const selected=value.assets.find(a=>a.id===mapping.assetId)!;
+ return detached(resolvedCardSchema.parse({contractVersion:"tarot-card-asset/v1",...input,asset:{id:selected.id,contentHash:selected.contentHash,mediaType:selected.mediaType,byteSize:selected.byteSize,width:selected.width,height:selected.height}}));
+}
+/** Caller holds Store lock; version share lock protects new document selection through commit. */
+export async function getStorePreferredTarotDeckInTransaction(tx:DbExecutor,scope:Scope):Promise<StoreDeckPreference> {
+ await verifyScope(tx,scope);
+ const selected=await preference(tx,scope);
+ if(selected.status==="CONFIGURED")await version(tx,selected.deckKey,selected.deckVersion,false,true);
+ return selected;
 }
 /** Seller-safe metadata only; a corrupt claimed-selectable deck fails the whole read. */
 export async function listSelectableTarotDecks(db:Database,scope:Scope) {

@@ -10,7 +10,7 @@ import { CentralAIGateway } from "../../infrastructure/ai/gateway";
 import { pinStyleIntelligenceInTransaction } from "../seller-style/analysis-generation";
 import { assembleInstructions } from "./instructions";
 import { buildGenerationContext, buildProductionContextForStoreInTransaction } from "./context";
-import { commandSchema, AdmissionError, OPERATION, validateCanonical, MAX_GENERATION_ATTEMPTS } from "./contracts";
+import { commandSchema, AdmissionError, OPERATION, validateCanonical, generationStructuredOutput, MAX_GENERATION_ATTEMPTS } from "./contracts";
 const hash=(data:unknown)=>createHash("sha256").update(stableJson(data)).digest("hex");
 async function audit(tx:DbExecutor,scope:GenerationAuthority,action:string,resourceId:string) {
  await tx.insert(auditLogs).values({organizationId:scope.organizationId,storeId:scope.storeId,actorId:scope.userId,action,resourceId});
@@ -68,13 +68,13 @@ export class GenerationService {
     if(!bound.length)throw new AccessDenied();
    }
    const instructions=assembleInstructions(generation.context);
-   const request=await this.gateway.admit(tx,scope,{generationId:generation.id,attemptNumber,commandKey:command.commandKey,commandHash,parentRequestId:parent?.id,operation:OPERATION,inputBytes:Buffer.byteLength(instructions.system+instructions.data)});
+   const request=await this.gateway.admit(tx,scope,{generationId:generation.id,attemptNumber,commandKey:command.commandKey,commandHash,parentRequestId:parent?.id,operation:OPERATION,inputBytes:Buffer.byteLength(instructions.system+instructions.data)+(generationStructuredOutput(generation.context)?Buffer.byteLength(JSON.stringify(generationStructuredOutput(generation.context))):0)});
    await audit(tx,scope,parent?"generation_retry_requested":"generation_requested",generation.id);
    return {id:generation.id,run:true,request,context:generation.context,instructions};
   });
   if(claim.run&&claim.request&&claim.context&&claim.instructions){
    const {context,request,instructions}=claim;
-   await this.gateway.execute(scope,request.id,{model:request.model,...instructions,maxOutputTokens:this.gateway.maxOutputTokens,
+   await this.gateway.execute(scope,request.id,{model:request.model,...instructions,maxOutputTokens:this.gateway.maxOutputTokens,structuredOutput:generationStructuredOutput(context),
     sections:context.product.configuration.sections.map(s=>({sectionId:s.id,title:s.title.trim()}))},
     response=>validateCanonical(response.output,context),
     async(tx,outcome)=>{

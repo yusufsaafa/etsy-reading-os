@@ -75,3 +75,14 @@ Code-owned `DOCUMENT_TEMPLATE_VERSIONS` retains immutable historical definitions
 ### Snapshot versus artifact
 
 A snapshot is immutable semantic input. A future artifact is preview/PDF output derived from one exact snapshot. One snapshot may support preview, PDF and re-rendering without mutable-state resolution. Page dimensions, margins, typography metrics, layout trees, pagination, HTML/CSS, preview, rendering, binaries, storage and downloads remain unimplemented. No asset system, seller UI or provider operation is introduced. Real Gemini calls in Part 2: zero.
+
+
+## Part 2.5B — exact immutable render input
+
+`createDocumentRenderInput` now composes the unchanged document-snapshot/v1 text/design with a separate immutable document-media-snapshot/v1, returning document-render-input/v1. Snapshot v2 is deliberately not introduced: existing v1 hashes/history remain valid, while a separate media contract avoids duplicating unchanged text/design semantics. Transaction-composable snapshot helpers preserve v1 behavior.
+
+The command accepts only order/Reading intent. Review supplies separately approved-reading-media/v1; server-side Store preference and trusted registry resolve exact deck/version/card assets under Store/version locks. Semantic cards exist independently of design display.cardImagery. Missing setup or corrupt/retired preference fails for new media; NONE needs no deck. Frozen historical media retains exact semantic cards/orientation/order and asset UUID/digest/MIME/dimensions/bytes. Current preference/design/draft/latest Generation do not supply historical render input.
+
+The combined semantic identity is SHA-256 stableJson({snapshotHash,mediaHash}); document mediaHash hashes exact ordered media including deck/version/assets, excluding volatile timestamps/record IDs. Existing approved contentHash, configurationHash and snapshotHash retain their meanings. Duplicate exact creation is idempotent; intentional deck changes produce another frozen media input without changing the first.
+
+Part 3 must consume the combined exact input for media-aware rendering, retrieve exact trusted asset bytes and verify digest/length. Bare historical v1 snapshots remain readable. No layout, pagination, preview or PDF is implemented. Details and acceptance debts: READING_MEDIA.md and PILOT_ACCEPTANCE.md.

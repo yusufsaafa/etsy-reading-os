@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { readingMediaRequirementSchema } from "../media/reading-contract";
 import type { InputPolicy } from "../intake/contracts";
 const identity = z.string().min(1).max(100);
 export const inputDefinitionSchema = z.object({
@@ -13,6 +14,7 @@ export const fulfillmentPolicySchema = z.object({
 }).strict();
 export const configurationSchema = z.object({
   fulfillment: fulfillmentPolicySchema.optional(),
+  readingMedia: readingMediaRequirementSchema.optional(),
   inputs: z.array(inputDefinitionSchema).max(20), sections: z.array(sectionSchema).max(20),
   output: z.enum(["TEXT", "PDF"]).nullable(), workflow: z.enum(["MANUAL", "ASSISTED", "AUTOMATIC"]).nullable(),
 }).strict();

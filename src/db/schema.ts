@@ -265,6 +265,7 @@ function analysisIdentityColumns():[AnyPgColumn,AnyPgColumn,AnyPgColumn] {return
 export const readingReviews=pgTable("reading_reviews",{
  id:id(),organizationId:org(),storeId:store(),unitId:uuid("unit_id").notNull(),generationId:uuid("generation_id").notNull(),
  state:text("state").notNull().default("PENDING"),createdAt:time("created_at").defaultNow().notNull(),
+ approvedMedia:jsonb("approved_media").$type<import("../modules/review/approved-media").ApprovedReadingMedia>(),
  approvedContent:jsonb("approved_content").$type<import("../modules/generation/contracts").CanonicalResult>(),
  approvedByUserId:text("approved_by_user_id").references(()=>users.id),
  approvedDraftRevision:integer("approved_draft_revision"),approvedContentHash:text("approved_content_hash"),approvedAt:time("approved_at"),
@@ -339,3 +340,12 @@ export const storeTarotPreferences=pgTable("store_tarot_preferences",{
  foreignKey({name:"tarot_preference_owned_store",columns:[t.organizationId,t.storeId],foreignColumns:[stores.organizationId,stores.id]}),
  foreignKey({name:"tarot_preference_exact_version",columns:[t.deckKey,t.deckVersion],foreignColumns:[tarotDeckVersions.deckKey,tarotDeckVersions.version]}),
  check("tarot_preference_revision",sql`${t.revision}>0`)]);
+
+export const documentMediaSnapshots=pgTable("document_media_snapshots",{
+ id:id(),organizationId:org(),storeId:store(),documentSnapshotId:uuid("document_snapshot_id").notNull(),readingId:uuid("reading_id").notNull(),reviewId:uuid("review_id").notNull(),generationId:uuid("generation_id").notNull(),mediaHash:text("media_hash").notNull(),payload:jsonb("payload").$type<import("../modules/documents/media-contract").DocumentMediaSnapshot>().notNull(),createdAt:time("created_at").notNull(),
+},t=>[unique("document_media_intent").on(t.organizationId,t.storeId,t.documentSnapshotId,t.mediaHash),
+ foreignKey({columns:[t.organizationId,t.storeId,t.reviewId],foreignColumns:[readingReviews.organizationId,readingReviews.storeId,readingReviews.id]}),
+ foreignKey({columns:[t.organizationId,t.storeId,t.readingId],foreignColumns:[units.organizationId,units.storeId,units.id]}),
+ foreignKey({columns:[t.organizationId,t.storeId,t.generationId],foreignColumns:[generations.organizationId,generations.storeId,generations.id]}),
+ foreignKey({columns:[t.documentSnapshotId],foreignColumns:[documentSnapshots.id]}),
+ check("document_media_bounds",sql`${t.mediaHash} ~ '^[a-f0-9]{64}$' and jsonb_typeof(${t.payload})='object' and octet_length(${t.payload}::text)<=30000 and ${t.payload}->>'contractVersion'='document-media-snapshot/v1'`)]);

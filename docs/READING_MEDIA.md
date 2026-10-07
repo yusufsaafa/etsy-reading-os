@@ -1,4 +1,4 @@
-# Reading media foundation — Part 2.5A
+# Reading media — Parts 2.5A–2.5B
 
 PART 2.5A DOES NOT ADD TAROT CARDS TO GENERATED READINGS.
 
@@ -83,3 +83,64 @@ Future entitlement authorization can ask whether this Store may use DOCUMENT_TAR
 Part 2.5B owns semantic card/orientation attachment to Reading Media, exact deck/version pinning and the deliberate choice of separate immutable media boundary versus document-snapshot/v2. Existing approved-reading/v1 and document-snapshot/v1 remain byte-for-byte unchanged here. Store preference never enters current snapshot hashes.
 
 Part 3 owns trusted byte use, image decoding/layout/fit, reversed transforms, pagination, preview/PDF embedding and renderer version behavior. No renderer, card placement, download, artifact, delivery, Etsy message or Telegram capability is added.
+
+
+## Part 2.5B — semantic Reading Media and immutable Document input
+
+Part 2.5B connects the existing platform foundation to Generation → Review approval → immutable Document input. No real artwork, renderer, PDF, billing or final frontend is introduced. The Part 2.5A statements above describe that foundation's historical scope; Part 2.5B now adds semantic cards to explicitly configured generated Readings.
+
+### Version-owned Product requirements and historical compatibility
+
+ProductVersion configuration accepts optional strict `readingMedia: {mode: "NONE"} | {mode: "TAROT_CARDS", cardCount: 1..10}`. Absence means historical NONE **at the interpretation boundary**, without adding defaults to parsed/stored JSON or modifying published versions. Explicit NONE produces the same text output/prompt path. Unsupported modes, extra fields and malformed counts are rejected. No Product-specific deck override or media configuration UI is added.
+
+GenerationContext already freezes exact ProductVersion configuration and stable JSON hash. The optional requirement lives inside that frozen config; no second floating requirement or duplicate context field exists. Admission uses the bound published/archived version. Retry/replay retains the admitted context/config/hash, not the latest ProductVersion. A later 3→5-card version does not rebind an existing Reading.
+
+### Provider-neutral semantic output
+
+Text-only canonical results remain `{sections}`. Required tarot results are `{sections, readingMedia: {mode: "TAROT_CARDS", cards: [{cardKey, orientation, position}]}}`. Count must exactly match the frozen requirement. Identities must be canonical, distinct within a draw; orientations are UPRIGHT/REVERSED. Positions are zero-based, consecutive and equal array order. There are no section associations in this first contract; extra sectionId fields are rejected rather than inventing card-to-section semantics. Unknown fields, deck/version/asset/key/URL/MIME/dimensions and malformed/missing media fail canonical validation. No repair or silent card regeneration occurs.
+
+The existing GenerationService → CentralAIGateway → GenerationProvider path is retained. Tarot requests use the existing provider-neutral structuredOutput property with a manually projected bounded canonical enum schema (`canonical-reading-media/v1`); Gemini's existing generic OpenAPI projection handles it, without a tarot-specific provider. The prompt supplies exactly the required count and deterministic 78-key vocabulary, asks for consistent written interpretation and cards, and never includes deck preference, artwork, images, assets/storage/legal data. NONE retains the existing provider schema path. The fake provider deterministically chooses the first required canonical keys and alternating orientations, with no randomness.
+
+Input reservation counts prompt bytes plus the additional tarot structured-output schema bytes; existing schema-envelope allowance/output limit, budgets, attempts, unknown-cost policy and usage/cost settlement remain intact. Invalid card output settles as existing INVALID_OUTPUT; safe retry uses admitted requirements. Failed attempts do not preserve a draw. The successful canonical result is the evidence.
+
+### Review, body editing and approval
+
+The immutable Review Generation pin pins the exact successful semantic cards. `openReadingReview` exposes detached frozen readingMedia alongside the existing body workspace; a later Generation does not replace it. Existing draft content remains sections only. Application and SQL reject card fields in draft writes; section-body edits do not alter card identity/orientation/positions.
+
+Approval atomically freezes sections and separately `reading_reviews.approved_media`, containing `approved-reading-media/v1`: owned Reading identity, pinned Review/Generation provenance, exact requirement, semantic media, mediaHash and approval timestamp. Required missing/corrupt cards fail before approval. The SQL approval guard binds the media artifact to the pinned successful result and its frozen context requirement, retaining immutable approval and draft transitions.
+
+The existing approved-reading/v1 schema and sections-only contentHash remain unchanged. `getApprovedReadingMedia` and its transaction variant are the separate Review-approved handoff; Documents never discover semantic cards by reaching into raw Generation JSON. Reads validate the artifact/hash/provenance against the Review pin within Review ownership. Historical approved text-only rows with NULL approved_media expose faithful NONE semantics without backfill; required tarot rows with NULL media fail. No old approval, Generation result or Product JSON is migrated to fabricate cards.
+
+### Document architecture decision: separate media, preserved v1
+
+Chosen: **separate immutable `document-media-snapshot/v1`**, paired with the exact existing document-snapshot/v1 via `document-render-input/v1`. Rejected for this slice: snapshot v2 would repeat/re-version already correct text/design semantics and require parallel validation paths for unchanged content. The small independent media boundary preserves all historical v1 schemas/hashes while giving Part 3 one exact combined input. A later incompatible text/design evolution may still introduce its own version deliberately.
+
+`createDocumentRenderInput(db, scope, {orderId, readingId})` is the new complete-input command. It verifies owner scope and creates/reuses text/design snapshot and media in **one Store-locked transaction**. Transaction-composable snapshot helpers are a non-semantic refactor of the v1 service; original APIs remain text/design v1 boundaries. Required cards always resolve/freeze regardless of the design's cardImagery display boolean: semantic presence and presentation are independent. Existing design schema/settings are unchanged.
+
+For TAROT_CARDS, the command obtains the current valid server-side Store preference, locks the exact selectable deck version FOR SHARE through commit, and resolves every approved card through the existing trusted registry boundary. Missing preference throws DOCUMENT_MEDIA_SETUP_REQUIRED; retired/corrupt/unusable preference fails safely. No catalog-first fallback, caller-selected deck/asset or implicit Product override exists. NONE requires no deck.
+
+The immutable media snapshot freezes its own identity/ownership, parent snapshot identity, Reading identity, Review/Generation and approved-media-hash provenance, exact media mode, deck key/version, and ordered semantic cardKey/orientation/position plus asset UUID/SHA-256/MIME/dimensions/byte size. No object keys, URLs, credentials, legal notes, body/customer content or AI/provider details enter it. Binary bytes are not embedded. Part 3 will read exact asset identity through PlatformAssetStorage and verify bytes before rendering.
+
+`getDocumentRenderInput` accepts one owned media snapshot identity and returns validated detached deeply frozen text/design/media plus combined hash. It reads retained approval/snapshot identity and exact historical deck/asset evidence only; no current Store preference, design config/default/assignment, draft, customer context, latest ProductVersion/Style or Generation body/card lookup supplies renderer input. Frozen assets are compared to the exact retained deck mapping/metadata; retired versions remain historically valid. New registry additions/versions/preferences, design changes and later Generations do not change the returned input. Older bare v1 snapshots remain readable through their unchanged reader; no media row is fabricated for them.
+
+### Independent hash meanings
+
+- Existing approved contentHash: SHA-256 stable JSON `{sections}` only, including exact final body/order/identities/titles.
+- Existing design configurationHash and snapshotHash: unchanged v1 semantics.
+- Approved mediaHash: SHA-256 stable JSON `{requirement, media}`; exact count/mode/ordered semantic cards/orientations/positions. Ownership, approval timestamp and database provenance are excluded.
+- Document mediaHash: SHA-256 stable JSON of exact `media`, including mode and (for tarot) deck key/version plus ordered cards and exact asset identity/digest/MIME/dimensions/bytes. Creation time, snapshot/media IDs and provenance are excluded.
+- Combined renderInputHash: SHA-256 stable JSON `{snapshotHash, mediaHash}`. It is semantic render identity, separate from either hash or database record identity.
+
+Identical creation reuses the existing v1 snapshot intent and a unique owned `(documentSnapshotId, mediaHash)` media intent. Intentional deck changes can create another media snapshot/render identity alongside the same text/design snapshot; the first remains unchanged. Different design revisions may create new provenance snapshots even if semantic hashes are equal, matching v1 behavior.
+
+### Persistence, security, corruption and races
+
+Additive migration 0019 adds nullable approved_media and document_media_snapshots. No backfill, artwork seed, destructive schema change or historical mutation occurs. Updated approval/draft guards preserve existing body/identity/revision rules and supplement them with strict semantic media evidence. A document-media insertion guard validates owned parent/approval/provenance, exact semantic cards, current valid preference and complete selected manifest/assets; every media update/delete is forbidden.
+
+Commands reject forged cards/deck/version/assets/ownership. Cross-org, sibling Store, foreign order/Reading and cross-Store frozen-media reads fail. All domain metadata boundaries remain detached/readonly/frozen. Durable payload/hash/approval/provenance/asset inconsistencies fail closed; no current-state substitution or read repair occurs, including corruption with recomputed media hashes.
+
+Store-first locking serializes preference/approval/design/input creation. Exact deck share locks coordinate retirement/publication through commit. Duplicate creation is serialized and unique; races produce one coherent old/new state or safe failure, never deck X identity with deck Y assets. Native PostgreSQL separate-connection lock timing remains **unverified**; PGlite exercises overlapping application commands only. See PILOT_ACCEPTANCE.md for this carried debt.
+
+Reading semantic cards are not PDF-only: future text delivery can consume the approved media handoff without any deck/assets. Future capabilities remain independent of plan names; no entitlement enforcement exists. Part 3 consumes document-render-input/v1 and owns fit/layout/reversed transforms, fonts/pagination, preview and PDF. It must not reconstruct media from mutable preferences or latest Reading state.
+
+A fresh controlled real Gemini acceptance is required before enabling TAROT_CARDS products in MRH pilot because prompt/schema/output validation changed. No real provider request was made here. Real artwork/storage, Etsy end-to-end/cardinality, PDF and Delivery capability checks remain separate ledger tasks.

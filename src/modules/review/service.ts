@@ -1,3 +1,6 @@
+import { readingMediaRequirement, readingMediaHash } from "../media/reading-contract";
+import { detached } from "../media/contracts";
+import { immutableApprovedReadingMedia, type ApprovedReadingMedia } from "./approved-media";
 import {createHash} from "node:crypto";
 import {and,desc,eq} from "drizzle-orm";
 import {z} from "zod";
@@ -58,13 +61,14 @@ export async function openReadingReview(db:Database,scope:Scope,orderId:string,r
   const base=validateCanonical(JSON.stringify(data.generation.result),data.generation.context);
   let [draft]=await tx.select().from(readingReviewDrafts).where(and(tenantWhere(readingReviewDrafts,scope),eq(readingReviewDrafts.reviewId,review.id)));
   if(editing&&review.state!=="PENDING")throw new ReviewUnavailable();
-  if(editing&&!draft)[draft]=await tx.insert(readingReviewDrafts).values({organizationId:scope.organizationId,storeId:scope.storeId,reviewId:review.id,content:base}).returning();
-  let content=base;
+  if(editing&&!draft)[draft]=await tx.insert(readingReviewDrafts).values({organizationId:scope.organizationId,storeId:scope.storeId,reviewId:review.id,content:{sections:base.sections}}).returning();
+  let content={sections:base.sections};
   try{if(draft&&review.state!=="APPROVED")content=validateReviewDraft(draft.content,base);}catch{throw new ReviewUnavailable();}
-  if(review.state==="APPROVED")content=approvedReviewContent(review,base);
+  if(review.state==="APPROVED"){content=approvedReviewContent(review,base);approvedMediaForReview(review,data.generation);}
   return {approved:review.state==="APPROVED",customer:data.order.buyerName||"Customer",product:data.line.title,orderReference:data.order.externalId,index:data.unit.unitIndex,quantity:data.line.quantity,...data.content,
+   readingMedia:detached(base.readingMedia ?? {mode:"NONE" as const}),
    sections:content.sections.map(({title,content})=>({title,content})),
-   draft:draft&&review.state!=="APPROVED"?{revision:draft.revision,content,modified:stableJson(content)!==stableJson(base)}:null};
+   draft:draft&&review.state!=="APPROVED"?{revision:draft.revision,content,modified:stableJson(content)!==stableJson({sections:base.sections})}:null};
  });
 }
 
@@ -81,18 +85,18 @@ export async function saveReadingReviewDraft(db:Database,scope:Scope,orderId:str
   const base=validateCanonical(JSON.stringify(data.generation.result),data.generation.context),content=validateReviewDraft(raw,base);
   const [saved]=await tx.update(readingReviewDrafts).set({content,revision:draft.revision+1,updatedAt:new Date()}).where(and(tenantWhere(readingReviewDrafts,scope),eq(readingReviewDrafts.reviewId,draft.reviewId),eq(readingReviewDrafts.revision,expectedRevision))).returning();
   if(!saved)throw new ReviewDraftError("CONFLICT");
-  return {revision:saved.revision,modified:stableJson(content)!==stableJson(base)};
+  return {revision:saved.revision,modified:stableJson(content)!==stableJson({sections:base.sections})};
  });
 }
 
 export function reviewContentHash(content:import("../generation/contracts").CanonicalResult) {
- return createHash("sha256").update(stableJson(content)).digest("hex");
+ return createHash("sha256").update(stableJson({sections:content.sections})).digest("hex");
 }
 export function approvedReviewContent(review:typeof readingReviews.$inferSelect,base:import("../generation/contracts").CanonicalResult) {
  try {
   if(review.state!=="APPROVED"||!(review.approvedAt instanceof Date)||!Number.isFinite(review.approvedAt.getTime())||!review.approvedContentHash||!review.approvedByUserId||(review.approvedDraftRevision!==null&&(!Number.isSafeInteger(review.approvedDraftRevision)||review.approvedDraftRevision<0)))throw new Error();
   const content=validateReviewDraft(review.approvedContent,base);
-  if(review.approvedDraftRevision===null&&stableJson(content)!==stableJson(base))throw new Error();
+  if(review.approvedDraftRevision===null&&stableJson(content)!==stableJson({sections:base.sections}))throw new Error();
   if(reviewContentHash(content)!==review.approvedContentHash)throw new Error();
   return content;
  }catch{throw new ReviewUnavailable();}
@@ -105,12 +109,14 @@ export async function approveReadingReview(db:Database,scope:Scope,orderId:strin
   const data=await candidate(tx,scope,orderId,readingId),review=data.review;
   if(!review)throw new ReviewUnavailable();
   const base=validateCanonical(JSON.stringify(data.generation.result),data.generation.context);
-  if(review.state==="APPROVED"){approvedReviewContent(review,base);return review;}
+  if(review.state==="APPROVED"){approvedReviewContent(review,base);approvedMediaForReview(review,data.generation);return review;}
   if(review.state!=="PENDING")throw new ReviewUnavailable();
   const [draft]=await tx.select().from(readingReviewDrafts).where(and(tenantWhere(readingReviewDrafts,scope),eq(readingReviewDrafts.reviewId,review.id))).for("update");
   if((draft?.revision??null)!==expectedRevision)throw new ReviewDraftError("CONFLICT");
-  const content=validateReviewDraft(draft?.content??base,base);
-  const [approved]=await tx.update(readingReviews).set({state:"APPROVED",approvedByUserId:scope.userId,approvedContent:content,approvedDraftRevision:draft?.revision??null,approvedContentHash:reviewContentHash(content),approvedAt:new Date()}).where(and(tenantWhere(readingReviews,scope),eq(readingReviews.id,review.id),eq(readingReviews.state,"PENDING"))).returning();
+  const content=validateReviewDraft(draft?.content??{sections:base.sections},base);
+  const approvedAt=new Date();
+  const approvedMedia=createApprovedMedia(data.review!,data.generation,approvedAt);
+  const [approved]=await tx.update(readingReviews).set({state:"APPROVED",approvedByUserId:scope.userId,approvedContent:content,approvedDraftRevision:draft?.revision??null,approvedContentHash:reviewContentHash(content),approvedAt,approvedMedia}).where(and(tenantWhere(readingReviews,scope),eq(readingReviews.id,review.id),eq(readingReviews.state,"PENDING"))).returning();
   if(!approved)throw new ReviewUnavailable();
   return approved;
  });
@@ -120,6 +126,7 @@ export async function readingReviewStatus(db:Database,scope:Scope,orderId:string
   const data=await candidate(tx,scope,orderId,readingId);
   if(data.review?.state==="APPROVED"){
    approvedReviewContent(data.review,validateCanonical(JSON.stringify(data.generation.result),data.generation.context));
+   approvedMediaForReview(data.review,data.generation);
    return "Approved";
   }
   if(data.review){
@@ -141,8 +148,34 @@ export async function getApprovedReadingForDocumentInTransaction(tx:DbExecutor,s
   if(!review||review.state!=="APPROVED")throw new ReviewUnavailable();
   const base=validateCanonical(JSON.stringify(data.generation.result),data.generation.context);
   const content=approvedReviewContent(review,base);
+  approvedMediaForReview(review,data.generation);
   try{return immutableApprovedReading({contractVersion:"approved-reading/v1",organizationId:scope.organizationId,storeId:scope.storeId,readingId:data.unit.id,
    order:{id:data.order.id,reference:data.order.externalId,customerName:data.order.buyerName||"Customer"},product:{name:data.line.title},readingNumber:data.unit.unitIndex,quantity:data.line.quantity,
    sections:content.sections,contentHash:review.approvedContentHash,approvedAt:review.approvedAt!.toISOString(),provenance:{reviewId:review.id,generationId:review.generationId}});}catch{throw new ReviewUnavailable();}
 
+}
+
+function createApprovedMedia(review:typeof readingReviews.$inferSelect,generation:typeof generations.$inferSelect,approvedAt:Date):ApprovedReadingMedia {
+ const base=validateCanonical(JSON.stringify(generation.result),generation.context);
+ const requirement=readingMediaRequirement(generation.context.product.configuration),media=base.readingMedia ?? {mode:"NONE" as const};
+ return immutableApprovedReadingMedia({contractVersion:"approved-reading-media/v1",organizationId:review.organizationId,storeId:review.storeId,readingId:review.unitId,provenance:{reviewId:review.id,generationId:review.generationId},requirement,media,mediaHash:readingMediaHash(requirement,media),approvedAt:approvedAt.toISOString()});
+}
+function approvedMediaForReview(review:typeof readingReviews.$inferSelect,generation:typeof generations.$inferSelect):ApprovedReadingMedia {
+ try {
+  if(review.state!=="APPROVED" || !review.approvedAt)throw new Error();
+  const expected=createApprovedMedia(review,generation,review.approvedAt);
+  if(review.approvedMedia===null) {if(expected.requirement.mode!=="NONE")throw new Error();return expected;}
+  const value=immutableApprovedReadingMedia(review.approvedMedia);
+  if(stableJson(value)!==stableJson(expected))throw new Error();
+  return value;
+ }catch{throw new ReviewUnavailable();}
+}
+export async function getApprovedReadingMedia(db:Database,scope:Scope,orderId:string,readingId:string):Promise<ApprovedReadingMedia> {
+ return db.transaction(tx=>getApprovedReadingMediaInTransaction(tx,scope,orderId,readingId),{isolationLevel:"repeatable read"});
+}
+export async function getApprovedReadingMediaInTransaction(tx:DbExecutor,scope:Scope,orderId:string,readingId:string):Promise<ApprovedReadingMedia> {
+ const data=await candidate(tx,scope,orderId,readingId);
+ if(!data.review || data.review.state!=="APPROVED")throw new ReviewUnavailable();
+ approvedReviewContent(data.review,validateCanonical(JSON.stringify(data.generation.result),data.generation.context));
+ return approvedMediaForReview(data.review,data.generation);
 }

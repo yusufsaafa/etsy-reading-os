@@ -63,3 +63,8 @@ Selection is intent, not configuration. Product Setup now replaces the earlier p
 ## Non-goals and remaining work
 
 No AI SDK/calls, prompts, seller style/profile analysis, PDF rendering, delivery, billing or new infrastructure. No semantic personalization extraction, conditional form builder, arbitrary mapping rules, configuration sharing, archived-version deletion, or historical assignment UI. Live Etsy intake remains gated by the existing unverified response contract. Product screens reuse the locked Reading OS shell and primitives; Landing, Auth and Home are unchanged.
+
+
+## Reading Media — Part 2.5B
+
+ProductVersion configuration now supports optional bounded readingMedia NONE/TAROT_CARDS (1–10 cards). Historical absence is interpreted as NONE without changing stored JSON; exact requirements freeze with GenerationContext. No deck belongs to Product config and no media UI is added. See READING_MEDIA.md.

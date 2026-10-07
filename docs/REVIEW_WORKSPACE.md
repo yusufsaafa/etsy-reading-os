@@ -95,3 +95,8 @@ Native in-app browser viewport checks used synthetic static markup rendered from
 Future boundary: approved Reading + document configuration/template → immutable document snapshot → paginated preview/render → PDF artifact. The Document/PDF Engine owns controlled seller customization (not a Canva-like editor): professional template selection, logo, brand name, primary/accent colors, controlled fonts, cover/footer/display options, reusable saved designs and product→design assignment. It must offer a realistic paginated preview and a real approved-Reading preview before PDF creation. Preview and final PDF must share one deterministic layout/rendering model to avoid drift. None of those responsibilities is implemented by Review Workspace.
 
 PDF/document rendering, design UI, branding, assignment, delivery, Telegram, billing, regeneration/reopening and approval histories remain deferred. Real Gemini calls in Part 4: 0. Review Workspace is complete within this milestone's scope; general deployment/access/retention/scaling gates remain separate.
+
+
+## Reading Media — Part 2.5B
+
+Part 2.5B exposes frozen pinned semantic readingMedia in the backend workspace. Drafts still edit sections only. Approval separately freezes approved-reading-media/v1 on reading_reviews; the existing approved-reading/v1 and sections-only hash remain unchanged. Required corrupt/missing media blocks approval. No card picker/editor or final card UI is implemented. See READING_MEDIA.md and PILOT_ACCEPTANCE.md.

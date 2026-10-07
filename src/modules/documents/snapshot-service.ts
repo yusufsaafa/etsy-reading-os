@@ -14,8 +14,11 @@ import { documentSnapshotHash, immutableDocumentSnapshot, DocumentSnapshotUnavai
 export const createDocumentSnapshotCommand = z.strictObject({orderId:z.uuid(),readingId:z.uuid()});
 /** Local creation only. Caller supplies intent, never content, design or provenance. */
 export async function createDocumentSnapshot(db:Database,scope:Scope,raw:unknown):Promise<DocumentSnapshot> {
+  return db.transaction(tx=>createDocumentSnapshotInTransaction(tx,scope,raw));
+}
+/** Transaction composition only; preserves the exact v1 creation contract/hash. */
+export async function createDocumentSnapshotInTransaction(tx:DbExecutor,scope:Scope,raw:unknown):Promise<DocumentSnapshot> {
   const command=createDocumentSnapshotCommand.parse(raw);
-  return db.transaction(async tx=>{
     await verifyScope(tx,scope,true);
     await tx.select({id:stores.id}).from(stores).where(and(eq(stores.organizationId,scope.organizationId),eq(stores.id,scope.storeId))).for("update");
     const approved=await getApprovedReadingForDocumentInTransaction(tx,scope,command.orderId,command.readingId);
@@ -36,7 +39,6 @@ export async function createDocumentSnapshot(db:Database,scope:Scope,raw:unknown
     const [saved]=await tx.insert(documentSnapshots).values({id:value.id,organizationId:scope.organizationId,storeId:scope.storeId,readingId:value.reading.readingId,orderId:value.reading.order.id,productId,
       reviewId:value.provenance.reviewId,generationId:value.provenance.generationId,designId:value.design.id,designRevision:value.design.revision,snapshotHash:value.snapshotHash,payload:value,createdAt:new Date(value.createdAt)}).returning();
     return validateStoredSnapshot(tx,scope,saved);
-  });
 }
 async function validateStoredSnapshot(db:DbExecutor,scope:Scope,row:typeof documentSnapshots.$inferSelect):Promise<DocumentSnapshot> {
   const value=immutableDocumentSnapshot(row.payload);
@@ -59,9 +61,12 @@ async function validateStoredSnapshot(db:DbExecutor,scope:Scope,row:typeof docum
 export async function getDocumentSnapshotForRender(db:Database,scope:Scope,snapshotId:string):Promise<DocumentSnapshot> {
   await verifyScope(db,scope);
   if(!z.uuid().safeParse(snapshotId).success)throw new DocumentSnapshotUnavailable();
-  return db.transaction(async tx=>{
+  return db.transaction(tx=>getDocumentSnapshotForRenderInTransaction(tx,scope,snapshotId),{isolationLevel:"repeatable read"});
+}
+export async function getDocumentSnapshotForRenderInTransaction(tx:DbExecutor,scope:Scope,snapshotId:string):Promise<DocumentSnapshot> {
+    await verifyScope(tx,scope);
+    if(!z.uuid().safeParse(snapshotId).success)throw new DocumentSnapshotUnavailable();
     const [row]=await tx.select().from(documentSnapshots).where(and(tenantWhere(documentSnapshots,scope),eq(documentSnapshots.id,snapshotId)));
     if(!row)throw new DocumentSnapshotUnavailable();
     return validateStoredSnapshot(tx,scope,row);
-  },{isolationLevel:"repeatable read"});
 }

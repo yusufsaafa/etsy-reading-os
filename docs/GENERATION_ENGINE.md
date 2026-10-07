@@ -141,3 +141,8 @@ DEFAULT: gemini-3.5-flash-lite. SUPPORTED: gemini-3.5-flash-lite and gemini-3.8-
 ## Style Intelligence Part 3 integration
 
 GenerationContext v1 gains an optional strict frozen styleIntelligence snapshot (analysis version ID, independent number, contract and bounded payload). Only new Generation insertion selects latest owned READY; eligibility, execution, command resume and retries do not select analysis. Legacy contexts retain exact hashes/prompts. Enriched prompts keep intelligence in the untrusted JSON envelope below product requirements and explicit seller style settings. Exact sections remain enforced and reservation includes actual added request bytes. No migration, source/exemplar injection, auto-analysis or seller UI. See STYLE_INTELLIGENCE.md.
+
+
+## Reading Media — Part 2.5B
+
+Part 2.5B adds capability-bound semantic Reading Media for explicitly configured tarot products. Canonical cards/orientations/positions use the same gateway/provider/accounting/retry path, with strict exact-count/unique-card/order validation and bounded prompt/schema reservation. NONE preserves the prior path. Failed card output is INVALID_OUTPUT, not repaired; retries retain admitted config. A fresh controlled real tarot-schema acceptance remains required; see READING_MEDIA.md and PILOT_ACCEPTANCE.md.
