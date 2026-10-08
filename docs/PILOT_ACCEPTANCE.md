@@ -130,3 +130,10 @@ Inspection identified an existing ETSY-E2E-01 prerequisite: generation context r
 ### Product discovery local acceptance prerequisite
 
 Product Seller UI MVP Part 1 provides owned listing-only discovery and persisted selection; all acceptance statuses remain unchanged. The controlled local MRH check on 2026-10-08 was blocked before any Etsy request because the configured local database lacks existing products/product_versions tables. Bring the local database onto the established migration history before retrying real Step 3 display acceptance; no new migration is introduced here. Synthetic UI/DB tests do not prove real listing display or order intake. See ONBOARDING_REPORT.md. No Product onboarding selection/configuration or Etsy mutation was performed on the real Store.
+
+
+## Product setup catalog prerequisite — 2026-10-08
+
+The owned `etsy-setup-catalog/v1` read now exposes actual available inventory configurations and supported text definitions; explicit setup uses the existing source-aware Product draft command. Controlled MRH service evidence: one active selected listing, four configurations/two dimensions, two text questions, verified thumbnail, side-effect-free catalog reads and replay-safe inactive draft. See ETSY_SOURCE_CONTRACT.md and ETSY_REAL_ACCEPTANCE_REPORT.md.
+
+ETSY-INPUTS-01, ETSY-E2E-01 and ETSY-CARDINALITY-01 remain **OPEN — BLOCKS MRH PILOT**. Dropdown/upload purchased identities/grouping/access and historical edited-question evidence are still unaccepted; unsupported setup types fail closed. Step 4 still needs seller-approved exact configuration behavior and question mapping UX. No Product activation, receipt intake or live gate removal occurred. All other acceptance statuses are unchanged.

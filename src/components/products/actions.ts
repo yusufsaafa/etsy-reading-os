@@ -5,12 +5,20 @@ import { redirect } from "next/navigation";
 import { database } from "@/db/client";
 import { currentStoreScope, currentDestination } from "@/modules/identity/session";
 import { beginListingDraft, editProduct, saveProductDraft, activateProduct } from "@/modules/products/service";
+import {stores} from "@/db/schema";
+import {and,eq} from "drizzle-orm";
+import {vault} from "@/infrastructure/secrets";
+import {beginSelectedEtsyDraft,getEtsySetupCatalog,assertSetupPolicy} from "@/modules/products/etsy-setup";
+import {configurationSchema} from "@/modules/products/contracts";
 import { completeProductOnboarding } from "@/modules/onboarding/service";
 export type SetupState = { error?:string; saved?:boolean; revision?:number; activated?:boolean };
 export async function startProductSetup(form:FormData) {
   const scope=await currentStoreScope(), db=database();
-  const listing=z.string().regex(/^[1-9]\d{0,19}$/).parse(form.get("listingId")), variant=z.string().min(1).max(2000).parse(form.get("variantKey"));
-  const productId=await beginListingDraft(db,scope,listing,variant); await editProduct(db,scope,productId);
+  const listing=z.string().regex(/^[1-9]\d{0,18}$/).parse(form.get("listingId"));
+  const [store]=await db.select().from(stores).where(and(eq(stores.id,scope.storeId),eq(stores.organizationId,scope.organizationId)));
+  if(store.source==="etsy"&&!form.has("configurationKey"))redirect("/onboarding/products/setup?listing="+listing);
+  const productId=store.source==="etsy"?await beginSelectedEtsyDraft(db,scope,{listingId:listing,configurationKey:form.get("configurationKey")},vault()):await beginListingDraft(db,scope,listing,z.string().min(1).max(2000).parse(form.get("variantKey")));
+  await editProduct(db,scope,productId);
   const destination=await currentDestination();
   redirect(destination.kind==="OPERATIONS_HOME" ? "/products/"+productId+"/setup" : "/onboarding/products/setup?product="+productId);
 }
@@ -24,6 +32,12 @@ export async function saveConfiguration(_state:SetupState,form:FormData):Promise
     const name=z.string().max(100).parse(form.get("name")), json=z.string().max(80000).parse(form.get("configuration"));
     const db=database(), payload={name,configuration:JSON.parse(json)};
     if(form.get("intent")==="activate") {
+      const [store]=await db.select().from(stores).where(and(eq(stores.id,scope.storeId),eq(stores.organizationId,scope.organizationId)));
+      if(store.source==="etsy"){
+        const configuration=configurationSchema.parse(payload.configuration);
+        if(!configuration.etsyFulfillment)return {error:"Choose this product’s Etsy options before activation."};
+        try{assertSetupPolicy(await getEtsySetupCatalog(db,scope,configuration.etsyFulfillment.listingId,vault()),configuration.etsyFulfillment);}catch{return {error:"Review the Etsy options and map each supported buyer question before activation."};}
+      }
       await activateProduct(db,scope,productId,versionId,revision,payload); revalidatePath("/", "layout"); return {activated:true};
     }
     const version=await saveProductDraft(db,scope,productId,versionId,revision,payload);revalidatePath("/", "layout");return {saved:true,revision:version.revision};

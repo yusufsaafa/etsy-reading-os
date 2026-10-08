@@ -1,3 +1,7 @@
+import {vault} from "@/infrastructure/secrets";
+import {getEtsySetupCatalog} from "@/modules/products/etsy-setup";
+import {CatalogChoice} from "@/components/products/catalog-choice";
+import Link from "next/link";
 import { z } from "zod";
 import { redirect, notFound } from "next/navigation";
 import { database } from "@/db/client";
@@ -8,9 +12,15 @@ import { StepHeader } from "@/components/onboarding/shell";
 import { Badge } from "@/components/ui";
 import { ProductSetup } from "@/components/products/setup";
 import { startProductSetup, finishProductOnboarding } from "@/components/products/actions";
-export default async function SetupPage({searchParams}:{searchParams:Promise<{product?:string}>}) {
+export default async function SetupPage({searchParams}:{searchParams:Promise<{product?:string;listing?:string}>}) {
  const scope=await currentStoreScope(),destination=await currentDestination();if(destination.kind!=="PRODUCT_SETUP")redirect(destination.path);
- const {product}=await searchParams;if(product){if(!z.string().uuid().safeParse(product).success)notFound();try{return await ProductSetup({scope,productId:product,onboarding:true});}catch(error){if(error instanceof AccessDenied)notFound();throw error;}}
+ const {product,listing:listingId}=await searchParams;
+ if(listingId){
+  if(!z.string().regex(/^[1-9]\d{0,18}$/).safeParse(listingId).success)notFound();
+  try{return <><StepHeader step={4} title="Choose Etsy options" description="Confirm the purchase options before configuring this product."/><CatalogChoice catalog={await getEtsySetupCatalog(database(),scope,listingId,vault())}/></>;}
+  catch{return <><StepHeader step={4} title="Product setup" description="Your product selection has not changed."/><p role="alert">Etsy setup information couldn't be loaded. Check your connection and try again.</p><Link className="back-link" href="/onboarding/products/setup">← Selected products</Link></>;}
+ }
+ if(product){if(!z.string().uuid().safeParse(product).success)notFound();try{return await ProductSetup({scope,productId:product,onboarding:true});}catch(error){if(error instanceof AccessDenied)notFound();throw error;}}
  const data=await catalogData(database(),scope),selected=data.listings.filter(l=>data.selections.some(s=>s.listingExternalId===l.externalId));
  const hasActive=data.mappings.some(m=>!m.paused&&selected.some(l=>l.externalId===m.listingExternalId)&&data.products.some(p=>p.id===m.productId&&p.activeVersionId));
  return <><StepHeader step={4} title="Set up your products" description="Activate your first product to open your workspace. You can finish the others later."/><div className="product-list">{selected.map(listing=>{

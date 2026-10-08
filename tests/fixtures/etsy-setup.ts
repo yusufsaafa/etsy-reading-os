@@ -1,0 +1,7 @@
+// Synthetic, official-contract-shaped setup definitions. No customer values or live IDs.
+export const setupListing={listing_id:101,shop_id:123,title:"Synthetic reading",state:"active",updated_timestamp:100,images:[{rank:1,url_75x75:"https://i.etsystatic.com/123/il_75x75.test.jpg"}]};
+export const setupQuestions={personalization_questions:[{question_id:901,question_type:"text_input",question_text:"Your question",instructions:"Share your question",required:true,max_allowed_characters:1024,max_allowed_files:null,options:null}]};
+export const property=(id:number,value:number,name="Choice",label="Turtle")=>({property_id:id,property_name:name,scale_id:null,scale_name:null,value_ids:[value],values:[label]});
+export const product=(id:number,properties=[property(513,id),property(514,2,"Delivery","Hour Same")])=>({product_id:id,sku:"SYNTHETIC-VIP",is_deleted:false,property_values:properties,offerings:[{offering_id:id+10000,quantity:999,is_enabled:true,is_deleted:false,price:{amount:100,divisor:100,currency_code:"USD"},readiness_state_id:null}]});
+export const setupInventory={products:[product(1),product(2)],price_on_property:[513],quantity_on_property:[],sku_on_property:[],readiness_state_on_property:[],listing:setupListing};
+export function setupFetch(url:unknown){const u=new URL(String(url));return new Response(JSON.stringify(u.pathname.endsWith("/inventory")?setupInventory:u.pathname.endsWith("/personalization")?setupQuestions:setupListing),{headers:{"content-type":"application/json"}});}
