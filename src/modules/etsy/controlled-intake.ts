@@ -1,3 +1,4 @@
+import {pinnedProductTitle,configurationSchema} from "../products/contracts";
 import {z} from "zod";
 import {and,eq} from "drizzle-orm";
 import type {Database,DbExecutor} from "../../db/client";
@@ -48,7 +49,7 @@ export async function assessReceiptForIntake(tx:DbExecutor,scope:Scope,body:stri
    }
   }
   if(!key||source.transaction.listingId.presence!=="value"||source.transaction.isDigital.presence!=="value"||source.transaction.quantity<1){projectable=false;reasons.push("source_evidence_incomplete");}
-  else lines.push({externalId:source.transaction.transactionId,listingId:source.transaction.listingId.value,title:"Etsy purchase",quantity:source.transaction.quantity,sku:source.transaction.sku.presence==="value"?source.transaction.sku.value:null,variantKey:key,variations:[],answers:resolution.answers,digital:source.transaction.isDigital.value,etsySource:source});
+  else lines.push({externalId:source.transaction.transactionId,listingId:source.transaction.listingId.value,title:prior?.title??(resolution.version?pinnedProductTitle(configurationSchema.parse(resolution.version.configuration)).title:"Unconfigured purchase"),quantity:source.transaction.quantity,sku:source.transaction.sku.presence==="value"?source.transaction.sku.value:null,variantKey:key,variations:[],answers:resolution.answers,digital:source.transaction.isDigital.value,etsySource:source});
   if(reasons.length)report.held++;
   for(const reason of new Set(reasons))report.holdReasons[reason]=(report.holdReasons[reason]??0)+1;
  }

@@ -606,3 +606,10 @@ it("defaults migration preserves old generations and repeat migration is a no-op
  expect((await readGeneration(db,a,result.id)).context.style.id).toBe(styleId);
  const {migrate}=await import("drizzle-orm/pglite/migrator");const runner=new PGlite();try{const d=drizzle(runner,{schema});await migrate(d,{migrationsFolder:"drizzle"});await migrate(d,{migrationsFolder:"drizzle"});const journal=JSON.parse(readFileSync("drizzle/meta/_journal.json","utf8"));expect((await runner.query("SELECT * FROM drizzle.__drizzle_migrations")).rows).toHaveLength(journal.entries.length);}finally{await runner.close();}
 },20000);
+it("new context pins approved title, field meanings and attribution despite mutable Product edits",async()=>{
+ const c=await context();expect(c.integrationVersion).toBe("generation-context/v2");expect(c.product.title).toBe("Personalized guidance");expect(c.product.source).toBe("PRODUCT_VERSION");
+ await db.update(schema.products).set({name:"Mutable renamed product"}).where(eq(schema.products.id,productId));
+ expect((await context()).product.title).toBe("Personalized guidance");
+ const {assembleInstructions}=await import("../src/modules/generation/instructions");const p=JSON.parse(assembleInstructions(c).data);
+ expect(p.product.title).toBe("Personalized guidance");expect(p.customerFields[0]).toMatchObject({key:"name",label:"Name",required:true,type:"TEXT"});expect(p.sellerIdentity.displayName).toBe(c.seller.displayName);
+});

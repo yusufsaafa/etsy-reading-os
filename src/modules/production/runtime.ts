@@ -1,3 +1,4 @@
+import {configuredDocumentPorts} from "../../infrastructure/document-runtime";
 import { DocumentProductionWorker,type DocumentProductionPorts } from "./documents";
 import type { Database } from "../../db/client";
 import { generationRuntime } from "../../infrastructure/ai/runtime";
@@ -10,7 +11,8 @@ export function productionRuntime(db:Database,documentPorts?:DocumentProductionP
  const scheduler=ProductionScheduler.forInternalWorker(db);
  const executor=ProductionExecutor.forInternalWorker(db,generationRuntime(db));
  const recovery=ProductionRecovery.forInternalWorker(db);
- const documents=documentPorts?DocumentProductionWorker.forInternalWorker(db,documentPorts):undefined;
+ const ports=documentPorts??configuredDocumentPorts();
+ const documents=ports?DocumentProductionWorker.forInternalWorker(db,ports):undefined;
  const tick=ProductionTick.forInternalWorker(db,recovery,scheduler,executor,documents?()=>documents.runCycle():undefined);
  return {runCycle:()=>runProductionCycle(scheduler,executor),runProductionTick:()=>tick.runProductionTick(),reconcile:()=>recovery.reconcileProductionWork()};
 }

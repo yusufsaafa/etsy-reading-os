@@ -32,7 +32,7 @@ export type DocumentSnapshot = DeepReadonly<Snapshot>;
 export function documentSnapshotHash(value: Pick<Snapshot,"reading"|"design"> | Pick<DocumentSnapshot,"reading"|"design">) {
   return createHash("sha256").update(stableJson({
     reading:{order:value.reading.order,product:value.reading.product,readingNumber:value.reading.readingNumber,quantity:value.reading.quantity,
-      sections:value.reading.sections,approvedAt:value.reading.approvedAt},
+      sections:value.reading.sections,approvedAt:value.reading.approvedAt,...(value.reading.reader?{reader:value.reading.reader}:{})},
     template:value.design.template,configuration:value.design.configuration,
   })).digest("hex");
 }

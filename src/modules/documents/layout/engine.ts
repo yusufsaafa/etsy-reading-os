@@ -42,6 +42,7 @@ export function composeDocumentLayout(raw:unknown,measurement:TextMeasurement=pr
  }
  if(config.cover==="BRAND")flowingText(config.brand.name,"BRAND",config.typography.heading,14000,18000);
  flowingText(input.snapshot.reading.product.name,"DISPLAY",config.typography.heading,t.displaySize,t.displaySize+6000);
+ if(input.snapshot.reading.reader)flowingText("Prepared by: "+input.snapshot.reading.reader.displayName,"METADATA",config.typography.body,10000,14000);
  if(config.display.customerName)flowingText("Prepared for: "+input.snapshot.reading.order.customerName,"METADATA",config.typography.body,10000,14000);
  if(config.display.readingDate)flowingText("Approved: "+input.snapshot.reading.approvedAt.slice(0,10),"METADATA",config.typography.body,9000,12000);
  if(t.ornament!=="NONE"&&y+18000<=bottom){current.elements.push({kind:"ORNAMENT",box:{x:t.margin,y,width:width-t.inset,height:18000},token:t.ornament,color:config.brand.accentColor});y+=18000+t.gap;}
@@ -105,7 +106,7 @@ export function composeDocumentLayout(raw:unknown,measurement:TextMeasurement=pr
   const number=String(p.number),lines=wrapText(number,config.typography.body,7500,36000,measurement);
   p.elements.push({kind:"TEXT",role:"PAGE_NUMBER",text:number,lines,box:{x:A4.width-t.margin-36000,y:footerBox.y+3000,width:36000,height:footerLineHeight},typography:{font:config.typography.body,size:7500,lineHeight:footerLineHeight,color:config.brand.primaryColor}});
  }
- const value:Omit<LayoutValue,"layoutHash">={contractVersion:"document-layout/v1",source:{renderInputHash:input.renderInputHash,snapshotHash:input.snapshot.snapshotHash,mediaHash:input.media.mediaHash},engineVersion:"reading-layout/1",measurement:descriptor,template:{...t},pageSize:{unit:"MILLI_POINT",...A4},footerHeight,sections:input.snapshot.reading.sections.map(s=>({sectionId:s.sectionId,title:s.title,length:s.content.length,bodyHash:digest(s.content)})),media:documentMediaSchema.parse(media), pages};
+ const value:Omit<LayoutValue,"layoutHash">={contractVersion:"document-layout/v1",source:{renderInputHash:input.renderInputHash,snapshotHash:input.snapshot.snapshotHash,mediaHash:input.media.mediaHash},engineVersion:input.snapshot.reading.reader?"reading-layout/2":"reading-layout/1",measurement:descriptor,template:{...t},pageSize:{unit:"MILLI_POINT",...A4},footerHeight,sections:input.snapshot.reading.sections.map(s=>({sectionId:s.sectionId,title:s.title,length:s.content.length,bodyHash:digest(s.content)})),media:documentMediaSchema.parse(media), pages};
  return immutableLayout({...value,layoutHash:layoutHash(value)},measurement);
 }
 /** Use when accepting a cached/untrusted layout: validate and compare full deterministic recreation. */

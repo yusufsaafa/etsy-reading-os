@@ -15,6 +15,8 @@ export const fulfillmentPolicySchema = z.object({
   targetCompletionMinutes: z.number().int().min(1).max(525600).nullable(),
 }).strict();
 export const configurationSchema = z.object({
+  // Server-pinned at publication; caller metadata never overrides the approved name.
+  productMetadata: z.strictObject({contractVersion:z.literal("product-metadata/v1"),title:z.string().trim().min(1).max(100)}).optional(),
   etsyFulfillment: etsyProductPolicySchema.optional(),
   fulfillment: fulfillmentPolicySchema.optional(),
   readingMedia: readingMediaRequirementSchema.optional(),
@@ -22,6 +24,14 @@ export const configurationSchema = z.object({
   output: z.enum(["TEXT", "PDF"]).nullable(), workflow: z.enum(["MANUAL", "ASSISTED", "AUTOMATIC"]).nullable(),
 }).strict();
 export type Configuration = z.infer<typeof configurationSchema>;
+export function pinnedProductTitle(configuration:Configuration) {
+  return configuration.productMetadata
+    ? {title:configuration.productMetadata.title,source:"PRODUCT_VERSION" as const}
+    : {title:"Personalized reading",source:"LEGACY_FALLBACK" as const};
+}
+export function publishProductMetadata(name:string,configuration:Configuration):Configuration {
+  return configurationSchema.parse({...configuration,productMetadata:{contractVersion:"product-metadata/v1",title:name}});
+}
 export type InputDefinition = Configuration["inputs"][number];
 export const emptyConfiguration: Configuration = { inputs: [], sections: [], output: null, workflow: "ASSISTED" };
 export function orderedConfiguration(raw: unknown): Configuration {

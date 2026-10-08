@@ -1,3 +1,4 @@
+import {assertInternalOperator} from "../identity/internal-access";
 import {and,eq} from "drizzle-orm";
 import {z} from "zod";
 import type {Database,DbExecutor} from "../../db/client";
@@ -13,6 +14,7 @@ import {readOwnedReceipt,readOwnedReceiptSample} from "./owned-receipt";
 
 /** Private projection: deliberately excludes buyer content, purchaser identity and raw JSON. */
 export async function reviewCandidates(tx:DbExecutor,scope:Scope,body:string){
+ assertInternalOperator(scope.userId);
  await verifyScope(tx,scope,true);
  const [store]=await tx.select().from(stores).where(and(eq(stores.id,scope.storeId),eq(stores.organizationId,scope.organizationId)));
  if(!store?.externalShopId)throw new Error("REVIEW_UNAVAILABLE");
@@ -40,11 +42,13 @@ export async function reviewCandidates(tx:DbExecutor,scope:Scope,body:string){
  }));
 }
 export async function discoverReviewCandidates(db:Database,scope:Scope){
+ assertInternalOperator(scope.userId);
  const sample=await readOwnedReceiptSample(db,scope);
  return (await Promise.all(sample.details.map(d=>reviewCandidates(db,scope,d.body)))).flat();
 }
 const selection=z.object({receiptId:etsyId,transactionId:etsyId,productVersionId:z.uuid()}).strict();
 export async function recordCandidateReview(db:Database,scope:Scope,raw:unknown,reader=readOwnedReceipt){
+ assertInternalOperator(scope.userId);
  await verifyScope(db,scope,true);const command=selection.parse(raw);
  const detail=await reader(db,scope,command.receiptId);
  return db.transaction(async tx=>{
@@ -61,12 +65,14 @@ export async function recordCandidateReview(db:Database,scope:Scope,raw:unknown,
  });
 }
 export async function loadCandidateReview(db:DbExecutor,scope:Scope,id:string){
+ assertInternalOperator(scope.userId);
  await verifyScope(db,scope,true);z.uuid().parse(id);
  const [review]=await db.select().from(etsyCandidateReviews).where(and(tenantWhere(etsyCandidateReviews,scope),eq(etsyCandidateReviews.id,id),eq(etsyCandidateReviews.reviewedBy,scope.userId)));
  if(!review)throw new Error("REVIEW_UNAVAILABLE");return review;
 }
 /** Explicit confirmation pins review only. NEVER calls adoption or ingestion. Fresh GET on every confirmation/replay. */
 export async function confirmCandidateReview(db:Database,scope:Scope,id:string,reader=readOwnedReceipt){
+ assertInternalOperator(scope.userId);
  const review=await loadCandidateReview(db,scope,id);
  const detail=await reader(db,scope,review.receiptId);
  return db.transaction(async tx=>{
@@ -87,6 +93,7 @@ export async function confirmCandidateReview(db:Database,scope:Scope,id:string,r
  * This returns review provenance only; the existing adoption command must still run all its gates.
  */
 export async function revalidateConfirmedReview(db:Database,scope:Scope,id:string,reader=readOwnedReceipt){
+ assertInternalOperator(scope.userId);
  const review=await loadCandidateReview(db,scope,id);
  if(!review.confirmedAt||review.invalidatedAt)throw new Error("CONFIRMED_REVIEW_REQUIRED");
  if(!(await confirmCandidateReview(db,scope,id,reader)).confirmed)throw new Error("REVIEW_INVALIDATED");

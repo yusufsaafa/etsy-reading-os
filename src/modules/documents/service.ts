@@ -92,3 +92,15 @@ export async function resolveDocumentDesignForProductInTransaction(tx: DbExecuto
     return Object.freeze({status:"RESOLVED" as const,design});
 
 }
+
+/** Owner setup projection; retains the existing resolver and immutable render snapshot model. */
+export async function documentDesignSetup(db:Database,scope:Scope,productId:string) {
+ await verifyScope(db,scope,true);
+ try{
+  const result=await resolveDocumentDesignForProduct(db,scope,productId);
+  return result.status==="RESOLVED"?{status:"DESIGN_READY" as const,design:result.design}:{status:"SETUP_REQUIRED" as const};
+ }catch(error){
+  if(error instanceof Error&&error.message==="DOCUMENT_DESIGN_UNAVAILABLE")return {status:"INVALID_CONFIGURATION" as const};
+  throw error;
+ }
+}

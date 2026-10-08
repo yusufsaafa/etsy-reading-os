@@ -97,3 +97,11 @@ it("read rejects forged foreign design provenance even when payload and columns 
  await pg.exec("BEGIN; SET LOCAL session_replication_role=replica");await pg.query("UPDATE document_snapshots SET design_id=$1,design_revision=$2,payload=$3 WHERE id=$4",[foreign.id,foreign.revision,JSON.stringify(payload),snapshot.id]);await pg.exec("SET LOCAL session_replication_role=origin; COMMIT");
  await expect(getDocumentSnapshotForRender(db,a,snapshot.id)).rejects.toThrow("UNAVAILABLE");
 });
+it("document takes title and reader from pinned approval provenance, never generic line or current seller",async()=>{
+ await db.update(schema.lineItems).set({title:"Etsy purchase"}).where(eq(schema.lineItems.orderId,orderId));
+ await db.update(schema.products).set({name:"Mutable rename"}).where(eq(schema.products.id,productId));
+ await saveSellerProfile(db,a,{displayName:"Different current reader",shortBio:"Changed"});
+ const d=await design();await assignDocumentDesignToProduct(db,a,productId,d.id);await approve();
+ const snapshot=await create();expect(snapshot.reading.product.name).toBe("Personal guidance");expect(snapshot.reading.product.titleSource).toBe("PRODUCT_VERSION");expect(snapshot.reading.reader).toEqual({displayName:"Synthetic seller",source:"SELLER_PROFILE"});
+ expect(await getDocumentSnapshotForRender(db,a,snapshot.id)).toEqual(snapshot);
+});

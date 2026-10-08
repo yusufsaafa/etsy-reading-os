@@ -57,7 +57,7 @@ it("valid activation is transactional and replay creates no extra versions, mapp
 });
 it("editing creates a single cloned draft and invalid activation leaves old production intact",async()=>{
  const d=await publish();const editId=await editProduct(db,a,d.id);expect(await editProduct(db,a,d.id)).toBe(editId);
- expect((await productData(db,a,d.id)).draft?.configuration).toEqual(valid());await expect(activateProduct(db,a,d.id,editId,0,{name:"",configuration:{...valid(),sections:[]}})).rejects.toThrow();
+ expect((await productData(db,a,d.id)).draft?.configuration).toEqual({...valid(),productMetadata:{contractVersion:"product-metadata/v1",title:"Personalized message"}});await expect(activateProduct(db,a,d.id,editId,0,{name:"",configuration:{...valid(),sections:[]}})).rejects.toThrow();
  const data=await productData(db,a,d.id);expect(data.active?.id).toBe(d.version.id);expect(data.draft?.id).toBe(editId);expect(data.active?.status).toBe("ACTIVE");
  const saved=await saveProductDraft(db,a,d.id,editId,0,{name:"Draft name",configuration:{...valid(),output:"PDF"}});await expect(saveProductDraft(db,a,d.id,editId,0,{name:"Other",configuration:valid()})).rejects.toThrow("STALE_PRODUCT_DRAFT");expect(saved.revision).toBe(1);
 });
@@ -117,4 +117,14 @@ it("database disallows two active versions and publishes no partial pointer afte
  const d=await publish(),v2=await editProduct(db,a,d.id);
  await expect(db.transaction(async tx=>{await tx.update(schema.productVersions).set({status:"ACTIVE",activatedAt:new Date()}).where(eq(schema.productVersions.id,v2));await tx.update(schema.products).set({activeVersionId:v2}).where(eq(schema.products.id,d.id));})).rejects.toThrow();
  const data=await productData(db,a,d.id);expect(data.active?.id).toBe(d.version.id);expect(data.draft?.id).toBe(v2);expect(data.versions.filter(v=>v.status==="ACTIVE")).toHaveLength(1);
+});
+it("publication pins trusted title; later draft rename cannot rewrite the active version",async()=>{
+ const d=await publish();const active=(await productData(db,a,d.id)).active!;
+ expect(active.configuration.productMetadata).toEqual({contractVersion:"product-metadata/v1",title:"Personalized message"});
+ const next=await editProduct(db,a,d.id);
+ await saveProductDraft(db,a,d.id,next,0,{name:"Changed draft title",configuration:{...valid(),productMetadata:{contractVersion:"product-metadata/v1",title:"Unapproved metadata"}}});
+ expect((await productData(db,a,d.id)).active?.configuration.productMetadata).toEqual(active.configuration.productMetadata);
+ const draft=(await productData(db,a,d.id)).draft!;await activateProduct(db,a,d.id,next,draft.revision);
+ expect((await productData(db,a,d.id)).active?.configuration.productMetadata?.title).toBe("Changed draft title");
+ expect((await productData(db,a,d.id)).versions.find(v=>v.id===active.id)?.configuration.productMetadata).toEqual(active.configuration.productMetadata);
 });

@@ -5,7 +5,7 @@ import { products, productVersions, mappings, listings, listingSelections, lineI
 import { tenantWhere, verifyScope } from "../intake/service";
 import { AccessDenied } from "../identity/service";
 import { stableJson, type Scope } from "../intake/contracts";
-import { activationErrors, emptyConfiguration, orderedConfiguration } from "./contracts";
+import { activationErrors, emptyConfiguration, orderedConfiguration, publishProductMetadata } from "./contracts";
 import { etsyProductPolicySchema, selectionKey, type EtsyProductPolicy } from "../etsy/source-contract";
 async function lockedStore(tx: DbExecutor, scope: Scope) {
   await verifyScope(tx,scope,true);
@@ -94,12 +94,13 @@ export async function activateProduct(db: Database,scope: Scope,productId:string
     await lockedStore(tx,scope); const data=await productData(tx,scope,productId), version=data.versions.find(v=>v.id===versionId);
     if(!version) throw new AccessDenied();
     if(version.status==="ACTIVE" && data.product.activeVersionId===versionId) {
-      if(payload && (stableJson(payload.configuration)!==stableJson(version.configuration) || payload.name!==data.product.name)) throw new Error("STALE_PRODUCT_DRAFT");
+      if(payload && (stableJson(version.configuration.productMetadata?publishProductMetadata(payload.name,payload.configuration):payload.configuration)!==stableJson(version.configuration) || payload.name!==data.product.name)) throw new Error("STALE_PRODUCT_DRAFT");
       return versionId;
     }
     if(version.status!=="DRAFT" || version.revision!==expectedRevision) throw new Error("STALE_PRODUCT_DRAFT");
-    const configuration=payload?.configuration??version.configuration, name=payload?.name??data.product.name;
-    const errors=activationErrors(name,configuration); if(errors.length) throw new Error(errors.join(" "));
+    const candidateConfiguration=payload?.configuration??version.configuration, name=payload?.name??data.product.name;
+    const errors=activationErrors(name,candidateConfiguration); if(errors.length) throw new Error(errors.join(" "));
+    const configuration=publishProductMetadata(name,candidateConfiguration);
     if(!data.bindings.length) throw new Error("A valid Etsy product connection is required.");
     if(configuration.etsyFulfillment && !data.bindings.some(b=>b.listingExternalId===configuration.etsyFulfillment!.listingId && b.variantKey===selectionKey(configuration.etsyFulfillment!.purchaseSelections)))
       throw new Error("ETSY_SOURCE_BINDING_MISMATCH");

@@ -4,7 +4,7 @@ import { units, orders, lineItems, customerInputs, productVersions, mappings, st
 import { tenantWhere, verifyScope } from "../intake/service";
 import { triage, type Scope } from "../intake/contracts";
 import { AccessDenied } from "../identity/service";
-import { activationErrors, configurationSchema, inputPolicy } from "../products/contracts";
+import { activationErrors, configurationSchema, inputPolicy, pinnedProductTitle } from "../products/contracts";
 import { sellerStyleDataForStoreInTransaction } from "../seller-style/service";
 import { defaultStyle, DEFAULT_STYLE_VERSION, READING_OUTPUT_LANGUAGE } from "./defaults";
 import { sellerIdentity, styleConfiguration, publishErrors } from "../seller-style/contracts";
@@ -42,9 +42,9 @@ export async function buildProductionContextForStoreInTransaction(tx:DbExecutor,
   const selectedStyle=data.active??defaultStyle();
   const style = styleConfiguration.safeParse(selectedStyle.configuration);
   if (!style.success || publishErrors(style.data).length) throw new AdmissionError("STYLE_SETUP");
-  return { version:ENGINE_VERSION,unitId:unit.id,orderId:order.id,lineItemId:line.id,
+  return { version:ENGINE_VERSION,integrationVersion:"generation-context/v2",unitId:unit.id,orderId:order.id,lineItemId:line.id,
     seller:{id:data.seller?.id??store.id,source:data.seller?"SELLER_PROFILE":"STORE",...seller.data}, style:{id:selectedStyle.id,versionNumber:selectedStyle.versionNumber,configuration:style.data},
     styleResolution:{source:"PLATFORM_DEFAULT",version:DEFAULT_STYLE_VERSION,configuration:defaultStyle().configuration},outputLanguage:READING_OUTPUT_LANGUAGE,
-    product:{id:version.id,versionNumber:version.versionNumber,configuration:parsed.data},
+    product:{id:version.id,versionNumber:version.versionNumber,...pinnedProductTitle(parsed.data),configuration:parsed.data},
     customer:{revision:input.revision,answers:input.answers} };
 }

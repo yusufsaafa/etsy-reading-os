@@ -1,3 +1,4 @@
+import {pinnedProductTitle} from "../products/contracts";
 import { admitDocumentProductionInTransaction } from "../production/documents";
 import { readingMediaRequirement, readingMediaHash } from "../media/reading-contract";
 import { detached } from "../media/contracts";
@@ -152,7 +153,7 @@ export async function getApprovedReadingForDocumentInTransaction(tx:DbExecutor,s
   const content=approvedReviewContent(review,base);
   approvedMediaForReview(review,data.generation);
   try{return immutableApprovedReading({contractVersion:"approved-reading/v1",organizationId:scope.organizationId,storeId:scope.storeId,readingId:data.unit.id,
-   order:{id:data.order.id,reference:data.order.externalId,customerName:data.order.buyerName||"Customer"},product:{name:data.line.title},readingNumber:data.unit.unitIndex,quantity:data.line.quantity,
+   order:{id:data.order.id,reference:data.order.externalId,customerName:data.order.buyerName||"Customer"},product:{name:pinnedProductTitle(data.generation.context.product.configuration).title,titleSource:pinnedProductTitle(data.generation.context.product.configuration).source},reader:{displayName:data.generation.context.seller.displayName,source:data.generation.context.seller.source??"SELLER_PROFILE"},readingNumber:data.unit.unitIndex,quantity:data.line.quantity,
    sections:content.sections,contentHash:review.approvedContentHash,approvedAt:review.approvedAt!.toISOString(),provenance:{reviewId:review.id,generationId:review.generationId}});}catch{throw new ReviewUnavailable();}
 
 }

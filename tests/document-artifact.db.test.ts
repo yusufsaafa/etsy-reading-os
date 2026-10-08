@@ -212,3 +212,17 @@ it("pending output evidence mismatch fails closed without overwriting stored int
  await pg.exec("BEGIN; SET LOCAL session_replication_role=replica");await pg.query("UPDATE document_artifacts SET sha256=$1,object_key=$2 WHERE id=$3",[digest,key,pending.id]);await pg.exec("SET LOCAL session_replication_role=origin; COMMIT");storage.failBefore=false;
  const writes=storage.writes;await expect(produce(f.media.id,storage)).rejects.toThrow("ARTIFACT_RENDER_CONFLICT");expect(storage.writes).toBe(writes);expect((await db.select().from(schema.documentArtifacts))[0].state).toBe("PENDING");
 });
+it("concrete local storage and authorized download integrate with existing immutable artifact protocol",async()=>{
+ const {mkdtemp,realpath,rm}=await import("node:fs/promises"),{tmpdir}=await import("node:os"),{join}=await import("node:path");
+ const {LocalArtifactStorage}=await import("../src/infrastructure/local-artifact-storage"),{downloadDocument}=await import("../src/modules/documents/download");
+ const root=await realpath(await mkdtemp(join(tmpdir(),"artifact-integration-")));
+ try{
+  await ready();const frozen=await input(),storage=new LocalArtifactStorage(root);const artifact=await produceDocumentArtifact(db,a,frozen.media.id,assets,storage);
+  expect((await produceDocumentArtifact(db,a,frozen.media.id,assets,storage)).id).toBe(artifact.id);
+  const response=await downloadDocument(db,a,{readingId,artifactId:artifact.id},storage);
+  expect(response.status).toBe(200);expect(response.headers.get("Content-Type")).toBe("application/pdf");expect(response.headers.get("Cache-Control")).toBe("private, no-store");expect(response.headers.get("Content-Disposition")).toBe(`attachment; filename="reading-${artifact.id}.pdf"`);
+  expect(sha256(new Uint8Array(await response.arrayBuffer()))).toBe(artifact.sha256);expect([...response.headers.values()].join(" ")).not.toContain(root);
+  await expect(downloadDocument(db,b,{readingId,artifactId:artifact.id},storage)).rejects.toThrow();await expect(downloadDocument(db,sibling,{readingId,artifactId:artifact.id},storage)).rejects.toThrow();
+  expect(await db.select().from(schema.documentArtifacts)).toHaveLength(1);expect(await db.select().from(schema.aiRequests)).toHaveLength(1);
+ }finally{await rm(root,{recursive:true,force:true});}
+});

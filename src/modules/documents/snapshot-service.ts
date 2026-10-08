@@ -29,7 +29,7 @@ export async function createDocumentSnapshotInTransaction(tx:DbExecutor,scope:Sc
     if(approved.storeId!==scope.storeId||approved.organizationId!==scope.organizationId||design.storeId!==scope.storeId||design.organizationId!==scope.organizationId||design.productId!==productId)throw new DocumentSnapshotUnavailable();
     const template=DOCUMENT_TEMPLATES[design.configuration.template];
     const input={contractVersion:"document-snapshot/v1",id:randomUUID(),organizationId:scope.organizationId,storeId:scope.storeId,
-      reading:{readingId:approved.readingId,order:approved.order,product:{id:productId,name:approved.product.name},readingNumber:approved.readingNumber,quantity:approved.quantity,
+      reading:{readingId:approved.readingId,order:approved.order,product:{id:productId,...approved.product},...(approved.reader?{reader:approved.reader}:{}),readingNumber:approved.readingNumber,quantity:approved.quantity,
         sections:approved.sections,contentHash:approved.contentHash,approvedAt:approved.approvedAt},
       design:{id:design.designId,revision:design.revision,name:design.name,source:design.source,template:{key:design.configuration.template,contractVersion:template.contractVersion,version:design.templateVersion},configuration:design.configuration,configurationHash:design.configurationHash},
       provenance:approved.provenance,createdAt:new Date().toISOString()};

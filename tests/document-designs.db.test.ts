@@ -60,3 +60,11 @@ it("malformed durable configuration fails closed without repairing or falling ba
  await db.update(schema.documentDesigns).set({configuration:{...config(),brand:{name:"Bad",primaryColor:"url(secret)",accentColor:"#ffffff"}} as never,revision:row.revision+1}).where(eq(schema.documentDesigns.id,design.id));
  await expect(resolveDocumentDesignForProduct(db,a,productId)).rejects.toThrow("UNAVAILABLE");
 });
+it("owner setup projection distinguishes missing, ready and invalid while preserving versioned snapshots",async()=>{
+ const {documentDesignSetup}=await import("../src/modules/documents/service");
+ expect(await documentDesignSetup(db,a,productId)).toEqual({status:"SETUP_REQUIRED"});const design=await create();await assignDocumentDesignToProduct(db,a,productId,design.id);
+ const result=await documentDesignSetup(db,a,productId);expect(result.status).toBe("DESIGN_READY");if(result.status!=="DESIGN_READY")throw Error();expect(result.design.revision).toBe(0);
+ await expect(documentDesignSetup(db,b,productId)).rejects.toThrow();await expect(documentDesignSetup(db,sibling,productId)).rejects.toThrow();
+ await db.update(schema.documentDesigns).set({configuration:{...config(),typography:{heading:"unsupported",body:"inter"}} as never,revision:1}).where(eq(schema.documentDesigns.id,design.id));
+ expect(await documentDesignSetup(db,a,productId)).toEqual({status:"INVALID_CONFIGURATION"});expect(result.design.revision).toBe(0);
+});

@@ -22,7 +22,7 @@ export const elementSchema=z.discriminatedUnion("kind",[
 ]);
 export const layoutSchema=z.strictObject({
  contractVersion:z.literal("document-layout/v1"),source:z.strictObject({renderInputHash:hashSchema,snapshotHash:hashSchema,mediaHash:hashSchema}),
- engineVersion:z.literal("reading-layout/1"),measurement:measurementDescriptorSchema,
+ engineVersion:z.enum(["reading-layout/1","reading-layout/2"]),measurement:measurementDescriptorSchema,
  template:templateDefinitionSchema,pageSize:z.strictObject({unit:z.literal("MILLI_POINT"),width:z.literal(A4.width),height:z.literal(A4.height)}),
  sections:z.array(z.strictObject({sectionId:z.string().min(1).max(100),title:z.string().min(1).max(200),length:z.number().int().positive().max(40000),bodyHash:hashSchema})).min(1).max(20),
  media:documentMediaSchema,footerHeight:z.number().int().min(34016).max(100000),

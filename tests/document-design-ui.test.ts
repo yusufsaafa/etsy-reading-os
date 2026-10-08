@@ -1,0 +1,15 @@
+import {it,expect,vi,beforeEach} from "vitest";
+import {renderToStaticMarkup} from "react-dom/server";
+const mocks=vi.hoisted(()=>({scope:vi.fn(),data:vi.fn(),setup:vi.fn(),list:vi.fn(),assign:vi.fn()}));
+vi.mock("@/db/client",()=>({database:()=>({})}));vi.mock("@/modules/identity/session",()=>({currentStoreScope:mocks.scope}));
+vi.mock("@/modules/products/service",()=>({productData:mocks.data}));vi.mock("@/modules/documents/service",()=>({documentDesignSetup:mocks.setup,listDocumentDesigns:mocks.list,assignDocumentDesignToProduct:mocks.assign}));
+vi.mock("next/navigation",()=>({redirect:(p:string)=>{throw Error(p);}}));
+import Page from "../src/app/(operations)/products/[id]/document-design/page";
+import {assignProductDocumentDesign} from "../src/app/(operations)/products/[id]/document-design/actions";
+const id="00000000-0000-4000-8000-000000000001",design="00000000-0000-4000-8000-000000000002";
+const render=()=>Page({params:Promise.resolve({id}),searchParams:Promise.resolve({})});
+beforeEach(()=>{vi.clearAllMocks();mocks.scope.mockResolvedValue({userId:"owner",storeId:"owned"});mocks.data.mockResolvedValue({product:{name:"Approved reading"}});mocks.setup.mockResolvedValue({status:"SETUP_REQUIRED"});mocks.list.mockResolvedValue([]);});
+it("missing design shows honest setup state with no creation on viewing",async()=>{const html=renderToStaticMarkup(await render());expect(html).toContain("Choose an approved document design");expect(html).toContain("No approved document designs");expect(mocks.assign).not.toHaveBeenCalled();});
+it("ready assignment exposes only existing owned active choices",async()=>{mocks.setup.mockResolvedValue({status:"DESIGN_READY",design:{name:"Owned design",revision:3,source:"PRODUCT",designId:design}});mocks.list.mockResolvedValue([{id:design,name:"Owned design",status:"ACTIVE",revision:3},{id:"archived",name:"Archived",status:"ARCHIVED"}]);const html=renderToStaticMarkup(await render());expect(html).toContain("Assigned: Owned design");expect(html).not.toContain("Archived");expect(html).toContain("Save design assignment");});
+it("assignment action derives scope and uses existing owned service",async()=>{const form=new FormData();form.set("product",id);form.set("design",design);await expect(assignProductDocumentDesign(form)).rejects.toThrow("?saved=1");expect(mocks.assign).toHaveBeenCalledWith({},{userId:"owner",storeId:"owned"},id,design);});
+it("failed assignment is controlled and never bypasses domain validation",async()=>{mocks.assign.mockRejectedValue(Error("private DB detail"));const form=new FormData();form.set("product",id);form.set("design",design);await expect(assignProductDocumentDesign(form)).rejects.toThrow("?error=assignment");});

@@ -8,10 +8,11 @@ export { MAX_GENERATION_ATTEMPTS } from "./limits";
 export const ENGINE_VERSION = "personalized-content-v1";
 export type GenerationContext = {
   version: typeof ENGINE_VERSION;
+  integrationVersion?: "generation-context/v2";
   unitId: string; orderId: string; lineItemId: string;
   seller: { id: string; displayName: string; shortBio: string; source?: "SELLER_PROFILE"|"STORE" };
   style: { id: string; versionNumber: number; configuration: StyleConfiguration };
-  product: { id: string; versionNumber: number; configuration: Configuration };
+  product: { id: string; versionNumber: number; configuration: Configuration; title?:string; source?:"PRODUCT_VERSION"|"LEGACY_FALLBACK" };
   styleIntelligence?: import("../seller-style/analysis-contracts").PinnedStyleIntelligence;
   // Optional only for immutable legacy contexts. New admission always pins both.
   styleResolution?: import("zod").infer<typeof import("./defaults").resolvedStyleSchema>;

@@ -1,3 +1,5 @@
+import {notFound} from "next/navigation";
+import {internalOperatorAllowed} from "@/modules/identity/internal-access";
 import Link from "next/link";
 import {and,eq} from "drizzle-orm";
 import {productVersions} from "@/db/schema";
@@ -10,7 +12,7 @@ import {selectHistoricalCandidate,confirmHistoricalReview} from "./actions";
 export const dynamic="force-dynamic";
 export const metadata={title:"Private Etsy purchase review",robots:{index:false,follow:false}};
 export default async function HistoricalReview({searchParams}:{searchParams:Promise<{review?:string;error?:string}>}){
- const scope=await currentStoreScope();await verifyScope(database(),scope,true);
+ const scope=await currentStoreScope();if(!internalOperatorAllowed(scope.userId))notFound();await verifyScope(database(),scope,true);
  const query=await searchParams;
  let content;
  try{
