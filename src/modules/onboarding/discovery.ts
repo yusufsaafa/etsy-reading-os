@@ -8,7 +8,7 @@ import {tokenSchema} from "../etsy/oauth";
 import {liveOAuthConfig,refreshConnection} from "../etsy/connection-service";
 import {fetchShopListings,ListingDiscoveryError} from "../etsy/listing-discovery";
 export type DiscoveredProduct={externalId:string;title:string;state:string;configured:boolean;thumbnailUrl?:string|null};
-export async function discoverProducts(db:Database,scope:Scope,vault:SecretVault,options:{config?:ReturnType<typeof liveOAuthConfig>;fetcher?:typeof fetch}={}){
+export async function discoverProducts(db:Database,scope:Scope,vault:SecretVault,options:{config?:ReturnType<typeof liveOAuthConfig>;fetcher?:typeof fetch}={}):Promise<{products:DiscoveredProduct[];selected:string[]}>{
  await verifyScope(db,scope,true);
  const [store]=await db.select().from(stores).where(and(eq(stores.id,scope.storeId),eq(stores.organizationId,scope.organizationId)));
  let [connection]=await db.select().from(connections).where(tenantWhere(connections,scope));

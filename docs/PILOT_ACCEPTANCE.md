@@ -137,3 +137,11 @@ Product Seller UI MVP Part 1 provides owned listing-only discovery and persisted
 The owned `etsy-setup-catalog/v1` read now exposes actual available inventory configurations and supported text definitions; explicit setup uses the existing source-aware Product draft command. Controlled MRH service evidence: one active selected listing, four configurations/two dimensions, two text questions, verified thumbnail, side-effect-free catalog reads and replay-safe inactive draft. See ETSY_SOURCE_CONTRACT.md and ETSY_REAL_ACCEPTANCE_REPORT.md.
 
 ETSY-INPUTS-01, ETSY-E2E-01 and ETSY-CARDINALITY-01 remain **OPEN — BLOCKS MRH PILOT**. Dropdown/upload purchased identities/grouping/access and historical edited-question evidence are still unaccepted; unsupported setup types fail closed. Step 4 still needs seller-approved exact configuration behavior and question mapping UX. No Product activation, receipt intake or live gate removal occurred. All other acceptance statuses are unchanged.
+
+## Product Seller UI MVP Part 2 — 2026-10-08
+
+Step 3 refinement and guided exact-configuration setup now use the owned catalog and source-aware drafts. Development tunnel navigation rejects neither valid native onboarding forms nor required dev resources; production origin policy remains unchanged. Real Safari navigation reached the existing MRH draft without a manual URL and retained saved data; safe metadata still showed three inactive drafts, zero activated versions. No orders were ingested or generated.
+
+The full redesigned seller-browser acceptance is **partial**, not accepted: real UI save/revisit, target/custom interactions, incomplete activation blocking, final Step 3 visual checks and mobile interaction still require an uninterrupted local browser pass. See ONBOARDING_REPORT.md. Unit/render/PGlite tests do not close that UI acceptance requirement. Do not claim MRH seller pilot readiness from this implementation alone.
+
+ETSY-INPUTS-01, ETSY-E2E-01 and ETSY-CARDINALITY-01 remain OPEN with their existing real-contract/intake/cardinality requirements. PDF/assets/storage/delivery/AI and all accepted debts keep their existing statuses. No live intake gate or historical fence was removed.

@@ -1,7 +1,7 @@
 "use server";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { database } from "@/db/client";
 import { currentStoreScope, currentDestination } from "@/modules/identity/session";
 import { beginListingDraft, editProduct, saveProductDraft, activateProduct } from "@/modules/products/service";
@@ -9,6 +9,7 @@ import {stores} from "@/db/schema";
 import {and,eq} from "drizzle-orm";
 import {vault} from "@/infrastructure/secrets";
 import {beginSelectedEtsyDraft,getEtsySetupCatalog,assertSetupPolicy} from "@/modules/products/etsy-setup";
+import {setupReadiness} from "./setup-model";
 import {configurationSchema} from "@/modules/products/contracts";
 import { completeProductOnboarding } from "@/modules/onboarding/service";
 export type SetupState = { error?:string; saved?:boolean; revision?:number; activated?:boolean };
@@ -21,6 +22,9 @@ export async function startProductSetup(form:FormData) {
   await editProduct(db,scope,productId);
   const destination=await currentDestination();
   redirect(destination.kind==="OPERATIONS_HOME" ? "/products/"+productId+"/setup" : "/onboarding/products/setup?product="+productId);
+}
+export async function startProductSetupState(_previous:SetupState,form:FormData):Promise<SetupState> {
+ try {await startProductSetup(form);return {};} catch(error){unstable_rethrow(error);return {error:"Product setup couldn’t be opened. Your saved draft is unchanged. Check your Etsy connection and try again."};}
 }
 export async function createProductEdit(form:FormData) {
   const id=z.string().uuid().parse(form.get("productId"));await editProduct(database(),await currentStoreScope(),id);revalidatePath("/", "layout");
@@ -36,7 +40,7 @@ export async function saveConfiguration(_state:SetupState,form:FormData):Promise
       if(store.source==="etsy"){
         const configuration=configurationSchema.parse(payload.configuration);
         if(!configuration.etsyFulfillment)return {error:"Choose this product’s Etsy options before activation."};
-        try{assertSetupPolicy(await getEtsySetupCatalog(db,scope,configuration.etsyFulfillment.listingId,vault()),configuration.etsyFulfillment);}catch{return {error:"Review the Etsy options and map each supported buyer question before activation."};}
+        try{const catalog=await getEtsySetupCatalog(db,scope,configuration.etsyFulfillment.listingId,vault());assertSetupPolicy(catalog,configuration.etsyFulfillment);const errors=setupReadiness(name,configuration,catalog);if(errors.length)return {error:errors.join(" ")};}catch{return {error:"Review the Etsy options and map each supported buyer question before activation."};}
       }
       await activateProduct(db,scope,productId,versionId,revision,payload); revalidatePath("/", "layout"); return {activated:true};
     }

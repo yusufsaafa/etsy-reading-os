@@ -1,7 +1,7 @@
 import {it,expect,vi} from "vitest";
 import {createElement} from "react";
 import {renderToStaticMarkup} from "react-dom/server";
-vi.mock("@/components/products/actions",()=>({startProductSetup:vi.fn()}));
+vi.mock("@/components/products/actions",()=>({startProductSetupState:vi.fn()}));
 import {CatalogChoice} from "../src/components/products/catalog-choice";
 import {deriveSetupCatalog} from "../src/modules/etsy/setup-catalog";
 import {setupListing,setupInventory,setupQuestions} from "./fixtures/etsy-setup";

@@ -119,3 +119,7 @@ After applying all migrations, sign in to an existing completed synthetic store 
 ## Canonical reading preparation
 
 Apply migration 0005. For synthetic development only set AI_PROVIDER=fake, ETSY_ADAPTER=fixtures, using an actual fixture Store; no API key is required. Create/activate a product and apply a complete style, then import a **new** synthetic reading so intake binds that ProductVersion. Existing legacy seeded readings are intentionally not rebound. Resolve required information/quantity allocation and open order detail → Prepare reading. Reload preserves canonical content. Live configuration and the opt-in isolated acceptance script are documented in GENERATION_ENGINE.md. Native/browser acceptance for this change was blocked by execution permissions, as recorded in GENERATION_ENGINE_REPORT.md.
+
+### Temporary HTTPS acceptance origins
+
+Set `READING_OS_DEV_ORIGINS` in the uncommitted local environment to the exact current tunnel hostname (comma-separated if needed; no scheme, paths or wildcard). Restart `pnpm dev` after changing it. `allowedDevOrigins` consumes this only in development; production origin policy is unchanged. Onboarding and sign-in use `Referrer-Policy: same-origin` in development so native form POSTs retain a valid same-origin Origin instead of opaque `null`. Server Action origin/state/auth checks remain enabled. Do not register a temporary tunnel hostname in committed config or commit local credentials.

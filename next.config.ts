@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
+// Acceptance hosts are explicit local environment data, never production trust rules.
 const config: NextConfig = {
   ...(process.env.NODE_ENV === "development" ? {
-    allowedDevOrigins: ["slim-freedom-ferry-accommodation.trycloudflare.com"],
+    allowedDevOrigins: (process.env.READING_OS_DEV_ORIGINS ?? "").split(",").map(host => host.trim()).filter(host => /^[a-z0-9]+(?:[.-][a-z0-9]+)*$/i.test(host)),
   } : {}),
   poweredByHeader: false,
   // Trusted server resources must accompany deployment; never resolve from public/ or network.
@@ -17,6 +18,8 @@ const config: NextConfig = {
     // same-origin validation for the development acceptance sign-in page.
     ...(process.env.NODE_ENV === "development" ? [{
       source: "/sign-in", headers: [{ key: "Referrer-Policy", value: "same-origin" }],
+    }, {
+      source: "/onboarding/:path*", headers: [{ key: "Referrer-Policy", value: "same-origin" }],
     }] : [])];
   },
 };

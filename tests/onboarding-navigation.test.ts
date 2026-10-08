@@ -1,0 +1,15 @@
+import {it,expect,vi,beforeEach} from "vitest";
+const mocks=vi.hoisted(()=>({save:vi.fn(),scope:{organizationId:"org",storeId:"store",userId:"owner"},db:{}}));
+vi.mock("next/navigation",()=>({redirect:(path:string)=>{throw new Error("REDIRECT:"+path);}}));
+vi.mock("next/cache",()=>({revalidatePath:vi.fn()}));
+vi.mock("@/db/client",()=>({database:()=>mocks.db}));
+vi.mock("@/modules/identity/session",()=>({currentStoreScope:async()=>mocks.scope}));
+vi.mock("@/modules/onboarding/service",()=>({saveProductSelection:mocks.save}));
+import {selectProductsAction} from "../src/app/onboarding/actions";
+import {readFileSync} from "node:fs";
+beforeEach(()=>{mocks.save.mockReset();});
+it("Continue preserves owned selected identities and redirects to Step 4 after saving",async()=>{const form=new FormData();form.append("listing","101");form.append("listing","102");await expect(selectProductsAction({},form)).rejects.toThrow("REDIRECT:/onboarding/products/setup");expect(mocks.save).toHaveBeenCalledWith(mocks.db,mocks.scope,["101","102"]);});
+it("selection failure returns a controlled error instead of navigating or dropping state",async()=>{mocks.save.mockRejectedValue(new Error("private"));const form=new FormData();form.append("listing","101");expect(await selectProductsAction({},form)).toEqual({error:expect.stringContaining("couldn't save")});});
+it("empty selection cannot initialize setup",async()=>{expect(await selectProductsAction({},new FormData())).toHaveProperty("error");expect(mocks.save).not.toHaveBeenCalled();});
+it("development origin config preserves strict production policy and provides same-origin onboarding forms",async()=>{const old=process.env.NODE_ENV,hosts=process.env.READING_OS_DEV_ORIGINS;try{vi.stubEnv("NODE_ENV","development");process.env.READING_OS_DEV_ORIGINS="example.trycloudflare.com";vi.resetModules();const dev=(await import("../next.config")).default;expect(dev.allowedDevOrigins).toEqual(["example.trycloudflare.com"]);expect(await dev.headers!()).toContainEqual({source:"/onboarding/:path*",headers:[{key:"Referrer-Policy",value:"same-origin"}]});vi.stubEnv("NODE_ENV","production");vi.resetModules();const prod=(await import("../next.config")).default;expect(prod.allowedDevOrigins).toBeUndefined();expect((await prod.headers!()).some(h=>h.source==="/onboarding/:path*")).toBe(false);}finally{vi.unstubAllEnvs(); if(hosts===undefined)delete process.env.READING_OS_DEV_ORIGINS;else process.env.READING_OS_DEV_ORIGINS=hosts;}});
+it("existing canonical drafts open without a creation action; failures offer safe back/retry",()=>{const page=readFileSync("src/app/onboarding/products/setup/page.tsx","utf8");expect(page).toContain('variantKey.startsWith("etsy-selection/1:")');expect(page).toContain('setup?product=');expect(page).toContain('Your saved draft has not changed');expect(page).toContain('Back to products');});

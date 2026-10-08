@@ -6,7 +6,7 @@ vi.mock("@/app/onboarding/actions",()=>({createStoreAction:vi.fn(),selectProduct
 import {ProductPicker} from "../src/components/onboarding/forms";
 it("picker presents configured and selected setup states without visible internal identities",()=>{
  const html=renderToStaticMarkup(createElement(ProductPicker,{products:[{externalId:"101",title:"Synthetic product",state:"active",configured:true},{externalId:"102",title:"Another product",state:"active"}],initialSelection:["102"]}));
- expect(html).toContain("Configured");expect(html).toContain("Needs setup");expect(html).toContain("1 selected");expect(html).toContain("Continue to product setup");expect(html).not.toContain("property_id");expect(html).not.toContain("ProductVersion");expect(html.replace(/<[^>]*>/g,"")).not.toContain("101");
+ expect(html).toContain("Ready");expect(html).toContain("Setup required");expect(html).toContain("1 selected");expect(html).toContain("Continue to product setup");expect(html).not.toContain("property_id");expect(html).not.toContain("ProductVersion");expect(html.replace(/<[^>]*>/g,"")).not.toContain("101");
 });
 it("empty selection disables continue and unavailable listings cannot be newly selected",()=>{
  const html=renderToStaticMarkup(createElement(ProductPicker,{products:[{externalId:"101",title:"Inactive product",state:"inactive"}],initialSelection:[]}));expect(html).toContain("disabled");expect(html).toContain("Not selected");expect(html).toContain("Listing status");
@@ -37,3 +37,5 @@ it("page selection preserves hidden selections and excludes unavailable rows",()
 it("renders safe public listing thumbnails and falls back for missing or unsafe images",()=>{
  const html=renderToStaticMarkup(createElement(ProductPicker,{products:[{...catalog[0],thumbnailUrl:"https://i.etsystatic.com/123/il_75x75.test.jpg"},catalog[1],{...catalog[2],thumbnailUrl:"https://evil.test/file"}],initialSelection:[]}));expect(html.match(/<img /g)).toHaveLength(1);expect(html).toContain('referrerPolicy="no-referrer"');expect(html).not.toContain("evil.test");
 });
+
+it("setup explanation is an independent keyboard/touch disclosure and Etsy status is labeled",()=>{const html=renderToStaticMarkup(createElement(ProductPicker,{products:[catalog[0]],initialSelection:["1"]}));expect(html).toContain("<details");expect(html).toContain("<summary");expect(html).toContain("product setup must be completed");expect(html).toContain("Active");expect(html).toContain("on Etsy");expect(html).not.toContain("<label class=\"productRow");const css=readFileSync("src/components/onboarding/onboarding.module.css","utf8");expect(css).toContain(".setupHelp:focus-within p");expect(css).toContain(".setupHelp[open] p");expect(css).toContain(".pagination { display:grid; grid-template-columns:1fr; justify-items:center;");});

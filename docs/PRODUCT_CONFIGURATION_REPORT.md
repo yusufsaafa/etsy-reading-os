@@ -90,3 +90,7 @@ Use Node 22.12+, `pnpm install --frozen-lockfile`, existing local configuration,
 ## Recommended next milestone
 
 SELLER / READER IDENTITY + STYLE LIBRARY. Do not add style analysis or generation automatically. Keep identity revisions separate from immutable product configuration.
+
+## Seller onboarding MVP Part 2 follow-up (2026-10-08)
+
+The guided editor now maps verified Etsy text question identities explicitly to seller-created customer fields, reviews the pinned complete purchase choice, and presents existing content/output/preparation/time configuration in merchant language. Canonical duration remains minutes; each exact configuration owns its behavior. No new Product architecture or per-option precedence exists. Current catalog/source drift and missing required mapping block UI activation; published immutability and server schema/domain checks remain intact. Pure readiness checks were extracted for browser-safe reuse without a Node crypto dependency. See ONBOARDING_REPORT.md for regression totals and the explicitly partial real-browser acceptance. Previous statements that generation/PDF production are unavailable are superseded; Etsy delivery is still separate and is not implemented by setup.
