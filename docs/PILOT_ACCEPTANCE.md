@@ -165,3 +165,11 @@ These server-side counts do not accept real intake or visual UX. Final correctio
 Progressive disclosures and responsive example/link layouts are implemented. Home exit checks owned persisted exact-choice coverage at click time and warns when Draft or Not configured choices remain; explicit continuation stays available. This does not weaken activation, historical fences or unsupported-choice holds.
 
 Synthetic component browser checks passed at 1440/1024/768/390px, but authenticated MRH dialog/navigation/save/mobile interaction remains NOT VERIFIED (the alternate local browser reached sign-in; Safari was not restarted). Finish those manual checks before claiming seller UX acceptance. No real Etsy read/intake acceptance was added. ETSY-INPUTS-01, ETSY-E2E-01 and ETSY-CARDINALITY-01 remain OPEN — BLOCKS MRH PILOT; all other statuses remain unchanged.
+
+## Real Etsy order pilot Part 1 — 2026-10-08
+
+Bounded owned receipt discovery succeeded without a tunnel or reconnect; the existing encrypted grant refreshed through the established mechanism. Recorded evidence: three paid receipts/three quantity-one lines, zero eligible and three held. One exact active purchase configuration matched but was blocked by its activation-time historical fence; two lacked exact active mappings. Source normalization retained six purchase selections and three text answers without rewriting non-digital source classification. See REAL_ETSY_ORDER_PILOT_PART1.md for safe category interpretation and limitations.
+
+No domain ingestion, Product changes, generation or delivery occurred. Buyer identity is structurally present, but the canonical source normalizer does not propagate it; Order → Reading → Generation identity/subject provenance remains a Part 2 requirement. The already recorded generation-context Etsy fulfillment-policy forwarding gap must also be addressed before admission acceptance. No historical fence or unsupported-input rule was bypassed.
+
+ETSY-E2E-01, ETSY-CARDINALITY-01 and ETSY-INPUTS-01 remain **OPEN — BLOCKS MRH PILOT**. All other debt statuses are unchanged. Part 2 requires an actually applicable post-activation purchase or explicit owner-approved pinned historical adoption, plus normal payment/context/quantity checks. This read-only milestone does not authorize or perform that ingestion.
