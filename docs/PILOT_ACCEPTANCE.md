@@ -184,3 +184,11 @@ The documented generation-context policy omission is fixed: existing triage now 
 Real dry-run: three receipts/three quantity-one lines, one exact active configuration with compatible input mapping but requiring historical approval, two without exact active mapping, zero applicable eligible lines and zero intended writes. Native isolated repeated concurrent approval/ingestion checks converge; no live ingestion acceptance is claimed. See REAL_ETSY_ORDER_PILOT_PART2A.md for migration, validation, privacy and explicit Part 2B approval steps.
 
 ETSY-E2E-01, ETSY-CARDINALITY-01 and ETSY-INPUTS-01 remain **OPEN — BLOCKS MRH PILOT**. Other accepted/open debts are unchanged. Real persisted buyer context/provenance, quantity/mixed carts, unsupported edited-question/dropdown/upload evidence, generation/review/PDF and storage/delivery acceptance remain open under their existing criteria. No broad import, sync, activation, delivery or automatic provider execution was enabled.
+
+## Private candidate review — Part 2B-1 (2026-10-09)
+
+`/etsy/historical-review` now provides authenticated owner-only bounded receipt discovery, exact transaction/version selection and separate fresh-evidence review confirmation. Durable review pins contain source identities and fingerprint only; they are not adoption authority and never ingest. Migration 0024 adds the bounded review evidence table; local history advances 24 → 25 with existing data preserved. See REAL_ETSY_ORDER_PILOT_PART2B_1.md for the private owner procedure and validation.
+
+No real owner selection/confirmation or historical approval was executed. Authenticated browser review remains NOT VERIFIED. Fresh bounded reads now contain two exact active matches (one normal, one historical), so prior count distributions must not be treated as original-candidate identity proof. The owner must establish a new exact private review before separately authorizing adoption. A future executor must revalidate the confirmed fingerprint/version before using the existing adoption command. Single-line authorization must not silently include held sibling receipt lines.
+
+ETSY-E2E-01, ETSY-CARDINALITY-01 and ETSY-INPUTS-01 remain **OPEN — BLOCKS MRH PILOT**. No generation, PDF or delivery acceptance is added.

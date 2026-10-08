@@ -11,8 +11,8 @@ import {parseEtsyJson} from "./raw-normalizer";
 import {readReceiptDetail} from "./receipt-read";
 import {ingestControlledReceipt} from "./controlled-intake";
 /** Trusted server read of one explicitly selected receipt; never exposes grant material. */
-export async function readOwnedReceipt(db:Database,scope:Scope,receiptId:string){
- await verifyScope(db,scope,true);etsyId.parse(receiptId);
+async function ownedGrant(db:Database,scope:Scope){
+ await verifyScope(db,scope,true);
  const [store]=await db.select().from(stores).where(and(eq(stores.id,scope.storeId),eq(stores.organizationId,scope.organizationId)));
  let [grant]=await db.select().from(connections).where(tenantWhere(connections,scope));
  if(!store?.externalShopId||grant?.status!=="connected"||!grant.encryptedTokens||!grant.scopes.includes("transactions_r"))throw new Error("ETSY_REAUTHORIZE");
@@ -20,10 +20,15 @@ export async function readOwnedReceipt(db:Database,scope:Scope,receiptId:string)
  if(grant.expiresAt&&grant.expiresAt<=new Date()){await refreshConnection(db,scope,secrets,config);[grant]=await db.select().from(connections).where(tenantWhere(connections,scope));}
  if(grant?.status!=="connected"||!grant.encryptedTokens)throw new Error("ETSY_REAUTHORIZE");
  const tokens=tokenSchema.parse(JSON.parse(secrets.open(grant.encryptedTokens,`${scope.organizationId}:${scope.storeId}:etsy`)));
- const detail=await readReceiptDetail(store.externalShopId,receiptId,tokens.access_token,config);
+ return {store,grant,tokens,config};
+}
+export async function readOwnedReceipt(db:Database,scope:Scope,receiptId:string){
+ etsyId.parse(receiptId);
+ const {store,grant,tokens,config}=await ownedGrant(db,scope);
+ const detail=await readReceiptDetail(store.externalShopId!,receiptId,tokens.access_token,config);
  const decoded=parseEtsyJson(detail.body) as Record<string,unknown>;
  if(decoded.seller_user_id!=null&&String(decoded.seller_user_id)!==tokens.access_token.split(".")[0])throw new Error("SHOP_OWNER_MISMATCH");
- return {...detail,epoch:grant.epoch,shopId:store.externalShopId};
+ return {...detail,epoch:grant.epoch,shopId:store.externalShopId!};
 }
 /** No route/startup/worker calls this. Live invocation requires separate seller authorization. */
 export async function ingestOwnedReceipt(db:Database,scope:Scope,receiptId:string,command:unknown){
@@ -54,4 +59,16 @@ export async function approveOwnedHistoricalLine(db:Database,scope:Scope,receipt
  if(!source)throw new Error("SOURCE_SELECTION_MISMATCH");
  const {authorizeHistoricalAdoption}=await import("../products/historical-adoption");
  return authorizeHistoricalAdoption(db,scope,{contractVersion:"etsy-historical-adoption/v2",commandId,productVersionId,source});
+}
+
+/** Explicit authenticated owner discovery, maximum three receipts from the last 90 days. */
+export async function readOwnedReceiptSample(db:Database,scope:Scope){
+ const {store,tokens,config}=await ownedGrant(db,scope);
+ const {readReceiptSample}=await import("./receipt-read");
+ const sample=await readReceiptSample(store.externalShopId!,tokens.access_token,config,Math.floor(Date.now()/1000)-90*86400);
+ for(const detail of sample.details){
+  const raw=parseEtsyJson(detail.body) as Record<string,unknown>;
+  if(raw.seller_user_id!=null&&String(raw.seller_user_id)!==tokens.access_token.split(".")[0])throw new Error("SHOP_OWNER_MISMATCH");
+ }
+ return sample;
 }

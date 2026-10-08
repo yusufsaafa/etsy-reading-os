@@ -169,6 +169,13 @@
       "when": 1791477645152,
       "tag": "0023_dusty_ultron",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791495560644,
+      "tag": "0024_giant_giant_girl",
+      "breakpoints": true
     }
   ]
 }

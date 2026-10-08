@@ -405,3 +405,19 @@ export const documentProduction=pgTable("document_production",{
  check("document_work_state",sql`${t.state} in ('WAITING','PROCESSING','RETRY_WAIT','ATTENTION','COMPLETED') and ${t.attempt} between 0 and 3 and ((${t.state}='PROCESSING')=(${t.claimToken} is not null and ${t.claimExpiresAt} is not null)) and ((${t.state}='RETRY_WAIT')=(${t.availableAt} is not null)) and (${t.state}<>'COMPLETED' or ${t.artifactId} is not null) and (${t.failureCode} is null or ${t.failureCode} in ('STORAGE_UNAVAILABLE','STORAGE_MISSING','STORAGE_CONFLICT','STORAGE_INTEGRITY','DOCUMENT_INVALID','SETUP_REQUIRED','READING_HOLD','MAX_ATTEMPTS'))`),
  index("document_work_due").on(t.state,t.availableAt,t.updatedAt),
 ]);
+
+// Private review evidence only: this table is never historical adoption authority.
+export const etsyCandidateReviews = pgTable("etsy_candidate_reviews", {
+ id:id(), organizationId:org(), storeId:store(), reviewedBy:text("reviewed_by").notNull().references(()=>users.id),
+ shopId:text("shop_id").notNull(), receiptId:text("receipt_id").notNull(), transactionId:text("transaction_id").notNull(),
+ listingId:text("listing_id").notNull(), selectionKey:text("selection_key").notNull(),
+ productVersionId:uuid("product_version_id").notNull(), sourceFingerprint:text("source_fingerprint").notNull(),
+ createdAt:time("created_at").defaultNow().notNull(), confirmedAt:time("confirmed_at"), invalidatedAt:time("invalidated_at"),
+},t=>[
+ foreignKey({name:"review_owned_store",columns:[t.organizationId,t.storeId],foreignColumns:[stores.organizationId,stores.id]}),
+ foreignKey({name:"review_owned_version",columns:[t.organizationId,t.storeId,t.productVersionId],foreignColumns:[productVersions.organizationId,productVersions.storeId,productVersions.id]}),
+ unique("review_evidence_replay").on(t.organizationId,t.storeId,t.reviewedBy,t.receiptId,t.transactionId,t.productVersionId,t.sourceFingerprint),
+ check("review_ids",sql`${t.shopId} ~ '^[1-9][0-9]{0,19}$' and ${t.receiptId} ~ '^[1-9][0-9]{0,19}$' and ${t.transactionId} ~ '^[1-9][0-9]{0,19}$' and ${t.listingId} ~ '^[1-9][0-9]{0,19}$'`),
+ check("review_fingerprint",sql`${t.sourceFingerprint} ~ '^[a-f0-9]{64}$'`),
+ check("review_selection",sql`length(${t.selectionKey}) between 17 and 2000 and ${t.selectionKey} like 'etsy-selection/1:%'`),
+]);

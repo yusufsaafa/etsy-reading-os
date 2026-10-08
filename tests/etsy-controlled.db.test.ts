@@ -79,3 +79,50 @@ it("first historical ingestion may use an explicitly adopted archived version on
 
 it("owned receipt transport rejects unauthorized/disconnected grants before any HTTP",async()=>{const fetcher=vi.fn();vi.stubGlobal("fetch",fetcher);try{await expect(readOwnedReceipt(db,{...a,userId:"b"},"900")).rejects.toThrow();await expect(readOwnedReceipt(db,a,"900")).rejects.toThrow("ETSY_REAUTHORIZE");expect(fetcher).not.toHaveBeenCalled();}finally{vi.unstubAllGlobals();}});
 it("command identity cannot authorize a different receipt; conflict rolls back new records",async()=>{const r=receipt(),c=command(r);await ingestControlledReceipt(db,a,body(r),now(),c);const next=receipt();next.receipt_id=910;next.transactions[0].receipt_id=910;next.transactions[0].transaction_id=911;await expect(ingestControlledReceipt(db,a,body(next),now(),{...command(next),commandId:c.commandId})).rejects.toThrow("INGEST_COMMAND_CONFLICT");const d=await workspaceData(db,a);expect([d.orders.length,d.lines.length,d.units.length]).toEqual([1,1,1]);});
+
+// Review is a separate, non-authorizing private evidence boundary.
+import {reviewCandidates,recordCandidateReview,confirmCandidateReview,loadCandidateReview} from "../src/modules/etsy/candidate-review";
+const reviewReader=(r=receipt(true))=>async()=>({body:body(r),shopId:"77",epoch:0,evidence:[]});
+const reviewCommand=()=>({receiptId:"900",transactionId:"901",productVersionId:version});
+it("private review preserves exact identity and fingerprint without storing answers or approving adoption",async()=>{
+ const c=(await reviewCandidates(db,a,body(receipt(true))))[0];expect(c.reasons).toEqual([]);expect(c.versionId).toBe(version);expect(JSON.stringify(c)).not.toContain(answer);
+ const id=await recordCandidateReview(db,a,reviewCommand(),reviewReader());const row=await loadCandidateReview(db,a,id);
+ expect(row).toMatchObject({receiptId:"900",transactionId:"901",shopId:"77",productVersionId:version,sourceFingerprint:sourceFingerprint(source())});
+ expect(JSON.stringify(row)).not.toContain(answer);expect(row.confirmedAt).toBeNull();expect(await db.select().from(schema.etsyHistoricalAdoptions)).toHaveLength(0);expect((await workspaceData(db,a)).orders).toHaveLength(0);await noExecution();
+});
+it("review replay and confirmation replay converge without authority or domain writes",async()=>{
+ const reader=reviewReader(),id=await recordCandidateReview(db,a,reviewCommand(),reader);
+ expect(await recordCandidateReview(db,a,reviewCommand(),reader)).toBe(id);
+ expect(await confirmCandidateReview(db,a,id,reader)).toEqual({confirmed:true});const first=await loadCandidateReview(db,a,id);
+ expect(await confirmCandidateReview(db,a,id,reader)).toEqual({confirmed:true});expect((await loadCandidateReview(db,a,id)).confirmedAt).toEqual(first.confirmedAt);
+ expect(await db.select().from(schema.etsyCandidateReviews)).toHaveLength(1);expect(await db.select().from(schema.etsyHistoricalAdoptions)).toHaveLength(0);await noExecution();
+});
+it("changed answer fingerprint invalidates even previously confirmed review",async()=>{
+ const id=await recordCandidateReview(db,a,reviewCommand(),reviewReader());await confirmCandidateReview(db,a,id,reviewReader());
+ const changed=receipt(true);changed.transactions[0].variations[2].formatted_value="Different synthetic answer";
+ expect(await confirmCandidateReview(db,a,id,reviewReader(changed))).toEqual({confirmed:false});expect((await loadCandidateReview(db,a,id)).invalidatedAt).not.toBeNull();expect(await confirmCandidateReview(db,a,id,reviewReader())).toEqual({confirmed:false});
+});
+it("another transaction cannot replace selected purchase and changed active ProductVersion invalidates",async()=>{
+ await expect(recordCandidateReview(db,a,{...reviewCommand(),transactionId:"902"},reviewReader())).rejects.toThrow();
+ await expect(recordCandidateReview(db,a,{...reviewCommand(),productVersionId:randomUUID()},reviewReader())).rejects.toThrow();
+ const id=await recordCandidateReview(db,a,reviewCommand(),reviewReader());const next=await editProduct(db,a,product);await activateProduct(db,a,product,next,0,{name:"Next",configuration:config()});expect(await confirmCandidateReview(db,a,id,reviewReader())).toEqual({confirmed:false});
+});
+it("review rejects unauthorized owner, cross tenant and forged review identifier before transport",async()=>{
+ const reader=vi.fn(reviewReader());await expect(recordCandidateReview(db,{...a,userId:"b"},reviewCommand(),reader)).rejects.toThrow();expect(reader).not.toHaveBeenCalled();
+ const id=await recordCandidateReview(db,a,reviewCommand(),reviewReader());await expect(loadCandidateReview(db,b,id)).rejects.toThrow();await expect(confirmCandidateReview(db,b,id,reader)).rejects.toThrow();expect(reader).not.toHaveBeenCalled();
+});
+it("stale malformed receipt invalidates review and private evidence cannot be rebound by SQL",async()=>{
+ const id=await recordCandidateReview(db,a,reviewCommand(),reviewReader());const malformed=reviewReader();
+ expect(await confirmCandidateReview(db,a,id,async()=>({...await malformed(),body:"{}"}))).toEqual({confirmed:false});
+ await expect(db.update(schema.etsyCandidateReviews).set({transactionId:"902"}).where(eq(schema.etsyCandidateReviews.id,id))).rejects.toThrow();await expect(db.delete(schema.etsyCandidateReviews).where(eq(schema.etsyCandidateReviews.id,id))).rejects.toThrow();
+});
+it("receipt status holds cannot acquire review and sibling never inherits review",async()=>{
+ const r=receipt(true);r.is_paid=false;await expect(recordCandidateReview(db,a,reviewCommand(),reviewReader(r))).rejects.toThrow();
+ const mixed=receipt(true);mixed.transactions.push({...structuredClone(mixed.transactions[0]),transaction_id:902});const id=await recordCandidateReview(db,a,reviewCommand(),reviewReader(mixed));expect((await loadCandidateReview(db,a,id)).transactionId).toBe("901");expect(await db.select().from(schema.etsyCandidateReviews)).toHaveLength(1);expect(await db.select().from(schema.etsyHistoricalAdoptions)).toHaveLength(0);
+});
+it("future approval precheck requires confirmed review and fresh evidence but never approves",async()=>{
+ const {revalidateConfirmedReview}=await import("../src/modules/etsy/candidate-review");const id=await recordCandidateReview(db,a,reviewCommand(),reviewReader());await expect(revalidateConfirmedReview(db,a,id,reviewReader())).rejects.toThrow("CONFIRMED_REVIEW_REQUIRED");await confirmCandidateReview(db,a,id,reviewReader());expect((await revalidateConfirmedReview(db,a,id,reviewReader())).productVersionId).toBe(version);const changed=receipt(true);changed.transactions[0].quantity=2;await expect(revalidateConfirmedReview(db,a,id,reviewReader(changed))).rejects.toThrow("REVIEW_INVALIDATED");expect(await db.select().from(schema.etsyHistoricalAdoptions)).toHaveLength(0);
+});
+it("operator membership cannot review owner purchases",async()=>{
+ await db.insert(schema.memberships).values({organizationId:a.organizationId,userId:"b",role:"operator"});const scope=await authorizeStore(db,"b",a.storeId);await expect(reviewCandidates(db,scope,body(receipt(true)))).rejects.toThrow();await expect(recordCandidateReview(db,scope,reviewCommand(),reviewReader())).rejects.toThrow();
+});
