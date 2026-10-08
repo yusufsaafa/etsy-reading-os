@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { database } from "@/db/client";
 import { currentStoreScope, currentDestination } from "@/modules/identity/session";
-import { beginListingDraft, editProduct, saveProductDraft, activateProduct } from "@/modules/products/service";
+import { beginListingDraft, editProduct, saveProductDraft, activateProduct, productData, catalogData } from "@/modules/products/service";
 import {stores} from "@/db/schema";
 import {and,eq} from "drizzle-orm";
 import {vault} from "@/infrastructure/secrets";
@@ -54,4 +54,31 @@ export async function saveConfiguration(_state:SetupState,form:FormData):Promise
 }
 export async function finishProductOnboarding() {
   await completeProductOnboarding(database(),await currentStoreScope());revalidatePath("/", "layout");redirect("/");
+}
+
+export type HomeExitState={error?:string;remaining?:number;total?:number;active?:number;draft?:number;unconfigured?:number;setupHref?:string};
+// Re-read owned persisted evidence at click time. Client/editor coverage never authorizes this decision.
+export async function checkProductOnboardingExit(_previous:HomeExitState,form:FormData):Promise<HomeExitState>{
+ let coverage:HomeExitState;
+ try{
+  const scope=await currentStoreScope(),db=database();
+  const data=await productData(db,scope,z.string().uuid().parse(form.get("productId")));
+  const policy=data.active?.configuration.etsyFulfillment;
+  if(!policy){
+   const [store]=await db.select({source:stores.source}).from(stores).where(and(eq(stores.id,scope.storeId),eq(stores.organizationId,scope.organizationId)));
+   if(!data.active||!store||store.source==="etsy")throw new Error("NO_ACTIVE_ETSY_CONFIGURATION");
+   // Preserve the existing non-Etsy/demo completion path; no Etsy coverage is claimed.
+   coverage={remaining:0};
+  }else{
+  const catalog=await getEtsySetupCatalog(db,scope,policy.listingId,vault());
+  if(catalog.state!=="READY"||catalog.configurations.length===0)throw new Error("SETUP_UNAVAILABLE");
+  const {configurationStatuses}=await import("./configuration-status");
+  const statuses=configurationStatuses(await catalogData(db,scope),policy.listingId);
+  const active=catalog.configurations.filter(c=>statuses[c.key]?.status==="Active").length;
+  const draft=catalog.configurations.filter(c=>statuses[c.key]?.status==="Draft").length;
+  coverage={total:catalog.configurations.length,active,draft,unconfigured:catalog.configurations.length-active-draft,remaining:catalog.configurations.length-active,setupHref:"/onboarding/products/setup?listing="+catalog.listing.id};
+  }
+ }catch(error){unstable_rethrow(error);return {error:"We couldn’t check your purchase options. Your saved setup is unchanged. Try again."};}
+ if(coverage.remaining===0)await finishProductOnboarding();
+ return coverage;
 }

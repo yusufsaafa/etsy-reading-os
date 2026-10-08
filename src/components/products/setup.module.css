@@ -67,7 +67,7 @@
 .personalizationGuide { margin:16px 0; padding:14px; background:var(--surface-subtle); border:1px solid var(--border); border-radius:8px; font-size:13px; line-height:1.6; }
 .personalizationGuide summary { cursor:pointer; font-weight:600; }
 .personalizationGuide h3 { font-size:14px; margin:18px 0 8px; }
-.mappingDiagram { display:grid; grid-template-columns:minmax(0,1.5fr) 24px minmax(0,1fr); align-items:center; gap:8px; }
+.mappingDiagram { display:grid; align-items:center; }
 .exampleBox { display:grid; gap:10px; padding:12px; background:var(--surface); border:1px solid var(--border); border-radius:6px; min-width:0; }
 .mappingArrow { text-align:center; font-size:20px; }
 .exampleMappings { list-style:none; padding:0; display:grid; gap:8px; }
@@ -84,7 +84,7 @@
 .setupChecklist a:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
 .setupChecklist .caption { margin:4px 0; }
 .editor section[id],.editor label[id] { scroll-margin-top:24px; }
-@media(max-width:600px) { .mappingDiagram { grid-template-columns:minmax(0,1fr); } .mappingArrow { transform:rotate(90deg); } .setupNavigation>span { font-size:11px; } .fieldSummary .rowControls { width:100%; } }
+@media(max-width:600px) { .setupNavigation>span { font-size:11px; } .fieldSummary .rowControls { width:100%; } }
 .configurationRow>strong { flex:1; min-width:180px; font-size:13px; font-weight:500; }
 .configurationRow form { margin:0; }
 .setupMain { display:grid; gap:24px; min-width:0; }
@@ -92,6 +92,17 @@
 .coverage h2 { font-size:17px; margin:0; }
 .listingReminder { padding:12px; background:var(--surface-subtle); border-radius:6px; display:grid; gap:8px; font-size:13px; }
 .listingReminder a { color:var(--accent); text-underline-offset:3px; }
-.mappingDiagram { grid-template-columns:minmax(0,1fr) 100px minmax(0,1fr); }
 .mappingArrow small { display:block; font-size:11px; line-height:1.5; }
-@media(max-width:600px) { .mappingDiagram { grid-template-columns:minmax(0,1fr); } .mappingArrow { transform:none; font-size:0; } .mappingArrow:before { content:"↓"; font-size:20px; } .coverage { padding:16px; } }
+@media(max-width:600px) { .coverage { padding:16px; } }
+
+/* Keep the mapping separator in its own track; stack before either panel is squeezed. */
+.mappingDiagram { grid-template-columns:minmax(180px,1fr) minmax(72px,100px) minmax(180px,1fr); gap:12px; }
+.exampleBox,.mappingArrow { overflow-wrap:anywhere; }
+.sectionHeading { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:12px; }
+.sectionHeading a { flex-shrink:0; font-size:12px; color:var(--accent); text-underline-offset:3px; }
+.exitDialog { max-width:460px; width:calc(100vw - 32px); padding:24px; border:1px solid var(--border); border-radius:var(--radius-md); color:var(--text-primary); background:var(--surface); }
+.exitDialog::backdrop { background:rgb(0 0 0 / .3); }
+.exitDialog h2 { font-size:18px; }
+.exitDialog p { font-size:14px; line-height:1.6; }
+@media(max-width:1100px) { .mappingDiagram { grid-template-columns:minmax(0,1fr); } .mappingArrow { transform:none; font-size:0; } .mappingArrow:before { content:"↓"; font-size:20px; } }
+@media(max-width:600px) { .sectionHeading { flex-direction:column; gap:4px; } }

@@ -159,3 +159,9 @@ The controlled real order pilot must verify whether authenticated Etsy buyer ide
 Read-only local MRH setup evidence confirms six verified purchase combinations, one exact Active configuration and five Not configured. Partial activation covers only one complete source identity combination; unmapped choices remain held and cannot inherit its version. Setup UI now exposes coverage, future answer-mapping guidance and listing references. Urgent-target priority derivation is limited to explicit setup commands; historical versions and Manual/Assisted gates remain intact.
 
 These server-side counts do not accept real intake or visual UX. Final correction browser checks remain NOT VERIFIED. ETSY-INPUTS-01, ETSY-E2E-01 and ETSY-CARDINALITY-01 retain OPEN — BLOCKS MRH PILOT; all other statuses remain unchanged. Controlled intake, historical adoption/activation-time scope, complete personalization preservation and buyer-versus-subject provenance still require the explicitly authorized real-order pilot. No real receipt was ingested here.
+
+## Product Setup cleanup / safe Home exit — 2026-10-08
+
+Progressive disclosures and responsive example/link layouts are implemented. Home exit checks owned persisted exact-choice coverage at click time and warns when Draft or Not configured choices remain; explicit continuation stays available. This does not weaken activation, historical fences or unsupported-choice holds.
+
+Synthetic component browser checks passed at 1440/1024/768/390px, but authenticated MRH dialog/navigation/save/mobile interaction remains NOT VERIFIED (the alternate local browser reached sign-in; Safari was not restarted). Finish those manual checks before claiming seller UX acceptance. No real Etsy read/intake acceptance was added. ETSY-INPUTS-01, ETSY-E2E-01 and ETSY-CARDINALITY-01 remain OPEN — BLOCKS MRH PILOT; all other statuses remain unchanged.

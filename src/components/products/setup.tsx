@@ -1,3 +1,4 @@
+import {HomeExit} from "./home-exit";
 import {PurchaseCoverage} from "./purchase-coverage";
 import {SetupNavigation} from "./setup-navigation";
 import {configurationStatuses} from "./configuration-status";
@@ -13,7 +14,7 @@ import { productData, catalogData } from "@/modules/products/service";
 import { StepHeader } from "../onboarding/shell";
 import { Heading, Badge } from "../ui";
 import { ProductEditor } from "./editor";
-import { createProductEdit, finishProductOnboarding } from "./actions";
+import { createProductEdit } from "./actions";
 export async function ProductSetup({scope,productId,onboarding=false}:{scope:Scope;productId:string;onboarding?:boolean}) {
  const data=await productData(database(),scope,productId),catalog=await catalogData(database(),scope);
  const policy=data.draft?.configuration.etsyFulfillment??data.active?.configuration.etsyFulfillment;
@@ -26,5 +27,5 @@ export async function ProductSetup({scope,productId,onboarding=false}:{scope:Sco
  {data.active&&<p className="notice"><Badge tone="good">Configuration active</Badge> Only this exact Etsy purchase choice uses this setup. Other purchase choices need their own setup. Existing readings keep their original configuration.</p>}
  {data.draft?<ProductEditor key={data.draft.id} productId={productId} versionId={data.draft.id} revision={data.draft.revision} initialName={data.product.name} initial={data.draft.configuration} catalog={setupCatalog} configurationStatuses={policy?configurationStatuses(catalog,policy.listingId):undefined}/>:data.active&&<section className="card stack"><h2>Published configuration</h2><p>{data.active.configuration.inputs.map(f=>f.label+(f.required?" (required)":" (optional)")).join(" · ")||"No customer fields required."}</p><p>Content: {data.active.configuration.sections.map(s=>s.title).join(" → ")}</p><p>Output: {data.active.configuration.output==="PDF"?"PDF":"Text"} · Workflow: {data.active.configuration.workflow==="ASSISTED"?"Assisted":"Manual"}</p><p className="small muted">Published setup applies to new purchases. Preparation and seller review are separate from Etsy delivery.</p><form action={createProductEdit}><input type="hidden" name="productId" value={productId}/><button className="button secondary">Edit product</button></form></section>}
  {!data.draft&&setupCatalog&&policy&&<PurchaseCoverage catalog={setupCatalog} statuses={configurationStatuses(catalog,policy.listingId)}/>}
- {onboarding&&data.active&&data.bindings.some(b=>!b.paused)&&<form action={finishProductOnboarding}><button className="button">Continue to Home</button><p className="small muted">You can set up your other products later.</p></form>}</div>;
+ {onboarding&&data.active&&data.bindings.some(b=>!b.paused)&&<HomeExit productId={productId}/>}</div>;
 }

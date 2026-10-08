@@ -1,0 +1,10 @@
+import {it,expect,vi} from "vitest";
+import {createElement} from "react";
+import {renderToStaticMarkup} from "react-dom/server";
+vi.mock("@/components/products/actions",()=>({saveConfiguration:vi.fn(),startProductSetupState:vi.fn()}));
+import {PersonalizationGuide} from "../src/components/products/personalization-guide";
+import {ProductEditor} from "../src/components/products/editor";
+import {readFileSync} from "node:fs";
+it("educational examples use a default-closed native disclosure with separate separator element",()=>{const html=renderToStaticMarkup(createElement(PersonalizationGuide));expect(html).toContain('<summary>How does this work?</summary>');expect(html).not.toMatch(/<details[^>]*\bopen/);expect(html).toContain('aria-label="Choose where the complete answer will be stored"');expect(html).toContain("Multiple personalization boxes");});
+it("compact section labels retain persisted topics and instructions",()=>{const html=renderToStaticMarkup(createElement(ProductEditor,{productId:"p",versionId:"v",revision:0,initialName:"Reading",initial:{inputs:[],sections:[{id:"s",title:"Original topic",instruction:"Original instruction",sortOrder:0}],output:"PDF",workflow:"MANUAL"}}));expect(html).toContain("Connect each Etsy question to a Reading OS field.");expect(html).toContain("What to explore");expect(html).toContain('value="Original topic"');expect(html).toContain("Original instruction");expect(html).not.toContain("Explore attraction, emotional intimacy");});
+it("diagram CSS assigns panels and separator distinct tracks, wraps labels and stacks on tablet/mobile",()=>{const css=readFileSync("src/components/products/setup.module.css","utf8");expect(css).toContain("minmax(180px,1fr) minmax(72px,100px) minmax(180px,1fr)");expect(css).toContain(".exampleBox,.mappingArrow { overflow-wrap:anywhere;");expect(css).toContain("@media(max-width:1100px)");expect(css).toContain(".sectionHeading { flex-direction:column;");});
