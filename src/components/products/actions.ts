@@ -9,6 +9,7 @@ import {stores} from "@/db/schema";
 import {and,eq} from "drizzle-orm";
 import {vault} from "@/infrastructure/secrets";
 import {beginSelectedEtsyDraft,getEtsySetupCatalog,assertSetupPolicy} from "@/modules/products/etsy-setup";
+import {withTargetPriority} from "@/modules/products/target-priority";
 import {setupReadiness} from "./setup-model";
 import {configurationSchema} from "@/modules/products/contracts";
 import { completeProductOnboarding } from "@/modules/onboarding/service";
@@ -34,7 +35,7 @@ export async function saveConfiguration(_state:SetupState,form:FormData):Promise
   try {
     const productId=z.string().uuid().parse(form.get("productId")),versionId=z.string().uuid().parse(form.get("versionId")),revision=z.coerce.number().int().nonnegative().parse(form.get("revision"));
     const name=z.string().max(100).parse(form.get("name")), json=z.string().max(80000).parse(form.get("configuration"));
-    const db=database(), payload={name,configuration:JSON.parse(json)};
+    const db=database(), payload={name,configuration:withTargetPriority(configurationSchema.parse(JSON.parse(json)))};
     if(form.get("intent")==="activate") {
       const [store]=await db.select().from(stores).where(and(eq(stores.id,scope.storeId),eq(stores.organizationId,scope.organizationId)));
       if(store.source==="etsy"){

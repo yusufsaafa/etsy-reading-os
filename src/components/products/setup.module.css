@@ -87,3 +87,11 @@
 @media(max-width:600px) { .mappingDiagram { grid-template-columns:minmax(0,1fr); } .mappingArrow { transform:rotate(90deg); } .setupNavigation>span { font-size:11px; } .fieldSummary .rowControls { width:100%; } }
 .configurationRow>strong { flex:1; min-width:180px; font-size:13px; font-weight:500; }
 .configurationRow form { margin:0; }
+.setupMain { display:grid; gap:24px; min-width:0; }
+.coverage { padding:20px; border:1px solid var(--border); border-radius:8px; background:var(--surface); min-width:0; }
+.coverage h2 { font-size:17px; margin:0; }
+.listingReminder { padding:12px; background:var(--surface-subtle); border-radius:6px; display:grid; gap:8px; font-size:13px; }
+.listingReminder a { color:var(--accent); text-underline-offset:3px; }
+.mappingDiagram { grid-template-columns:minmax(0,1fr) 100px minmax(0,1fr); }
+.mappingArrow small { display:block; font-size:11px; line-height:1.5; }
+@media(max-width:600px) { .mappingDiagram { grid-template-columns:minmax(0,1fr); } .mappingArrow { transform:none; font-size:0; } .mappingArrow:before { content:"↓"; font-size:20px; } .coverage { padding:16px; } }

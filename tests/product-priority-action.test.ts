@@ -1,0 +1,10 @@
+import {it,expect,vi,beforeEach} from "vitest";
+const mocks=vi.hoisted(()=>({save:vi.fn()}));
+vi.mock("next/cache",()=>({revalidatePath:vi.fn()}));
+vi.mock("next/navigation",()=>({redirect:vi.fn(),unstable_rethrow:vi.fn()}));
+vi.mock("@/db/client",()=>({database:()=>({})}));
+vi.mock("@/modules/identity/session",()=>({currentStoreScope:async()=>({userId:"owner",organizationId:"org",storeId:"store"}),currentDestination:vi.fn()}));
+vi.mock("@/modules/products/service",()=>({saveProductDraft:mocks.save,activateProduct:vi.fn(),editProduct:vi.fn(),beginListingDraft:vi.fn()}));
+import {saveConfiguration} from "../src/components/products/actions";
+beforeEach(()=>{mocks.save.mockReset();mocks.save.mockResolvedValue({revision:1});});
+it.each([[60,"STANDARD","EXPRESS"],[360,"EXPRESS","STANDARD"]] as const)("server setup save derives priority for %s rather than trusting the submitted priority",async(minutes,submitted,expected)=>{const form=new FormData();for(const [key,value] of Object.entries({productId:"11111111-1111-4111-8111-111111111111",versionId:"22222222-2222-4222-8222-222222222222",revision:"0",name:"Synthetic",intent:"save",configuration:JSON.stringify({inputs:[],sections:[],output:null,workflow:"MANUAL",fulfillment:{priorityClass:submitted,targetCompletionMinutes:minutes}})}))form.set(key,value);expect(await saveConfiguration({},form)).toMatchObject({saved:true,revision:1});expect(mocks.save.mock.calls[0][5].configuration.fulfillment).toEqual({priorityClass:expected,targetCompletionMinutes:minutes});});

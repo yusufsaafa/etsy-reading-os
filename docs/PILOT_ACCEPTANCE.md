@@ -153,3 +153,9 @@ Product setup now displays exact-choice persisted status, compact customer field
 Deferred post-MVP enhancements: copy setup between exact Etsy purchase configurations; reusable Product setup templates; bulk configuration across listings; optional AI-assisted setup suggestions (never runtime mapping authority); buyer identity versus reading-subject interpretation.
 
 The controlled real order pilot must verify whether authenticated Etsy buyer identity is available and correctly propagated through Order → Reading → Generation context. The buyer is not necessarily the reading subject. Do not infer roles from name order or assume identity propagation already works; no person extraction is implemented here. These checks belong to the next explicitly authorized pilot, not this UI milestone.
+
+## Final MVP Product Setup correction — 2026-10-08
+
+Read-only local MRH setup evidence confirms six verified purchase combinations, one exact Active configuration and five Not configured. Partial activation covers only one complete source identity combination; unmapped choices remain held and cannot inherit its version. Setup UI now exposes coverage, future answer-mapping guidance and listing references. Urgent-target priority derivation is limited to explicit setup commands; historical versions and Manual/Assisted gates remain intact.
+
+These server-side counts do not accept real intake or visual UX. Final correction browser checks remain NOT VERIFIED. ETSY-INPUTS-01, ETSY-E2E-01 and ETSY-CARDINALITY-01 retain OPEN — BLOCKS MRH PILOT; all other statuses remain unchanged. Controlled intake, historical adoption/activation-time scope, complete personalization preservation and buyer-versus-subject provenance still require the explicitly authorized real-order pilot. No real receipt was ingested here.
