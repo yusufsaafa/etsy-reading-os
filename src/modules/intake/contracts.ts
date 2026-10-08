@@ -28,6 +28,7 @@ export const lineSchema = z.object({
   }
 });
 export const orderSchema = z.object({
+  purchaser: z.object({source:z.literal("etsy"),accountId:externalId.nullable(),role:z.literal("PURCHASER")}).strict().optional(),
   externalId, buyerName: z.string().max(500), createdAt: z.number().int().nonnegative(),
   updatedAt: z.number().int().nonnegative(), paid: z.boolean(), canceled: z.boolean(),
   refund: z.enum(["none", "partial", "full", "unknown"]),
@@ -35,6 +36,8 @@ export const orderSchema = z.object({
 }).superRefine((order, ctx) => {
   if (new Set(order.lines.map(l => l.externalId)).size !== order.lines.length)
     ctx.addIssue({ code: "custom", message: "Duplicate transaction identifiers" });
+  if(order.purchaser&&order.lines.some(l=>l.etsySource&&((l.etsySource.receipt.purchaserAccountId?.presence==="value"?l.etsySource.receipt.purchaserAccountId.value:null)!==order.purchaser!.accountId)))
+    ctx.addIssue({code:"custom",message:"Etsy purchaser projection mismatch"});
   if(order.lines.some(l=>l.etsySource && (l.etsySource.receipt.receiptId!==order.externalId || (l.etsySource.receipt.isPaid.presence==="value"&&l.etsySource.receipt.isPaid.value!==order.paid))))
     ctx.addIssue({code:"custom",message:"Etsy receipt projection mismatch"});
 });

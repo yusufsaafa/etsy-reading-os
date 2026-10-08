@@ -13,6 +13,7 @@ import {inputPolicy} from "../src/modules/products/contracts";
 import {validateInputs} from "../src/modules/intake/contracts";
 import {resolveConfiguration,resolveEtsySourceConfiguration} from "../src/modules/products/runtime";
 import {readReceiptSample,normalizePilotReceipt,ReceiptPilotError} from "./lib/receipt-pilot";
+import {assessReceiptForIntake} from "../src/modules/etsy/controlled-intake";
 let stage="local_environment";
 let close:(()=>Promise<void>)|undefined;
 async function main(){
@@ -40,8 +41,14 @@ async function main(){
   const tables=[schema.orders,schema.lineItems,schema.units,schema.customerInputs,schema.generations,schema.aiRequests,schema.productionQueue,schema.documentSnapshots,schema.documentMediaSnapshots,schema.documentArtifacts,schema.documentProduction,schema.products,schema.productVersions,schema.mappings,schema.etsyHistoricalAdoptions];
   const fingerprint=async()=>createHash("sha256").update(JSON.stringify(await Promise.all(tables.map(t=>tx.select().from(t).where(and(eq(t.organizationId,scope.organizationId),eq(t.storeId,scope.storeId))))))).digest("hex");
   const before=await fingerprint();
-  const report={receipts:sample.details.length,lines:0,eligible:0,held:0,exactActiveMatches:0,knownListingLines:0,historicalBlocked:0,unsupportedInputBlocked:0,missingEvidenceBlocked:0,exactMatchInputMappingSupported:0,exactMatchInputMappingHeld:0,statusCategories:{} as Record<string,number>,holdReasons:{} as Record<string,number>,quantities:{} as Record<string,number>,structures:{receiptId:0,createdTime:0,transactionId:0,listingId:0,paid:0,statusRecognized:0,emptyRefunds:0,buyerIdentityPresent:0,buyerIdentityMatchesBetweenReceiptAndTransactions:0,textInputs:0,purchaseSelections:0,files:0,nonDigitalTransactions:0},domainStateUnchanged:false};
+  const part2A={receipts:0,lines:0,exactResolved:0,normalEligible:0,historicalAdoptionRequired:0,historicalOrMappingAmbiguity:0,held:0,quantityContextRequired:0,intendedOrders:0,intendedLines:0,intendedReadings:0,purchaserIdentityPresent:0,holdReasons:{} as Record<string,number>};
+  const report={part2A,receipts:sample.details.length,lines:0,eligible:0,held:0,exactActiveMatches:0,knownListingLines:0,historicalBlocked:0,unsupportedInputBlocked:0,missingEvidenceBlocked:0,exactMatchInputMappingSupported:0,exactMatchInputMappingHeld:0,statusCategories:{} as Record<string,number>,holdReasons:{} as Record<string,number>,quantities:{} as Record<string,number>,structures:{receiptId:0,createdTime:0,transactionId:0,listingId:0,paid:0,statusRecognized:0,emptyRefunds:0,buyerIdentityPresent:0,buyerIdentityMatchesBetweenReceiptAndTransactions:0,textInputs:0,purchaseSelections:0,files:0,nonDigitalTransactions:0},domainStateUnchanged:false};
   for(const detail of sample.details){
+   const assessment=await assessReceiptForIntake(tx,scope,detail.body,now);
+   for(const key of Object.keys(part2A) as (keyof typeof part2A)[]){
+    if(key==="holdReasons")for(const [reason,count] of Object.entries(assessment.report.holdReasons))part2A.holdReasons[reason]=(part2A.holdReasons[reason]??0)+count;
+    else part2A[key]+=assessment.report[key];
+   }
    const sources=normalizePilotReceipt(detail.body,store.externalShopId!,now);
    // Non-consumed identity is inspected only for presence/equality; never printed or passed as reading subject.
    const {parseEtsyJson}=await import("../src/modules/etsy/raw-normalizer");const raw=parseEtsyJson(detail.body) as Record<string,unknown>;

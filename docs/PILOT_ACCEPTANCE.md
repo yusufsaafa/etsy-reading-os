@@ -173,3 +173,14 @@ Bounded owned receipt discovery succeeded without a tunnel or reconnect; the exi
 No domain ingestion, Product changes, generation or delivery occurred. Buyer identity is structurally present, but the canonical source normalizer does not propagate it; Order → Reading → Generation identity/subject provenance remains a Part 2 requirement. The already recorded generation-context Etsy fulfillment-policy forwarding gap must also be addressed before admission acceptance. No historical fence or unsupported-input rule was bypassed.
 
 ETSY-E2E-01, ETSY-CARDINALITY-01 and ETSY-INPUTS-01 remain **OPEN — BLOCKS MRH PILOT**. All other debt statuses are unchanged. Part 2 requires an actually applicable post-activation purchase or explicit owner-approved pinned historical adoption, plus normal payment/context/quantity checks. This read-only milestone does not authorize or perform that ingestion.
+
+
+## Real Etsy order pilot Part 2A — 2026-10-08
+
+Controlled fixture/native ingestion now connects canonical purchased evidence to the existing receipt-atomic Order/line/unit engine. Explicit v2 historical approval pins one transaction, exact configuration/version, owned shop and source fingerprint; legacy receipt-wide approval is not accepted by the new controlled path. Default historical/unmapped/unsupported holds remain. Controlled commands suppress production admission; no real MRH adoption or domain ingestion occurred.
+
+The documented generation-context policy omission is fixed: existing triage now receives the pinned Etsy fulfillment policy. Fixture tests build context and verify approved preparation/output/sections/mappings without provider dispatch. Minimal purchaser account evidence is retained separately in canonical source and Order snapshots; subject/recipient roles remain unassigned and purchaser evidence is not added to AI prompts here.
+
+Real dry-run: three receipts/three quantity-one lines, one exact active configuration with compatible input mapping but requiring historical approval, two without exact active mapping, zero applicable eligible lines and zero intended writes. Native isolated repeated concurrent approval/ingestion checks converge; no live ingestion acceptance is claimed. See REAL_ETSY_ORDER_PILOT_PART2A.md for migration, validation, privacy and explicit Part 2B approval steps.
+
+ETSY-E2E-01, ETSY-CARDINALITY-01 and ETSY-INPUTS-01 remain **OPEN — BLOCKS MRH PILOT**. Other accepted/open debts are unchanged. Real persisted buyer context/provenance, quantity/mixed carts, unsupported edited-question/dropdown/upload evidence, generation/review/PDF and storage/delivery acceptance remain open under their existing criteria. No broad import, sync, activation, delivery or automatic provider execution was enabled.

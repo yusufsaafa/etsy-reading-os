@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, or, isNull, asc } from "drizzle-orm";
 import type { DbExecutor } from "../../db/client";
 import { mappings, products, productVersions, stores, etsyHistoricalAdoptions } from "../../db/schema";
 import type { Scope, InputPolicy } from "../intake/contracts";
@@ -7,6 +7,7 @@ import { configurationSchema, inputPolicy } from "./contracts";
 import { assessEtsySource, etsySourceSchema, selectionKey, type EtsyProductPolicy } from "../etsy/source-contract";
 import { verifyScope } from "../intake/service";
 import { AccessDenied } from "../identity/service";
+import {sourceFingerprint} from "../etsy/source-fingerprint";
 type Mapping = typeof mappings.$inferSelect;
 export async function resolveConfiguration(db: DbExecutor,scope:Scope,listingId:string,variantKey:string) {
   const [mapping]=await db.select().from(mappings).where(and(eq(mappings.organizationId,scope.organizationId),eq(mappings.storeId,scope.storeId),eq(mappings.listingExternalId,listingId),eq(mappings.variantKey,variantKey)));
@@ -24,7 +25,7 @@ export async function unitPolicy(db:DbExecutor,scope:Scope,unit:{productVersionI
 }
 
 /** Owned backend lookup only. No HTTP call, raw Etsy normalization or ingestion. */
-export async function resolveEtsySourceConfiguration(db:DbExecutor,scope:Scope,raw:unknown,history?:{productVersionId:string|null}) {
+export async function resolveEtsySourceConfiguration(db:DbExecutor,scope:Scope,raw:unknown,history?:{productVersionId:string|null},options:{lineAdoptionOnly?:boolean}={}) {
   await verifyScope(db,scope);
   const source=etsySourceSchema.parse(raw);
   const [store]=await db.select().from(stores).where(and(eq(stores.organizationId,scope.organizationId),eq(stores.id,scope.storeId)));
@@ -54,9 +55,11 @@ export async function resolveEtsySourceConfiguration(db:DbExecutor,scope:Scope,r
     let key:string|undefined;
     try{key=selectionKey(source.purchaseSelections.map(s=>({propertyId:s.propertyId,valueIds:s.valueIds.presence==="value"?s.valueIds.value:[]})));}catch{/* Assessor holds ambiguous identities. */}
     if(key){
-      const [adoption]=await db.select().from(etsyHistoricalAdoptions).where(and(eq(etsyHistoricalAdoptions.organizationId,scope.organizationId),eq(etsyHistoricalAdoptions.storeId,scope.storeId),eq(etsyHistoricalAdoptions.receiptId,source.receipt.receiptId),eq(etsyHistoricalAdoptions.listingId,source.transaction.listingId.value),eq(etsyHistoricalAdoptions.selectionKey,key)));
+      const [adoption]=await db.select().from(etsyHistoricalAdoptions).where(and(eq(etsyHistoricalAdoptions.organizationId,scope.organizationId),eq(etsyHistoricalAdoptions.storeId,scope.storeId),eq(etsyHistoricalAdoptions.receiptId,source.receipt.receiptId),eq(etsyHistoricalAdoptions.listingId,source.transaction.listingId.value),eq(etsyHistoricalAdoptions.selectionKey,key),or(eq(etsyHistoricalAdoptions.transactionId,source.transaction.transactionId),isNull(etsyHistoricalAdoptions.transactionId)))).orderBy(asc(isNull(etsyHistoricalAdoptions.transactionId)));
       if(adoption){
-        if(source.receipt.createdTimestamp.presence!=="value"||source.receipt.createdTimestamp.value<adoption.purchaseFrom||source.receipt.createdTimestamp.value>adoption.purchaseThrough){version=undefined;resolutionIssues.push("ambiguous_historical_mapping");}
+        if((options.lineAdoptionOnly&&!adoption.transactionId)||(adoption.transactionId&&(adoption.shopId!==source.receipt.shopId||adoption.sourceFingerprint!==sourceFingerprint(source)))){
+          version=undefined;resolutionIssues.push("source_changed");
+        }else if(source.receipt.createdTimestamp.presence!=="value"||source.receipt.createdTimestamp.value<adoption.purchaseFrom||source.receipt.createdTimestamp.value>adoption.purchaseThrough){version=undefined;resolutionIssues.push("ambiguous_historical_mapping");}
         else{
           [version]=await db.select().from(productVersions).where(and(eq(productVersions.organizationId,scope.organizationId),eq(productVersions.storeId,scope.storeId),eq(productVersions.id,adoption.productVersionId)));
           if(!version||version.status==="DRAFT")throw new Error("CONFIGURATION_UNAVAILABLE");
@@ -72,6 +75,9 @@ export async function resolveEtsySourceConfiguration(db:DbExecutor,scope:Scope,r
     resolutionIssues.push("ambiguous_historical_mapping");
   }
   const configuration=version?configurationSchema.parse(version.configuration):undefined;
+  if(!mapping&&configuration?.etsyFulfillment){
+    [mapping]=await db.select().from(mappings).where(and(eq(mappings.organizationId,scope.organizationId),eq(mappings.storeId,scope.storeId),eq(mappings.productId,version!.productId),eq(mappings.listingExternalId,configuration.etsyFulfillment.listingId),eq(mappings.variantKey,selectionKey(configuration.etsyFulfillment.purchaseSelections))));
+  }
   const result=assessEtsySource(source,configuration?.etsyFulfillment);
   const issues=[...result.issues,...resolutionIssues,...(mapping?.paused?["mapping_paused"]:[]),...(configuration?validateInputs(result.answers,inputPolicy(configuration)):[])];
   return {source,version,mapping,answers:result.answers,issues:[...new Set(issues)]};

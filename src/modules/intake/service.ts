@@ -32,10 +32,19 @@ async function assertConnection(db: DbExecutor, scope: Scope, epoch?: number) {
   const [connection] = await db.select({ status: connections.status, epoch: connections.epoch }).from(connections).where(tenantWhere(connections, scope));
   if (!connection || connection.status !== "connected" || connection.epoch !== epoch) throw new Error("CONNECTION_CHANGED");
 }
-export async function ingestOrder(db: Database, scope: Scope, raw: unknown, options: { epoch?: number; failAfterLines?: number } = {}) {
-  const incoming = orderSchema.parse(raw);
-  return db.transaction(async tx => {
-    await verifyScope(tx, scope);
+function purchaseLineFingerprint(line:ExternalOrder["lines"][number]){
+ if(!line.etsySource)return stableJson(line);
+ const {observedAt,...receipt}=line.etsySource.receipt;void observedAt;
+ return stableJson({...line,etsySource:{...line.etsySource,receipt}});
+}
+export type IngestOptions={epoch?:number;failAfterLines?:number;suppressProductionAdmission?:boolean;controlled?:{commandId:string;versions:Record<string,string>}};
+export async function ingestOrder(db: Database, scope: Scope, raw: unknown, options: IngestOptions = {}) {
+ return db.transaction(tx=>ingestOrderInTransaction(tx,scope,raw,options));
+}
+/** Existing receipt-atomic engine, shared with explicitly authorized controlled intake. */
+export async function ingestOrderInTransaction(tx:DbExecutor,scope:Scope,raw:unknown,options:IngestOptions={}){
+ const incoming=orderSchema.parse(raw);
+    await verifyScope(tx, scope,!!options.controlled);
     await tx.select().from(stores).where(and(eq(stores.organizationId, scope.organizationId), eq(stores.id, scope.storeId))).for("update");
     await assertConnection(tx, scope, options.epoch);
     const where = and(tenantWhere(orders, scope), eq(orders.externalId, incoming.externalId));
@@ -52,13 +61,17 @@ export async function ingestOrder(db: Database, scope: Scope, raw: unknown, opti
       const [line] = await tx.insert(lineItems).values({ organizationId: scope.organizationId, storeId: scope.storeId, orderId: order.id, externalId: incomingLine.externalId, listingExternalId: incomingLine.listingId, title: incomingLine.title, quantity: incomingLine.quantity, sku: incomingLine.sku, variantKey: incomingLine.variantKey, snapshot: incomingLine }).onConflictDoNothing().returning();
       const stored = line ?? (await tx.select().from(lineItems).where(and(tenantWhere(lineItems, scope), eq(lineItems.externalId, incomingLine.externalId))))[0];
       if (stored.orderId !== order.id) throw new Error("TRANSACTION_ORDER_MISMATCH");
-      const sourceChanged = stableJson(stored.snapshot) !== stableJson(incomingLine);
-      const sourceResolution=stored.snapshot.etsySource?await resolveEtsySourceConfiguration(tx,scope,stored.snapshot.etsySource):undefined;
+      const sourceChanged = purchaseLineFingerprint(stored.snapshot) !== purchaseLineFingerprint(incomingLine);
+      const retainedUnits=options.controlled&&!line?await tx.select().from(units).where(and(tenantWhere(units,scope),eq(units.lineItemId,stored.id))):[];
+      const history=retainedUnits.length?{productVersionId:retainedUnits[0].productVersionId}:undefined;
+      const sourceResolution=stored.snapshot.etsySource?await resolveEtsySourceConfiguration(tx,scope,stored.snapshot.etsySource,history,{lineAdoptionOnly:!!options.controlled}):undefined;
       const resolution = sourceResolution ? {mapping:"mapping" in sourceResolution?sourceResolution.mapping:undefined,version:sourceResolution.version,state:sourceResolution.version?"versioned":"unconfigured"} : await resolveConfiguration(tx, scope, stored.listingExternalId, stored.variantKey);
       const mapping = resolution.mapping;
+      if(options.controlled?.versions[stored.externalId] && (resolution.version?.id!==options.controlled.versions[stored.externalId] || sourceResolution?.issues.length || sourceChanged))throw new Error("CONTROLLED_SOURCE_HOLD");
       for (let unitIndex = 1; unitIndex <= stored.quantity; unitIndex++) {
-        const [created] = await tx.insert(units).values({ organizationId: scope.organizationId, storeId: scope.storeId, lineItemId: stored.id, unitIndex, productVersionId: resolution.version?.id ?? null, configurationState: resolution.state, issues: triage(effective, stored.snapshot, undefined, stored.snapshot.answers, false, sourceChanged), sourceChanged }).onConflictDoNothing().returning();
-        const unit = created ?? (await tx.select().from(units).where(and(tenantWhere(units, scope), eq(units.lineItemId, stored.id), eq(units.unitIndex, unitIndex))))[0];
+        const existingUnit=retainedUnits.find(u=>u.unitIndex===unitIndex);
+        const [created] = existingUnit?[]:await tx.insert(units).values({ organizationId: scope.organizationId, storeId: scope.storeId, lineItemId: stored.id, unitIndex, productVersionId: resolution.version?.id ?? null, configurationState: resolution.state, issues: triage(effective, stored.snapshot, undefined, stored.snapshot.answers, false, sourceChanged), sourceChanged }).onConflictDoNothing().returning();
+        const unit = created ?? existingUnit ?? (await tx.select().from(units).where(and(tenantWhere(units, scope), eq(units.lineItemId, stored.id), eq(units.unitIndex, unitIndex))))[0];
         if (created) await tx.insert(customerInputs).values({ organizationId: scope.organizationId, storeId: scope.storeId, unitId: unit.id, revision: 0, answers: sourceResolution?.answers??stored.snapshot.answers, source: "etsy_snapshot" }).onConflictDoNothing();
         const [context] = await tx.select().from(customerInputs).where(and(tenantWhere(customerInputs, scope), eq(customerInputs.unitId, unit.id))).orderBy(desc(customerInputs.revision)).limit(1);
         await tx.update(units).set({ sourceChanged: sourceChanged || unit.sourceChanged, issues: [...new Set([...triage(effective, stored.snapshot, await unitPolicy(tx,scope,unit,mapping), context.answers, unit.contextAllocated, sourceChanged || unit.sourceChanged),...(unit.configurationState==="unconfigured"?sourceResolution?.issues??[]:[])])] }).where(and(tenantWhere(units, scope), eq(units.id, unit.id)));
@@ -72,9 +85,14 @@ export async function ingestOrder(db: Database, scope: Scope, raw: unknown, opti
       for (const unit of retained) await tx.update(units).set({ sourceChanged: true, issues: [...new Set([...unit.issues, "source_changed", ...(effective.canceled ? ["canceled"] : []), ...(effective.refund !== "none" ? ["refund_review"] : [])])] }).where(and(tenantWhere(units, scope), eq(units.id, unit.id)));
     }
     const readingIds = await tx.select({id:units.id}).from(units).innerJoin(lineItems,eq(units.lineItemId,lineItems.id)).where(and(tenantWhere(units,scope),eq(lineItems.orderId,order.id)));
-    for (const reading of readingIds) await admitReadingInTransaction(tx,scope,reading.id);
+    if(!options.suppressProductionAdmission) for (const reading of readingIds) await admitReadingInTransaction(tx,scope,reading.id);
+    if(options.controlled){
+      const action="etsy_controlled_ingestion:"+options.controlled.commandId;
+      const [prior]=await tx.select().from(auditLogs).where(and(tenantWhere(auditLogs,scope),eq(auditLogs.action,action)));
+      if(prior&&prior.resourceId!==order.id)throw new Error("INGEST_COMMAND_CONFLICT");
+      if(!prior)await tx.insert(auditLogs).values({organizationId:scope.organizationId,storeId:scope.storeId,actorId:scope.userId,action,resourceId:order.id});
+    }
     return order.id;
-  });
 }
 export async function workspaceData(db: Database, scope: Scope) {
   await verifyScope(db, scope);

@@ -63,13 +63,16 @@ function ownedVersionColumns(): [AnyPgColumn,AnyPgColumn,AnyPgColumn,AnyPgColumn
 // Explicit receipt-scoped historical permission; never an automatic historical import.
 export const etsyHistoricalAdoptions = pgTable("etsy_historical_adoptions", {
   id:id(), organizationId:org(), storeId:store(), commandId:uuid("command_id").notNull(),
+  transactionId:text("transaction_id"), shopId:text("shop_id"), sourceFingerprint:text("source_fingerprint"),
   receiptId:text("receipt_id").notNull(), listingId:text("listing_id").notNull(), selectionKey:text("selection_key").notNull(),
   productVersionId:uuid("product_version_id").notNull(), authorizedBy:text("authorized_by").notNull().references(()=>users.id),
   purchaseFrom:bigint("purchase_from",{mode:"number"}).notNull(), purchaseThrough:bigint("purchase_through",{mode:"number"}).notNull(),
   createdAt:time("created_at").defaultNow().notNull(),
 },t=>[
   unique("etsy_adoption_command_unique").on(t.organizationId,t.storeId,t.commandId),
-  unique("etsy_adoption_purchase_unique").on(t.organizationId,t.storeId,t.receiptId,t.listingId,t.selectionKey),
+  uniqueIndex("etsy_adoption_legacy_purchase_unique").on(t.organizationId,t.storeId,t.receiptId,t.listingId,t.selectionKey).where(sql`${t.transactionId} is null`),
+  uniqueIndex("etsy_adoption_line_unique").on(t.organizationId,t.storeId,t.receiptId,t.transactionId).where(sql`${t.transactionId} is not null`),
+  check("etsy_adoption_line_evidence",sql`(${t.transactionId} is null and ${t.shopId} is null and ${t.sourceFingerprint} is null) or (${t.transactionId} is not null and ${t.shopId} is not null and ${t.sourceFingerprint} is not null and ${t.transactionId} ~ '^[1-9][0-9]{0,19}$' and ${t.shopId} ~ '^[1-9][0-9]{0,19}$' and ${t.sourceFingerprint} ~ '^[a-f0-9]{64}$')`),
   foreignKey({name:"etsy_adoption_store_fk",columns:[t.organizationId,t.storeId],foreignColumns:[stores.organizationId,stores.id]}),
   foreignKey({name:"etsy_adoption_version_fk",columns:[t.organizationId,t.storeId,t.productVersionId],foreignColumns:[productVersions.organizationId,productVersions.storeId,productVersions.id]}),
   check("etsy_adoption_ids",sql`${t.receiptId} ~ '^[1-9][0-9]{0,19}$' and ${t.listingId} ~ '^[1-9][0-9]{0,19}$'`),

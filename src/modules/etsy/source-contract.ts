@@ -53,6 +53,7 @@ const file = z.object({
 export const etsySourceSchema = z.object({
   contractVersion: z.literal("etsy-purchased-line/v1"),
   receipt: z.object({
+    purchaserAccountId: observed(etsyId).optional(),
     receiptId: etsyId, shopId: etsyId, observedAt: z.number().int().nonnegative().safe(),
     createdTimestamp: observed(z.number().int().nonnegative().safe()), updatedTimestamp: observed(z.number().int().nonnegative().safe()),
     isPaid: observed(z.boolean()), status: observed(z.string().max(80)),

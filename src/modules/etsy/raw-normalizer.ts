@@ -17,19 +17,20 @@ const productData = z.object({property_id:optional(propertyId), property_name:op
   scale_id:optional(propertyId), scale_name:optional(display), value_ids:optional(z.array(propertyId).max(30)), values:optional(z.array(display).max(30)),
 }).strict();
 export const rawEtsyReceiptSchema = z.object({
-  receipt_id:id, is_paid:optional(z.boolean()), status:optional(z.string().max(80)),
+  receipt_id:id, buyer_user_id:optional(id), is_paid:optional(z.boolean()), status:optional(z.string().max(80)),
   create_timestamp:optional(integer), created_timestamp:optional(integer),
   update_timestamp:optional(integer), updated_timestamp:optional(integer),
   refunds:optional(z.array(z.object({amount:optional(z.object({amount:integer,divisor:integer.positive(),currency_code:z.string().regex(/^[A-Z]{3}$/)}).strict()),
     created_timestamp:optional(integer),status:optional(z.string().max(80)),reason:optional(z.string().max(10000)),
   }).strict()).max(100)),
-  transactions:z.array(z.object({transaction_id:id,receipt_id:optional(id),listing_id:optional(id),
+  transactions:z.array(z.object({transaction_id:id,buyer_user_id:optional(id),receipt_id:optional(id),listing_id:optional(id),
     quantity:integer.max(1000),sku:optional(z.string().max(500)),is_digital:optional(z.boolean()),
     variations:optional(z.array(variation).max(128)),product_data:optional(z.array(productData).max(3)),
   }).strict()).max(100),
 }).strict().superRefine((r,ctx)=>{
   if(new Set(r.transactions.map(t=>t.transaction_id)).size!==r.transactions.length)ctx.addIssue({code:"custom",message:"Duplicate transaction identity"});
   for(const t of r.transactions){
+    if(t.buyer_user_id!=null&&r.buyer_user_id!=null&&t.buyer_user_id!==r.buyer_user_id)ctx.addIssue({code:"custom",message:"Purchaser linkage mismatch"});
     if(t.receipt_id!=null&&t.receipt_id!==r.receipt_id)ctx.addIssue({code:"custom",message:"Receipt linkage mismatch"});
     const productIds=t.product_data?.filter(p=>p.property_id!=null).map(p=>p.property_id)??[];
     if(new Set(productIds).size!==productIds.length)ctx.addIssue({code:"custom",message:"Duplicate product property"});
@@ -70,8 +71,8 @@ export function parseEtsyJson(body:string):unknown {
 
 // Full API responses contain unrelated buyer/commerce fields. Only explicit reviewed
 // fields enter the strict subset; nested consumed structures are never stripped.
-const receiptFields=["receipt_id","is_paid","status","create_timestamp","created_timestamp","update_timestamp","updated_timestamp","refunds","transactions"] as const;
-const transactionFields=["transaction_id","receipt_id","listing_id","quantity","sku","is_digital","variations","product_data"] as const;
+const receiptFields=["receipt_id","buyer_user_id","is_paid","status","create_timestamp","created_timestamp","update_timestamp","updated_timestamp","refunds","transactions"] as const;
+const transactionFields=["transaction_id","buyer_user_id","receipt_id","listing_id","quantity","sku","is_digital","variations","product_data"] as const;
 // Explicit non-consumed fields from the Part 3 official OpenAPI snapshot. New
 // fields reject until reviewed, rather than silently losing a future input shape.
 const receiptIgnored="receipt_type seller_user_id seller_email buyer_user_id buyer_email name first_line second_line city state zip formatted_address country_iso payment_method payment_email message_from_seller message_from_buyer message_from_payment is_shipped is_gift gift_message gift_sender grandtotal subtotal total_price total_shipping_cost total_tax_cost total_vat_cost discount_amt gift_wrap_price shipments".split(" ");
@@ -91,7 +92,7 @@ export function normalizeEtsyReceipt(body:string,context:{verifiedShopId:string;
   const r=rawEtsyReceiptSchema.parse(raw),shopId=etsyId.parse(context.verifiedShopId),observedAt=integer.parse(context.observedAt);
   const status=r.status?.toLowerCase();
   return r.transactions.map(t=>{
-    const source:EtsySourceEvidence={contractVersion:"etsy-purchased-line/v1",receipt:{receiptId:r.receipt_id,shopId,observedAt,
+    const source:EtsySourceEvidence={contractVersion:"etsy-purchased-line/v1",receipt:{receiptId:r.receipt_id,shopId,observedAt,purchaserAccountId:presence(r.buyer_user_id),
       createdTimestamp:presence(r.created_timestamp!==undefined?r.created_timestamp:r.create_timestamp),updatedTimestamp:presence(r.updated_timestamp!==undefined?r.updated_timestamp:r.update_timestamp),
       isPaid:presence(r.is_paid),status:presence(r.status),
       cancellation:status==="canceled"?{state:"CANCELED",basis:"STATUS"}:["paid","completed","open","payment processing","fully refunded","partially refunded"].includes(status??"")?{state:"NOT_CANCELED",basis:"STATUS"}:{state:"UNKNOWN",basis:"UNRESOLVED"},
