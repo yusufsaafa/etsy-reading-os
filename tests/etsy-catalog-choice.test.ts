@@ -8,7 +8,7 @@ import {setupListing,setupInventory,setupQuestions} from "./fixtures/etsy-setup"
 const catalog=()=>deriveSetupCatalog(setupListing,setupInventory,setupQuestions,{shopId:"123",listingId:"101"});
 it("requires an explicit exact configuration choice and displays questions without technical labels",()=>{
  const html=renderToStaticMarkup(createElement(CatalogChoice,{catalog:catalog()}));
- expect(html.match(/type="radio"/g)).toHaveLength(2);expect(html).not.toContain("checked=");expect(html).toContain("required=");expect(html).toContain("Create or continue draft");expect(html).toContain("Nothing is activated");
+ expect(html.match(/name="configurationKey"/g)).toHaveLength(2);expect(html).not.toContain("checked=");expect(html).toContain(">Set up</button>");expect(html).toContain("Nothing is activated");
  const visible=html.replace(/<[^>]*>/g,"");for(const token of ["propertyId","questionId","etsy-selection/1:","901"])expect(visible).not.toContain(token);
  expect(visible).toContain("Required");expect(visible).toContain("explicit customer-field mapping");
 });

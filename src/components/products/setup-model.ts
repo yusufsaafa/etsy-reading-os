@@ -23,3 +23,18 @@ export function setupReadiness(name:string,c:Configuration,catalog?:SetupCatalog
  }
  return [...new Set(errors)];
 }
+export const answerFormats={TEXT:{label:"Short answer",description:"Names and brief details."},LONG_TEXT:{label:"Long answer",description:"Questions and detailed explanations."},DATE:{label:"Date",description:"Birth dates and other calendar dates. Requires a YYYY-MM-DD answer; free text is not parsed automatically."}};
+export function setupChecklist(name:string,c:Configuration,catalog?:SetupCatalog){
+ const errors=setupReadiness(name,c,catalog);
+ const groups=[
+  {id:"product-details",label:"Product details",action:"Give this product a name.",match:/product name/i},
+  {id:"purchase-options",label:"Etsy purchase options",action:"Confirm the complete purchase choice and resolve unsupported Etsy questions.",match:/unsupported|unavailable|purchase configuration/i},
+  {id:"customer-information",label:"Customer information",action:"Connect the questions buyers answer on Etsy to the information used for this reading.",match:/customer|field|question|mapping/i},
+  {id:"reading-content",label:"Reading content",action:"Add at least one topic the reading should cover.",match:/section/i},
+  {id:"output-format",label:"Output format",action:"Choose whether the customer receives written text or a PDF.",match:/output/i},
+  {id:"preparation-mode",label:"Preparation mode",action:"Choose manual or automatic draft preparation. Delivery stays separate.",match:/workflow|automatic/i},
+ ];
+ const assigned=new Set<string>();const items=groups.map(g=>{const issues=errors.filter(e=>!assigned.has(e)&&g.match.test(e));issues.forEach(e=>assigned.add(e));return {id:g.id,label:g.label,action:g.action,complete:issues.length===0,issues};});
+ const rest=errors.filter(e=>!assigned.has(e));if(rest.length)items.push({id:"product-details",label:"Review setup",action:"Review the validation details before activation.",complete:false,issues:rest});
+ return items;
+}

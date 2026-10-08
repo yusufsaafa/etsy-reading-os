@@ -145,3 +145,11 @@ Step 3 refinement and guided exact-configuration setup now use the owned catalog
 The full redesigned seller-browser acceptance is **partial**, not accepted: real UI save/revisit, target/custom interactions, incomplete activation blocking, final Step 3 visual checks and mobile interaction still require an uninterrupted local browser pass. See ONBOARDING_REPORT.md. Unit/render/PGlite tests do not close that UI acceptance requirement. Do not claim MRH seller pilot readiness from this implementation alone.
 
 ETSY-INPUTS-01, ETSY-E2E-01 and ETSY-CARDINALITY-01 remain OPEN with their existing real-contract/intake/cardinality requirements. PDF/assets/storage/delivery/AI and all accepted debts keep their existing statuses. No live intake gate or historical fence was removed.
+
+## Final planned Product onboarding UX refinement — 2026-10-08
+
+Product setup now displays exact-choice persisted status, compact customer fields, illustrative one-box/multiple-box answer mapping, an actionable readiness checklist, and consistent status/navigation. This does not accept real Etsy intake or buyer-input encoding. ETSY-INPUTS-01, ETSY-E2E-01 and ETSY-CARDINALITY-01 remain **OPEN — BLOCKS MRH PILOT**. All other debt statuses remain unchanged. The new final-refinement browser acceptance is NOT VERIFIED; the prior partial browser evidence is retained as partial. Manual local seller checks must finish before claiming seller UX acceptance.
+
+Deferred post-MVP enhancements: copy setup between exact Etsy purchase configurations; reusable Product setup templates; bulk configuration across listings; optional AI-assisted setup suggestions (never runtime mapping authority); buyer identity versus reading-subject interpretation.
+
+The controlled real order pilot must verify whether authenticated Etsy buyer identity is available and correctly propagated through Order → Reading → Generation context. The buyer is not necessarily the reading subject. Do not infer roles from name order or assume identity propagation already works; no person extraction is implemented here. These checks belong to the next explicitly authorized pilot, not this UI milestone.

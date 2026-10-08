@@ -118,3 +118,6 @@
 .pagination nav { justify-content:center; flex-wrap:wrap; }
 @media(max-width:600px) { .productRow > .setupHelp,.productRow > .setupReady,.productRow > .notSelected { grid-column:2; grid-row:2; justify-self:start; } .setupHelp p { left:0; right:auto; width:min(230px,70vw); } }
 .setupHelp[open] p { position:static; width:min(230px,65vw); box-shadow:none; }
+/* Etsy classification remains distinct from Reading OS setup state. */
+.activeDot { background:#2f754f; border-color:#2f754f; }
+.inactiveDot { background:#737b85; border-color:#737b85; }
