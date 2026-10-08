@@ -10,6 +10,7 @@ vi.mock("@/modules/products/etsy-setup",()=>({getEtsySetupCatalog:mocks.source})
 vi.mock("@/infrastructure/secrets",()=>({vault:()=>({})}));
 vi.mock("@/modules/identity/session",()=>({currentStoreScope:async()=>({}),currentDestination:async()=>({kind:"PRODUCT_SETUP"})}));
 vi.mock("@/components/products/actions",()=>({saveConfiguration:vi.fn(),startProductSetupState:vi.fn(),finishProductOnboarding:vi.fn(),createProductEdit:vi.fn()}));
+vi.mock("@/modules/products/generation-setup",()=>({productGenerationSetup:async()=>({title:"REPUBLICATION_REQUIRED",design:"SETUP_REQUIRED",storage:"NOT_CONFIGURED",internal:"DISABLED",configurationPrerequisitesComplete:false})}));
 import SetupPage from "../src/app/onboarding/products/setup/page";
 import {ProductSetup} from "../src/components/products/setup";
 import {deriveSetupCatalog} from "../src/modules/etsy/setup-catalog";

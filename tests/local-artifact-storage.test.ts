@@ -4,7 +4,7 @@ import {tmpdir} from "node:os";
 import {join} from "node:path";
 import {randomUUID,createHash} from "node:crypto";
 import {LocalArtifactStorage} from "../src/infrastructure/local-artifact-storage";
-import {configuredDocumentPorts} from "../src/infrastructure/document-runtime";
+import {localDocumentStorageReadiness,configuredDocumentPorts} from "../src/infrastructure/document-runtime";
 import {artifactObjectKey} from "../src/modules/documents/artifact-contract";
 let root:string,storage:LocalArtifactStorage;
 const bytes=Uint8Array.from(Buffer.from("%PDF-synthetic-test-data"));
@@ -45,4 +45,14 @@ it("local runtime is explicit, optional and unavailable in production",()=>{
 it("optional platform resources remain bounded and never fetch remote URLs",async()=>{
  const ports=configuredDocumentPorts({NODE_ENV:"development",DOCUMENT_STORAGE_DRIVER:"local",DOCUMENT_ARTIFACT_ROOT:root})!;
  await expect(ports.assets.read({objectKey:"https://example.invalid/image",maxBytes:100})).rejects.toThrow("UNAVAILABLE");
+});
+
+it("read-only storage readiness never creates directories and requires private canonical roots outside repo",async()=>{
+ const env:NodeJS.ProcessEnv={NODE_ENV:"development",DOCUMENT_STORAGE_DRIVER:"local",DOCUMENT_ARTIFACT_ROOT:root};
+ expect(await localDocumentStorageReadiness(env)).toBe("LOCAL_READY");expect(await readdir(root)).toEqual([]);
+ expect(await localDocumentStorageReadiness({NODE_ENV:"development"})).toBe("NOT_CONFIGURED");
+ expect(await localDocumentStorageReadiness({...env,DOCUMENT_ARTIFACT_ROOT:join(root,"missing")})).toBe("INVALID_CONFIGURATION");expect(await readdir(root)).toEqual([]);
+ expect(await localDocumentStorageReadiness(env,root)).toBe("INVALID_CONFIGURATION");
+ await chmod(root,0o755);expect(await localDocumentStorageReadiness(env)).toBe("INVALID_CONFIGURATION");await chmod(root,0o500);expect(await localDocumentStorageReadiness(env)).toBe("INVALID_CONFIGURATION");await chmod(root,0o700);
+ expect(await localDocumentStorageReadiness({...env,NODE_ENV:"production"})).toBe("PRODUCTION_CONFIGURATION_REQUIRED");
 });

@@ -68,3 +68,15 @@ it("owner setup projection distinguishes missing, ready and invalid while preser
  await db.update(schema.documentDesigns).set({configuration:{...config(),typography:{heading:"unsupported",body:"inter"}} as never,revision:1}).where(eq(schema.documentDesigns.id,design.id));
  expect(await documentDesignSetup(db,a,productId)).toEqual({status:"INVALID_CONFIGURATION"});expect(result.design.revision).toBe(0);
 });
+
+it("explicit owner-approved creation immediately activates controlled design; assignment is separate",async()=>{
+ const {approvedOwnerDesign}=await import("../src/modules/documents/owner-design");
+ const value=approvedOwnerDesign({name:"First design",brandName:"Studio",template:"minimal",heading:"source-serif-4",body:"inter",footerText:"",approved:true});
+ expect(await resolveDocumentDesignForProduct(db,a,productId)).toEqual({status:"SETUP_REQUIRED"});
+ const design=await createDocumentDesign(db,a,value);expect(design.status).toBe("ACTIVE");expect(design.revision).toBe(0);
+ expect(await resolveDocumentDesignForProduct(db,a,productId)).toEqual({status:"SETUP_REQUIRED"});
+ await assignDocumentDesignToProduct(db,a,productId,design.id);expect((await resolveDocumentDesignForProduct(db,a,productId)).status).toBe("RESOLVED");
+ expect(()=>approvedOwnerDesign({...value,approved:false})).toThrow();
+ await expect(createDocumentDesign(db,a,{name:"Invalid",configuration:{...value.configuration,typography:{heading:"arbitrary-font",body:"inter"}}})).rejects.toThrow();
+ expect(await db.select().from(schema.documentDesigns)).toHaveLength(1);
+});

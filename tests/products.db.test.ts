@@ -128,3 +128,25 @@ it("publication pins trusted title; later draft rename cannot rewrite the active
  expect((await productData(db,a,d.id)).active?.configuration.productMetadata?.title).toBe("Changed draft title");
  expect((await productData(db,a,d.id)).versions.find(v=>v.id===active.id)?.configuration.productMetadata).toEqual(active.configuration.productMetadata);
 });
+
+it("explicit legacy v3 republication pins title without changing exact eligibility or old configuration",async()=>{
+ const {selectionKey}=await import("../src/modules/etsy/source-contract");
+ const policy={contractVersion:"etsy-product-policy/v1" as const,fulfillment:"READING" as const,listingId:"101",purchaseSelections:[{propertyId:"1",valueIds:["10"]},{propertyId:"2",valueIds:["20"]}],inputMappings:[]};
+ const configuration={...valid(),inputs:[],output:"PDF" as const,etsyFulfillment:policy};
+ const [p]=await db.insert(schema.products).values({organizationId:a.organizationId,storeId:a.storeId,name:"Approved intimacy reading"}).returning();
+ const [v3]=await db.insert(schema.productVersions).values({organizationId:a.organizationId,storeId:a.storeId,productId:p.id,versionNumber:3,configuration}).returning();
+ await db.transaction(async tx=>{await tx.update(schema.productVersions).set({status:"ACTIVE",activatedAt:new Date()}).where(eq(schema.productVersions.id,v3.id));
+ await tx.update(schema.products).set({status:"active",activeVersionId:v3.id}).where(eq(schema.products.id,p.id));});
+ await db.insert(schema.mappings).values({organizationId:a.organizationId,storeId:a.storeId,listingExternalId:"101",variantKey:selectionKey(policy.purchaseSelections),label:"Display only",required:[],productId:p.id});
+ const {productGenerationSetup}=await import("../src/modules/products/generation-setup");
+ expect((await productGenerationSetup(db,a,p.id)).title).toBe("REPUBLICATION_REQUIRED");await expect(productGenerationSetup(db,b,p.id)).rejects.toThrow();
+ const next=await editProduct(db,a,p.id);expect(await editProduct(db,a,p.id)).toBe(next);
+ expect((await productData(db,a,p.id)).active?.id).toBe(v3.id);
+ await expect(activateProduct(db,a,p.id,next,0,{name:"Approved intimacy reading",configuration:{...configuration,etsyFulfillment:{...policy,purchaseSelections:[{propertyId:"1",valueIds:["99"]}]}}})).rejects.toThrow("ETSY_SOURCE_BINDING_MISMATCH");
+ await activateProduct(db,a,p.id,next,0);const data=await productData(db,a,p.id);
+ expect(data.active?.configuration.productMetadata?.title).toBe("Approved intimacy reading");expect(data.active?.configuration.etsyFulfillment).toEqual(policy);
+ expect(data.versions.find(v=>v.id===v3.id)?.configuration).toEqual(configuration);expect(data.bindings).toHaveLength(1);
+ expect(await productGenerationSetup(db,a,p.id)).toMatchObject({title:"TITLE_READY",design:"SETUP_REQUIRED",configurationPrerequisitesComplete:false});
+ await expect(db.update(schema.productVersions).set({configuration:{...configuration,productMetadata:{contractVersion:"product-metadata/v1",title:"rewrite"}}}).where(eq(schema.productVersions.id,v3.id))).rejects.toThrow();
+ for(const table of [schema.orders,schema.units,schema.generations])expect(await db.select().from(table)).toHaveLength(0);
+});

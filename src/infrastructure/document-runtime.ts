@@ -1,6 +1,6 @@
 import {constants} from "node:fs";
 import {lstat,realpath,open} from "node:fs/promises";
-import {resolve,isAbsolute} from "node:path";
+import {resolve,isAbsolute,sep} from "node:path";
 import {LocalArtifactStorage} from "./local-artifact-storage";
 import {ArtifactStorageError,type PlatformAssetStorage} from "./object-storage";
 import {objectKeySchema} from "../modules/media/contracts";
@@ -26,5 +26,23 @@ class LocalPlatformAssets implements PlatformAssetStorage {
 export function configuredDocumentPorts(env:NodeJS.ProcessEnv=process.env):DocumentProductionPorts|undefined {
  if(!env.DOCUMENT_STORAGE_DRIVER)return undefined;
  if(env.DOCUMENT_STORAGE_DRIVER!=="local"||env.NODE_ENV==="production"||!env.DOCUMENT_ARTIFACT_ROOT)throw new ArtifactStorageError("UNAVAILABLE");
+ const root=resolve(env.DOCUMENT_ARTIFACT_ROOT),repo=resolve(process.cwd());
+ if(root===repo||root.startsWith(repo+sep))throw new ArtifactStorageError("UNAVAILABLE");
  return Object.freeze({artifacts:new LocalArtifactStorage(env.DOCUMENT_ARTIFACT_ROOT),assets:new LocalPlatformAssets(env.DOCUMENT_ASSET_ROOT)});
+}
+
+/** Bounded infrastructure status; no paths, keys or filesystem writes returned. */
+export async function localDocumentStorageReadiness(env:NodeJS.ProcessEnv=process.env,repositoryRoot=process.cwd()):Promise<"NOT_CONFIGURED"|"LOCAL_READY"|"INVALID_CONFIGURATION"|"PRODUCTION_CONFIGURATION_REQUIRED"> {
+ if(env.NODE_ENV==="production")return "PRODUCTION_CONFIGURATION_REQUIRED";
+ if(!["development","test"].includes(env.NODE_ENV??""))return "INVALID_CONFIGURATION";
+ if(!env.DOCUMENT_STORAGE_DRIVER&&!env.DOCUMENT_ARTIFACT_ROOT)return "NOT_CONFIGURED";
+ try{
+  const ports=configuredDocumentPorts(env);
+  const root=env.DOCUMENT_ARTIFACT_ROOT;
+  if(!ports||!root||!isAbsolute(root))return "INVALID_CONFIGURATION";
+  const repo=await realpath(repositoryRoot),canonical=resolve(root);
+  if(canonical===repo||canonical.startsWith(repo+sep))return "INVALID_CONFIGURATION";
+  await (ports.artifacts as LocalArtifactStorage).checkReady();
+  return "LOCAL_READY";
+ }catch{return "INVALID_CONFIGURATION";}
 }

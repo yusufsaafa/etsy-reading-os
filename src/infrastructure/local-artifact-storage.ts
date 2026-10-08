@@ -32,6 +32,8 @@ export class LocalArtifactStorage implements ImmutableArtifactStorage {
   const stat=await lstat(this.root);
   if(!stat.isDirectory()||stat.isSymbolicLink()||await realpath(this.root)!==this.root||(stat.mode&0o077)!==0||(typeof process.getuid==="function"&&stat.uid!==process.getuid()))throw new ArtifactStorageError("UNAVAILABLE");
  }
+ /** Read-only readiness probe: never creates or repairs directories. */
+ async checkReady(){await this.directory();if(((await lstat(this.root)).mode&0o700)!==0o700)throw new ArtifactStorageError("UNAVAILABLE");}
  async putImmutable(input:Parameters<ImmutableArtifactStorage["putImmutable"]>[0]){
   let temporary:string|undefined;
   try{

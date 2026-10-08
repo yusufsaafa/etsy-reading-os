@@ -1,0 +1,22 @@
+import {it,expect,vi,beforeEach} from "vitest";
+import {renderToStaticMarkup} from "react-dom/server";
+import {GenerationSetupStatus} from "../src/components/products/generation-setup-status";
+import {localAuthenticatedSubject} from "../src/modules/identity/local-subject";
+const m=vi.hoisted(()=>({scope:vi.fn(),verify:vi.fn(),user:vi.fn(),notFound:vi.fn(),destination:vi.fn(),shell:vi.fn()}));
+vi.mock("@/app/(public)/auth-actions",()=>({logout:vi.fn()}));
+vi.mock("@/db/client",()=>({database:()=>({})}));
+vi.mock("@/modules/identity/session",()=>({currentStoreScope:m.scope,requireUser:m.user,currentDestination:m.destination}));
+vi.mock("@/modules/intake/service",()=>({verifyScope:m.verify}));
+vi.mock("next/navigation",()=>({notFound:()=>{m.notFound();throw Error("NOT_FOUND");}}));
+vi.mock("@/components/operations-shell",()=>({default:m.shell}));
+import Layout from "../src/app/(store-setup)/layout";
+import Page from "../src/app/(store-setup)/settings/local-access/page";
+beforeEach(()=>{vi.resetAllMocks();m.scope.mockResolvedValue({userId:"github:123"});m.user.mockResolvedValue({id:"github:123"});});
+it("missing setup shows distinct owner actions without suggesting work ran",()=>{const html=renderToStaticMarkup(GenerationSetupStatus({productId:"synthetic",local:true,status:{title:"REPUBLICATION_REQUIRED",design:"SETUP_REQUIRED",storage:"NOT_CONFIGURED",internal:"DISABLED",configurationPrerequisitesComplete:false}}));for(const copy of ["needs republication","Document design missing","storage not configured","access disabled","prerequisites incomplete","Nothing runs","Local access instructions"])expect(html).toContain(copy);expect(html).not.toContain(".artifact");});
+it("complete configuration is not a claim of generation eligibility",()=>{const html=renderToStaticMarkup(GenerationSetupStatus({productId:"synthetic",status:{title:"TITLE_READY",design:"DESIGN_READY",storage:"LOCAL_READY",internal:"ENABLED",configurationPrerequisitesComplete:true}}));expect(html).toContain("Configuration prerequisites complete");expect(html).toContain("eligible Reading");expect(html).toContain("separate generation/PDF authorization");expect(html).not.toContain("Local access instructions");});
+it("local subject uses exact session ID, not name; unavailable outside development",()=>{expect(localAuthenticatedSubject("github:123","development")).toBe("github:123");for(const id of [undefined,"name","dev:owner","github:alice","github:123\n"])expect(localAuthenticatedSubject(id,"development")).toBeUndefined();for(const mode of ["production","test"])expect(localAuthenticatedSubject("github:123",mode)).toBeUndefined();});
+it("local self-identity page is production denied before session/database access",async()=>{vi.stubEnv("NODE_ENV","production");try{await expect(Page()).rejects.toThrow("NOT_FOUND");expect(m.scope).not.toHaveBeenCalled();expect(m.user).not.toHaveBeenCalled();}finally{vi.unstubAllEnvs();}});
+it("local self-identity page requires owner auth and shows only own subject",async()=>{vi.stubEnv("NODE_ENV","development");try{const html=renderToStaticMarkup(await Page());expect(m.verify).toHaveBeenCalledWith({},expect.any(Object),true);expect(html).toContain("github:123");expect(html).toContain("grants no internal permissions");expect(html).not.toContain("access_token");m.verify.mockRejectedValue(Error("ACCESS_DENIED"));await expect(Page()).rejects.toThrow("ACCESS_DENIED");}finally{vi.unstubAllEnvs();}});
+
+it("configuration pages reuse onboarding shell instead of redirecting pending setup",async()=>{m.destination.mockResolvedValue({kind:"PRODUCT_SETUP"});const html=renderToStaticMarkup(await Layout({children:"Setup content"}));expect(html).toContain("Setup content");expect(m.user).toHaveBeenCalled();expect(m.shell).not.toHaveBeenCalled();});
+it("completed owners reuse the operations shell; authentication failure denies either shell",async()=>{m.destination.mockResolvedValue({kind:"OPERATIONS_HOME"});m.shell.mockResolvedValue("Operations setup");expect(await Layout({children:"Setup"})).toBe("Operations setup");m.user.mockRejectedValue(Error("SIGN_IN_REQUIRED"));await expect(Layout({children:"Setup"})).rejects.toThrow("SIGN_IN_REQUIRED");});
