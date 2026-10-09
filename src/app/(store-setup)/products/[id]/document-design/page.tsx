@@ -13,7 +13,7 @@ export default async function ProductDocumentDesign({params,searchParams}:{param
  let designs:Awaited<ReturnType<typeof listDocumentDesigns>>=[];let invalid=false;
  try{designs=(await listDocumentDesigns(db,scope)).filter(d=>d.status==="ACTIVE");}catch{invalid=true;}
  const ready=setup.status==="DESIGN_READY",selected=ready&&setup.design.source==="PRODUCT"?setup.design.designId:"store-default";
- return <main className="page-content pdf-appearance">
+ return <div className="page-content pdf-appearance">
  <nav className="studio-breadcrumb" aria-label="Breadcrumb"><Link href={destination.kind==="OPERATIONS_HOME"?"/products":"/onboarding/products/setup"}>← Back to products</Link><span aria-hidden="true">/</span><span>PDF appearance</span></nav>
  <header className="studio-header"><div><h1>PDF appearance</h1><p className="muted">{data.product.name}</p></div><Link className="button secondary" href="/settings/pdf-design" target="_blank" rel="noopener noreferrer">Open PDF Design Studio ↗</Link></header>
  <section className="studio-card assignment-current" aria-label="Current PDF appearance"><div><span className="small muted">Current design</span><p role="status">{ready?`Assigned: ${setup.design.name} · revision ${setup.design.revision}`:setup.status==="INVALID_CONFIGURATION"||invalid?"The document design needs attention.":"Choose an approved document design before preparing PDFs."}</p></div><span className={ready?"setup-badge ready":"setup-badge needs"}>{ready?"Assigned":"Setup required"}</span>{ready&&<Link href={`/settings/pdf-design?design=${setup.design.designId}`} target="_blank" rel="noopener noreferrer">Edit assigned design ↗</Link>}</section>
@@ -23,5 +23,5 @@ export default async function ProductDocumentDesign({params,searchParams}:{param
  <label className="assignment-choice"><input type="radio" name="design" value="store-default" defaultChecked={selected==="store-default"}/><span><strong>Use Store default</strong><small>Uses the approved Store design, if assigned.</small></span></label>
  {designs.map(d=><label className="assignment-choice" key={d.id}><input type="radio" name="design" value={d.id} defaultChecked={selected===d.id}/><span className={`assignment-swatch ${d.configuration.template}`} style={{color:d.configuration.brand.primaryColor,borderColor:d.configuration.brand.accentColor}} aria-hidden="true">Aa<span>────</span></span><span><strong>{d.name}</strong><small>{STUDIO_TEMPLATES.find(t=>t.key===d.configuration.template)?.name} · Revision {d.revision}</small><small>{DOCUMENT_FONTS[d.configuration.typography.heading]} / {DOCUMENT_FONTS[d.configuration.typography.body]}</small></span></label>)}
  </div></fieldset><button className="button" disabled={invalid}>Save design assignment</button></form>}
- </section><p className="small muted">Existing prepared documents keep their exact appearance. Saving an assignment does not generate or deliver a PDF.</p></main>;
+ </section><p className="small muted">Existing prepared documents keep their exact appearance. Saving an assignment does not generate or deliver a PDF.</p></div>;
 }

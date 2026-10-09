@@ -1,0 +1,16 @@
+import {it,expect,vi,beforeEach} from "vitest";
+import {createElement} from "react";
+import {renderToStaticMarkup} from "react-dom/server";
+import {PgDialect} from "drizzle-orm/pg-core";
+const m=vi.hoisted(()=>({scope:vi.fn(),user:vi.fn(),destination:vi.fn(),where:vi.fn(),database:vi.fn()}));
+vi.mock("@/modules/identity/session",()=>({currentScope:m.scope,requireUser:m.user,currentDestination:m.destination}));
+vi.mock("@/db/client",()=>({database:m.database}));
+vi.mock("@/app/(public)/auth-actions",()=>({logout:vi.fn()}));
+vi.mock("next/navigation",()=>({usePathname:()=>"/"}));
+import OperationsShell from "../src/components/operations-shell";
+import SetupLayout from "../src/app/(store-setup)/layout";
+beforeEach(()=>{vi.clearAllMocks();m.scope.mockResolvedValue({organizationId:"owned-org",storeId:"owned-store"});m.user.mockResolvedValue({id:"owner",name:"Authorized Owner"});m.where.mockResolvedValue([{name:"Authorized Store",source:"fixtures"}]);m.database.mockReturnValue({select:()=>({from:()=>({where:m.where})})});});
+it("uses the authorized scope for the Store query and authentic account identity",async()=>{const html=renderToStaticMarkup(await OperationsShell({children:createElement("h1",null,"Page")}));expect(html).toContain("Authorized Store");expect(html).toContain("Authorized Owner");expect(html).toContain("Demo store · sample orders");const query=new PgDialect().sqlToQuery(m.where.mock.calls[0][0]);expect(query.params).toEqual(["owned-org","owned-store"]);expect(html.match(/<main/g)).toHaveLength(1);});
+it("authorization failure prevents Store query and shell rendering",async()=>{m.scope.mockRejectedValue(Error("Denied"));await expect(OperationsShell({children:null})).rejects.toThrow("Denied");expect(m.database).not.toHaveBeenCalled();});
+it("Store setup retains onboarding shell before completion",async()=>{m.destination.mockResolvedValue({kind:"INCOMPLETE"});const html=renderToStaticMarkup(await SetupLayout({children:createElement("h1",null,"Setup")}));expect(html).not.toContain("shell-frame");expect(m.scope).not.toHaveBeenCalled();expect(m.user).toHaveBeenCalled();});
+it("Store setup reuses operations shell only after server completion",async()=>{m.destination.mockResolvedValue({kind:"OPERATIONS_HOME"});const html=renderToStaticMarkup(await SetupLayout({children:null}));expect(html).toContain("shell-frame");expect(m.scope).toHaveBeenCalled();});

@@ -1,1 +1,1 @@
-export default function Loading() { return <div className="quiet-state" role="status"><h2>Loading your workspace…</h2><p className="muted">Your orders will appear shortly.</p></div>; }
+export default function Loading() { return <div className="quiet-state" role="status"><h2>Loading your workspace…</h2><p className="muted">This view will be ready shortly.</p></div>; }

@@ -8,5 +8,5 @@ const items: {href:string;label:string;icon:IconName}[] = [
 ];
 export function Navigation() {
   const path = usePathname();
-  return <nav className="primary-nav" aria-label="Main navigation">{items.map(({href,label,icon}) => <Link key={href} href={href} aria-current={(href === "/" ? path === href : path.startsWith(href)) ? "page" : undefined}><Icon name={icon}/><span>{label}</span></Link>)}</nav>;
+  return <nav className="primary-nav" aria-label="Main navigation">{items.map(({href,label,icon}) => <Link key={href} href={href} aria-current={(href === "/" ? path === href : (path === href || path.startsWith(href + "/"))) ? "page" : undefined}><Icon name={icon}/><span>{label}</span></Link>)}</nav>;
 }

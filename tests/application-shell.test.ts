@@ -1,0 +1,11 @@
+import {it,expect,vi} from "vitest";
+import {createElement} from "react";
+import {renderToStaticMarkup} from "react-dom/server";
+const state=vi.hoisted(()=>({path:"/"}));
+vi.mock("next/navigation",()=>({usePathname:()=>state.path}));
+import {ApplicationFrame} from "../src/components/application-frame";
+import {Navigation} from "../src/components/navigation";
+function activeHref(html:string){const anchors=html.match(/<a\b[^>]*>/g)??[];return anchors.filter(a=>/aria-current="page"/.test(a)).map(a=>a.match(/href="([^"]*)"/)?.[1]);}
+it.each(["/orders","/orders/a","/orders/a/readings/b/review","/products/a/setup","/products/a/document-design","/settings/profile","/settings/pdf-design","/settings/profile/previous-work/a"])("owns nested route %s",path=>{state.path=path;const html=renderToStaticMarkup(createElement(Navigation));const owner=path.startsWith("/orders")?"orders":path.startsWith("/products")?"products":"settings";expect(activeHref(html)).toEqual([`/${owner}`]);});
+it("home is exact and lookalike paths are not active",()=>{state.path="/";expect(activeHref(renderToStaticMarkup(createElement(Navigation)))).toEqual(["/"]);state.path="/orders-other";expect(renderToStaticMarkup(createElement(Navigation))).not.toContain('aria-current="page"');});
+it("renders one navigation and one main, escaped identity and real links, no invented controls",()=>{state.path="/products/a";const html=renderToStaticMarkup(createElement(ApplicationFrame,{storeName:"Long Store <script>",accountName:"Actual Owner",demo:false,children:createElement("h1",null,"Existing page")}));expect(html.match(/<main/g)).toHaveLength(1);expect(html.match(/<nav/g)).toHaveLength(1);expect(html).toContain('href="/settings#account"');expect(html).toContain('Long Store &lt;script&gt;');expect(html).toContain("Actual Owner");expect(html).toContain('aria-label="Open navigation"');expect(html).toContain('aria-expanded="false"');expect(html).toContain('href="#main-content"');expect(html).not.toContain('nav-count');expect(html).not.toContain("Etsy connected");});
