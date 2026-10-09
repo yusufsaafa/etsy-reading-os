@@ -1,0 +1,11 @@
+import {it,expect,vi} from "vitest";
+const m=vi.hoisted(()=>({scope:vi.fn(),db:vi.fn()}));
+vi.mock("@/modules/identity/session",()=>({currentStoreScope:m.scope}));
+vi.mock("@/db/client",()=>({database:m.db}));
+vi.mock("@/modules/documents/service",()=>({getDocumentDesign:vi.fn(),listDocumentDesigns:vi.fn(),listStudioProducts:vi.fn()}));
+vi.mock("@/modules/intake/service",()=>({verifyScope:vi.fn()}));
+vi.mock("@/components/documents/design-studio",()=>({DesignStudio:vi.fn()}));
+import Workspace from "../src/app/(store-setup)/pdf-studio/page";
+import Legacy from "../src/app/(store-setup)/settings/pdf-design/page";
+it("canonical and bookmarked routes share the exact implementation",()=>expect(Workspace).toBe(Legacy));
+it("new route retains owner authentication before data access",async()=>{m.scope.mockRejectedValue(Error("Unauthorized"));await expect(Workspace({searchParams:Promise.resolve({})})).rejects.toThrow("Unauthorized");expect(m.db).not.toHaveBeenCalled();});

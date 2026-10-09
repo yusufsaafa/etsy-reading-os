@@ -1,6 +1,7 @@
 import type { SVGProps } from "react";
-export type IconName = "home" | "orders" | "products" | "settings" | "arrow" | "search" | "store" | "image";
+export type IconName = "document" | "home" | "orders" | "products" | "settings" | "arrow" | "search" | "store" | "image";
 const paths: Record<IconName, React.ReactNode> = {
+  document: <><path d="M6 3h8l4 4v14H6V3Z"/><path d="M14 3v5h4M9 12h6M9 16h6"/></>,
   home: <><path d="m3 10 9-7 9 7"/><path d="M5 9v12h5v-7h4v7h5V9"/></>,
   orders: <><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V2h6v2M9 10h6M9 14h6M9 18h4"/></>,
   products: <><path d="m12 3 9 5-9 5-9-5 9-5ZM3 8v9l9 5 9-5V8M12 13v9M7 5.8l9 5"/></>,
