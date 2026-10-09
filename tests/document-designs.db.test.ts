@@ -80,3 +80,24 @@ it("explicit owner-approved creation immediately activates controlled design; as
  await expect(createDocumentDesign(db,a,{name:"Invalid",configuration:{...value.configuration,typography:{heading:"arbitrary-font",body:"inter"}}})).rejects.toThrow();
  expect(await db.select().from(schema.documentDesigns)).toHaveLength(1);
 });
+
+it("Studio assignment read is owner-only and isolates foreign and sibling Stores",async()=>{
+ const {listStudioProducts}=await import("../src/modules/documents/service");
+ const foreign=await db.insert(schema.products).values({organizationId:b.organizationId,storeId:b.storeId,name:"Foreign product"}).returning();
+ const design=await create();await assignDocumentDesignToProduct(db,a,productId,design.id);
+ expect(await listStudioProducts(db,a)).toEqual([{id:productId,name:"Reading",assignedName:"Main"}]);
+ expect(await listStudioProducts(db,sibling)).toEqual([]);
+ await expect(listStudioProducts(db,{...a,userId:"b"})).rejects.toThrow();
+ expect((await listStudioProducts(db,b))[0].id).toBe(foreign[0].id);
+});
+it("Studio save-as copies configuration into a new owned design; revisions never change pinned resolution",async()=>{
+ const {studioPreset}=await import("../src/modules/documents/studio-templates");
+ const first=await createDocumentDesign(db,a,{name:"First",configuration:studioPreset("luxury-editorial","Studio")});await assignDocumentDesignToProduct(db,a,productId,first.id);
+ const pinned=await resolveDocumentDesignForProduct(db,a,productId);if(pinned.status!=="RESOLVED")throw Error();
+ const second=await createDocumentDesign(db,a,{name:"Copy",configuration:first.configuration});expect(second.id).not.toBe(first.id);
+ const updated=await updateDocumentDesign(db,a,first.id,0,{name:"Revised",configuration:{...first.configuration,footerText:"New footer"}});
+ expect(updated.revision).toBe(1);expect(pinned.design.revision).toBe(0);expect(pinned.design.configuration.footerText).toBe("");
+ const current=await resolveDocumentDesignForProduct(db,a,productId);if(current.status!=="RESOLVED")throw Error();expect(current.design.designId).toBe(first.id);expect(current.design.revision).toBe(1);
+ expect(await db.select().from(schema.productDocumentDesigns)).toHaveLength(1);
+ expect(await db.select().from(schema.generations)).toHaveLength(0);
+});

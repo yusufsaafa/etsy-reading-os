@@ -14,6 +14,8 @@ const config: NextConfig = {
       { key: "X-Frame-Options", value: "DENY" },
       { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
     ] },
+    // Keep Studio fetches/server actions same-origin, including through a local proxy.
+    { source: "/settings/pdf-design", headers: [{ key: "Referrer-Policy", value: "same-origin" }] },
     // Native form POSTs under no-referrer can send Origin: null. Preserve
     // same-origin validation for the development acceptance sign-in page.
     ...(process.env.NODE_ENV === "development" ? [{

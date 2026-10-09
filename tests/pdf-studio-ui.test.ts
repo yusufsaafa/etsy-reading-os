@@ -1,0 +1,16 @@
+import { beforeEach,it,expect,vi } from "vitest";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { writeFileSync,readFileSync } from "node:fs";
+import { studioPreset } from "../src/modules/documents/studio-templates";
+vi.mock("next/navigation",()=>({useRouter:()=>({refresh:vi.fn()})}));
+vi.mock("@/app/(store-setup)/settings/pdf-design/actions",()=>({saveStudioDesign:vi.fn()}));
+import { DesignStudio } from "../src/components/documents/design-studio";
+const props={initial:null,configuration:studioPreset("classic","Example Studio"),designs:[],fonts:[["inter","Inter"],["source-serif-4","Source Serif 4"]] as [string,string][],products:[]};
+beforeEach(()=>vi.clearAllMocks());
+it("renders the two-column merchant Studio with explicit save, supported templates and preview controls",()=>{const html=renderToStaticMarkup(createElement(DesignStudio,props));for(const text of ["PDF Design Studio","Save changes","Save as template","Classic Ivory","Mystic Parchment","Luxury Editorial","Brand / studio name","Heading font","Body font","Cover style","Footer text","Product assignments","Live PDF preview","Previous preview page","Next preview page","Preview zoom","Synthetic example"])expect(html).toContain(text);expect(html).not.toContain('type="file"');expect(html).toContain("Logo upload is not supported");expect(html).not.toContain("customer's actual answer");
+ if(process.env.STUDIO_VISUAL_FIXTURE==="1")writeFileSync("/tmp/reading-os-studio-visual.html",`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${readFileSync("src/app/globals.css","utf8")}</style></head><body>${html}</body></html>`);
+});
+it("only owned product assignment links are separate, external-safe owner actions",()=>{const html=renderToStaticMarkup(createElement(DesignStudio,{...props,products:[{id:"owned-product",name:"Synthetic product",assignedName:"Owned design"}]}));expect(html).toContain('href="/products/owned-product/document-design"');expect(html).toContain('target="_blank"');expect(html).toContain('rel="noopener noreferrer"');expect(html).toContain("Owned design");});
+it("existing design exposes its saved revision without an automatic mutation",()=>{const html=renderToStaticMarkup(createElement(DesignStudio,{...props,initial:{id:"owned",revision:2,name:"Saved design",configuration:props.configuration},designs:[{id:"owned",revision:2,name:"Saved design"}]}));expect(html).toContain("Revision 2");expect(html).toContain('aria-current="true"');expect(html).toContain('value="Saved design"');});
+it("responsive and focus conventions retain narrow-width controls and separate preview layout",()=>{const css=readFileSync("src/app/globals.css","utf8");expect(css).toContain(".studio-grid { display:grid;");expect(css).toContain("@media(max-width:800px)");expect(css).toContain(".studio-preview { position:static;");expect(css).toContain("@media(max-width:440px)");expect(css).toMatch(/focus-visible/);});

@@ -104,3 +104,12 @@ export async function documentDesignSetup(db:Database,scope:Scope,productId:stri
   throw error;
  }
 }
+
+/** Owner-only presentation data for assignment navigation; no Reading/customer data. */
+export async function listStudioProducts(db:Database,scope:Scope) {
+ await verifyScope(db,scope,true);
+ return db.select({id:products.id,name:products.name,assignedName:documentDesigns.name}).from(products)
+  .leftJoin(productDocumentDesigns,and(eq(productDocumentDesigns.organizationId,products.organizationId),eq(productDocumentDesigns.storeId,products.storeId),eq(productDocumentDesigns.productId,products.id)))
+  .leftJoin(documentDesigns,and(eq(documentDesigns.organizationId,products.organizationId),eq(documentDesigns.storeId,products.storeId),eq(documentDesigns.id,productDocumentDesigns.designId)))
+  .where(tenantWhere(products,scope)).orderBy(asc(products.name),asc(products.id));
+}
