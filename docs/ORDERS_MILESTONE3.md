@@ -50,3 +50,17 @@ Commands: pnpm test with the focused/regression file list; pnpm test:db tests/or
 BROWSER ACCEPTANCE: NOT VERIFIED. Attached browser surfaces have no authenticated Reading OS tab; available Safari shows an unrelated site. Actual desktop/390px appearance, overflow, mobile table accessibility and interactions remain unverified. Structural tests do not establish visual acceptance.
 
 Deferred: Order Detail redesign, generation/retry/PDF controls, messaging, delivery/refund/cancellation, ingestion, synchronization, notifications, analytics and infinite scroll. Pre-existing generated next-env.d.ts/tsconfig.json modifications remain preserved and excluded.
+
+## Milestone 3.1 — Development sample preview
+
+Run the existing local app with pnpm dev, complete normal sign-in/onboarding and open /orders. Select **Preview Sample Orders** in the header (equivalent to /orders?preview=sample). **SAMPLE DATA** identifies the read-only presentation. **Exit Preview** returns to /orders and its normal database query.
+
+The route checks NODE_ENV === "development", then existing currentScope and a fresh verifyScope before dynamically importing fixtures. Only the exact single preview=sample token activates it. In production/test, the token is ignored, controls are absent and the fixture accessor rejects access. No public preview endpoint or client-selected tenant is added.
+
+Fifty bounded deterministic records use DEMO-1001 through DEMO-1050, fixed varied sample purchase dates, five lifecycle states, single/multiple products, long and missing context, and reading counts one through seven. They are fictional presentation data, never PostgreSQL rows. The fixture module has no runtime database, Etsy, AI or queue dependencies. Only existing read-only access verification touches the database in preview.
+
+The real OrderList, badges, date formatter, responsive CSS and pagination render the fixture records. The same validated search/filter/sort/page conventions apply; only this bounded sample list is filtered in memory. Search/filter submissions reset pagination and preserve the preview token. Sample identifiers are plain text, Open actions are disabled with an explanation, and no fake detail workflow exists.
+
+Preview affects /orders only. Dashboard, products, queues, generation history, PDF Studio and integration state remain unchanged. Dates and labels are deliberately fictional, not live store evidence. The preview omits connection guidance rather than inventing connection state.
+
+Verification: 141 focused/regression tests, typecheck, production build and diff checks pass. Tests cover nondevelopment rejection, exact-token validation, sign-in/onboarding/authorized scope, fixture sorting/filtering/pagination, no write calls, safe detail actions and Exit Preview. Browser acceptance remains NOT VERIFIED because no authenticated controllable Reading OS tab is available; actual desktop/390px rendering, touch behavior and overflow are not established by source tests. Database projection/schema/commands are unchanged; no real-store fixtures were inserted.
