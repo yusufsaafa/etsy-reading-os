@@ -1,37 +1,69 @@
 import Link from "next/link";
-import type { DashboardData } from "@/modules/dashboard/service";
-import { Heading, Badge, EmptyState } from "./ui";
-import { OrderList } from "./order-list";
+import type { DashboardData, DashboardIntegration, DashboardOrder } from "@/modules/dashboard/service";
+import { Heading, Badge } from "./ui";
+import { displayDate } from "./seller-status";
 import styles from "./dashboard.module.css";
 
-export function DashboardLoading() {
-  return <div className={styles.dashboard} aria-busy="true" aria-label="Loading Dashboard"><Heading title="Dashboard" description="Loading your operational overview…"/><div className={styles.metrics}>{[1,2,3,4].map(n=><div className={styles.skeleton} key={n}/>)}</div><div className={styles.skeletonPanel}/><div className={styles.skeletonPanel}/></div>;
+export function integrationPresentation(integration: DashboardIntegration) {
+  const name = integration.source === "fixtures" ? "Demo store" : "Etsy";
+  if (!integration.connectionStatus) return { label: "Connection unavailable", guidance: "Review your store connection in Settings.", action: true };
+  if (integration.connectionStatus === "disconnected") return { label: `${name} disconnected`, guidance: "Connect your store from Settings to get started.", action: true };
+  if (integration.connectionStatus === "reauthorization_required") return { label: "Reauthorization required", guidance: "Review your authorization in Settings.", action: true };
+  if (integration.expired) return { label: "Authorization expired", guidance: "Review your expired store authorization in Settings.", action: true };
+  if (integration.syncStatus === "queued") return { label: "Import queued", guidance: "The import is queued. Check its progress in Settings.", action: false };
+  if (integration.syncStatus === "running") return { label: "Import running", guidance: "An import is running. Imported orders will appear after refreshing this view.", action: false };
+  if (integration.syncStatus === "failed") return { label: "Import needs attention", guidance: "The last import failed. Review store updates in Settings.", action: true };
+  if (integration.syncStatus === "succeeded") return { label: `${name} connected`, guidance: "The last import finished. No orders have been imported into Reading OS.", action: false };
+  return { label: `${name} connected`, guidance: integration.source === "etsy" ? "No imported orders yet. Live updates are not enabled; review available import options in Settings." : "No imported orders yet. Review demo updates in Settings.", action: false };
 }
-export function DashboardError() {
-  return <div className={styles.dashboard}><Heading title="Dashboard" description="Your operational overview"/><section className={styles.surface} role="alert"><h2>Dashboard data could not be loaded</h2><p>Your order counts and activity are unavailable. Refresh this page to try again.</p><div className={styles.actions}><a className="button" href="/">Reload Dashboard</a><Link className="button ghost" href="/orders">Open Orders</Link></div></section></div>;
+
+function DashboardHeader({ days }: { days: number }) {
+  return <header className={styles.header}><h1>Dashboard</h1><nav className={styles.ranges} aria-label="Dashboard date range">{[7,30,90].map(range=><Link key={range} href={`/?range=${range}`} aria-current={days===range?"page":undefined}>{range} days</Link>)}</nav></header>;
+}
+export function DashboardLoading() {
+  return <div className={styles.dashboard} aria-busy="true" aria-label="Loading Dashboard"><Heading title="Dashboard"/><div className={styles.metrics}>{[1,2,3,4].map(n=><div className={styles.skeleton} key={n}/>)}</div><div className={styles.grid}><div className={styles.skeletonPanel}/><div className={styles.skeletonPanel}/></div></div>;
+}
+export function DashboardError({ days = 30 }: { days?: number }) {
+  return <div className={styles.dashboard}><Heading title="Dashboard"/><section className={styles.panel} role="alert"><h2>Dashboard unavailable</h2><p>Refresh to try again. Your counts could not be loaded.</p><a className="button" href={`/?range=${days}`}>Reload Dashboard</a><Link className="button ghost" href="/orders">Open Orders</Link></section></div>;
+}
+function OrderTrend({ analytics }: { analytics: DashboardData["analytics"] }) {
+  const { daily, orders, days } = analytics;
+  const max = Math.max(1,...daily.map(day=>day.count));
+  const width=540,height=120,left=38,top=12,step=width/daily.length;
+  const ticks=[...new Set([0,Math.ceil(max/2),max])];
+  const labels=[...new Set([0,Math.floor((daily.length-1)/2),daily.length-1])];
+  const shortDate=(date:string)=>new Intl.DateTimeFormat("en",{month:"short",day:"numeric",timeZone:"UTC"}).format(new Date(`${date}T00:00:00Z`));
+  return <section className={styles.panel} aria-labelledby="order-trend-title"><div className={styles.sectionHeading}><h2 id="order-trend-title">Orders Over Time</h2></div><p className={styles.context}>Imported orders · Last {days} days · UTC</p>
+    {orders ? <><svg className={styles.chart} viewBox="0 0 600 170" aria-hidden="true">{ticks.map(tick=>{const y=top+height-(tick/max)*height;return <g key={tick}><line x1={left} x2={left+width} y1={y} y2={y} className={styles.gridline}/><text x={left-8} y={y+4} textAnchor="end" className={styles.chartLabel}>{tick}</text></g>;})}{daily.map((day,index)=><rect key={day.date} x={left+index*step+step*.15} y={top+height-day.count/max*height} width={step*.7} height={day.count/max*height} rx={Math.min(2,step*.15)} className={styles.bar}/>)}{labels.map(index=><text key={index} x={left+index*step+step/2} y="157" textAnchor={index===0?"start":index===daily.length-1?"end":"middle"} className={styles.chartLabel}>{shortDate(daily[index].date)}</text>)}</svg><details className={styles.disclosure}><summary>Daily values <span>Today is partial</span></summary><div className={styles.dataScroll} tabIndex={0} role="region" aria-label="Daily order values"><table><caption>Imported orders by UTC purchase date, including canceled orders</caption><thead><tr><th scope="col">Date</th><th scope="col">Orders</th></tr></thead><tbody>{daily.map(day=><tr key={day.date}><th scope="row">{day.date}</th><td>{day.count}</td></tr>)}</tbody></table></div></details></> : <p className={styles.noActivity}>No imported orders in this period.</p>}
+  </section>;
+}
+function Attention({ data }: { data: DashboardData }) {
+  return <section className={`${styles.panel} ${styles.attentionPanel}`} aria-labelledby="dashboard-attention"><div className={styles.sectionHeading}><h2 id="dashboard-attention">Requires Attention</h2><Badge tone="warning">{data.metrics.attention} {data.metrics.attention===1?"order":"orders"}</Badge></div><ul className={styles.attention}>{data.attention.map(order=><li key={order.id}><div className={styles.identity}><strong>Order #{order.externalId}</strong><span>{order.status}</span></div><Link className="button ghost" href={`/orders/${order.id}`} aria-label={`Review order ${order.externalId}`}>Review →</Link></li>)}</ul></section>;
+}
+function RecentOrders({ rows }: { rows: DashboardOrder[] }) {
+  // The shared Orders table uses viewport breakpoints; this bounded list retains
+  // its data and links without squeezing five table columns into the grid.
+  return <section className={styles.panel} aria-labelledby="dashboard-recent"><div className={styles.sectionHeading}><h2 id="dashboard-recent">Recent Orders</h2><Link href="/orders" className={styles.textLink}>View all orders →</Link></div><ul className={styles.recent}>{rows.map(order=><li key={order.id}><div className={styles.identity}><Link href={`/orders/${order.id}`} aria-label={`Open order ${order.externalId}`}>Order #{order.externalId}</Link><span className={styles.productTitle}>{order.products || "Order details"}</span></div><span className={styles.orderStatus}>{order.status}</span><time dateTime={order.date}>{displayDate(new Date(order.date))}</time></li>)}</ul></section>;
+}
+function TopProducts({ products }: { products: DashboardData["analytics"]["topProducts"] }) {
+  const max=Math.max(1,...products.map(product=>product.orders));
+  return <section className={styles.panel} aria-labelledby="dashboard-products"><div className={styles.sectionHeading}><h2 id="dashboard-products">Top Products</h2><Link href="/products" className={styles.textLink}>Manage →</Link></div><p className={styles.context}>Listings by distinct imported orders</p>{products.length ? <ol className={styles.ranking}>{products.map(product=><li key={product.listingId}><div><span className={styles.productTitle}>{product.title}</span><strong>{product.orders}<span className="sr-only"> {product.orders===1?"order":"orders"}</span></strong></div><div className={styles.track} aria-hidden="true"><span style={{width:`${product.orders/max*100}%`}}/></div></li>)}</ol> : <p className={styles.noActivity}>No product activity in this period.</p>}</section>;
 }
 export function Dashboard({ data }: { data: DashboardData }) {
-  const metrics = [
-    {label:"Total Orders",value:data.metrics.total,detail:"All imported orders, including canceled orders"},
-    {label:"Pending Orders",value:data.metrics.pending,detail:"No issue, active production or complete generated result"},
-    {label:"In Production",value:data.metrics.active,detail:"Orders with queued, active or retrying readings"},
-    {label:"Generated Orders",value:data.metrics.generated,detail:"All readings generated with current information"},
-  ];
-  const production = [
-    {label:"Queued",value:data.production.queued}, {label:"Active",value:data.production.active},
-    {label:"Waiting to retry",value:data.production.retry}, {label:"Needs attention",value:data.production.attention},
-  ];
-  return <div className={styles.dashboard}>
-    <Heading title="Dashboard" description="Orders, attention items and current production for your store."/>
-    {data.storeNotice && <div className={styles.surface}><div className={styles.sectionHeading}><p>{data.storeNotice}</p><Link className="button ghost" href="/settings">Review store integration →</Link></div></div>}
-    <section aria-label="Operational overview"><dl className={styles.metrics}>{metrics.map(metric=><div className={styles.metric} key={metric.label}><dt>{metric.label}</dt><dd>{metric.value.toLocaleString("en")}<p>{metric.detail}</p></dd></div>)}</dl></section>
-    <section aria-labelledby="dashboard-attention"><div className={styles.sectionHeading}><div><h2 id="dashboard-attention">Requires Attention</h2><p>{data.metrics.attention} {data.metrics.attention===1?"order needs":"orders need"} a decision. Failures appear first.</p></div><Link className="button ghost" href="/orders">View all orders</Link></div>
-      {data.attention.length ? <ul className={styles.attention}>{data.attention.map(order=><li key={order.id}><div className={styles.identity}><strong>Order #{order.externalId}</strong><span>{order.products || "Order details available on review"}</span></div><Badge tone="warning">{order.status}</Badge><Link className="button ghost" href={`/orders/${order.id}`} aria-label={`Review order ${order.externalId}`}>Review order →</Link></li>)}</ul> : <div className={styles.surface}><h3>No reading issues require attention</h3><p>No stored reading production failures or information issues need a decision right now.</p></div>}
-    </section>
-    <section aria-labelledby="dashboard-recent"><div className={styles.sectionHeading}><div><h2 id="dashboard-recent">Recent Orders</h2><p>The five most recent purchases · dates shown in UTC</p></div><Link className="button ghost" href="/orders">View all orders</Link></div>
-      {data.recent.length ? <OrderList rows={data.recent.map(order=>({...order,customer:order.customer||"Customer name unavailable",ready:0,date:new Date(order.date)}))}/> : <EmptyState title="No orders yet" href="/settings" action="Review store integration">Connect your store and import orders to begin your operational overview.</EmptyState>}
-    </section>
-    <section className={styles.surface} aria-labelledby="dashboard-production"><div className={styles.sectionHeading}><div><h2 id="dashboard-production">Production Overview</h2><p>Reading production queue entries · one per reading, not generation attempts</p></div></div><dl className={styles.production}>{production.map(item=><div key={item.label}><dt>{item.label}</dt><dd>{item.value.toLocaleString("en")}</dd></div>)}</dl>{!production.some(item=>item.value>0)&&<p>No queued, active, retrying or attention entries. Generated work is available from order details.</p>}<p className={styles.note}>Order metrics assign attention before production, then generated results. Canceled orders are excluded from these categories. Generated does not mean approved or delivered.</p></section>
-    <aside className={styles.actions} aria-label="Workspace shortcuts"><span>Configure your workflow</span><Link className="button ghost" href="/products">Manage Products →</Link><Link className="button ghost" href="/pdf-studio">Open PDF Studio →</Link></aside>
+  const { analytics, metrics, production }=data;
+  const period=`Last ${analytics.days} days`, gettingStarted=metrics.total===0, priority=metrics.attention>0;
+  const integration=integrationPresentation(data.integration);
+  const cards=[{label:"Orders",value:analytics.orders.toLocaleString("en"),context:period},{label:"Generated Orders",value:metrics.generated.toLocaleString("en"),context:"Now"},{label:"Issues",value:metrics.attention.toLocaleString("en"),context:"Now"},{label:"Avg AI Execution",value:analytics.averageAiMs===null?"—":`${(analytics.averageAiMs/1000).toFixed(1)}s`,context:period}];
+  const activity=[{label:"Queued",count:production.queued},{label:"Active",count:production.active},{label:"Retrying",count:production.retry},{label:"Needs attention",count:production.attention}].filter(item=>item.count>0);
+  return <div className={styles.dashboard} data-mode={gettingStarted?"getting-started":priority?"attention-priority":"business-overview"}>
+    <DashboardHeader days={analytics.days}/>
+    <div className={styles.integration}><span className={integration.action?styles.warning:undefined}>{integration.label}</span>{integration.action&&<Link href="/settings">Review Settings →</Link>}</div>
+    <section aria-label="Operational overview"><dl className={styles.metrics}>{cards.map(card=><div className={styles.metric} key={card.label}><dt>{card.label}</dt><dd>{card.value}<span>{card.context}</span></dd></div>)}</dl></section>
+    <details className={styles.disclosure}><summary>Metric definitions</summary><dl className={styles.definitions}><div><dt>Orders</dt><dd>Imported purchases in the selected UTC period, including canceled orders. Today is partial.</dd></div><div><dt>Generated Orders</dt><dd>Current orders whose readings all have successful, current results, with no higher-priority attention or production state. Not approval, PDF completion or delivery.</dd></div><div><dt>Issues</dt><dd>Current distinct noncanceled orders needing attention, regardless of purchase date. Failures precede stale results, then information or setup issues.</dd></div><div><dt>Avg AI Execution</dt><dd>Successful Google reading AI requests finishing in this period, measured through response validation. Excludes failed attempts, fake providers, queue waiting and retry backoff. {analytics.aiSamples} eligible {analytics.aiSamples===1?"sample":"samples"}.</dd></div></dl><p>Statistics reflect orders persisted in Reading OS, not necessarily all Etsy shop activity. Recent Orders shows the latest five lifetime purchases. Top Products counts each listing once per order, not purchased units; canceled orders are included.</p></details>
+    {gettingStarted ? <section className={styles.panel} aria-labelledby="getting-started"><h2 id="getting-started">Your workspace is ready</h2><p>{integration.guidance}</p><div className={styles.actions}><Link className="button" href="/settings">Open Settings</Link><Link className="button ghost" href="/products">Manage Products →</Link></div></section> : <>
+      {priority&&<Attention data={data}/>}
+      <div className={styles.grid}><OrderTrend analytics={analytics}/>{priority&&<TopProducts products={analytics.topProducts}/>} {!priority&&<section className={styles.clear} aria-label="Requires Attention"><strong>All clear</strong><span>No orders need attention.</span></section>}<RecentOrders rows={data.recent}/>{!priority&&<TopProducts products={analytics.topProducts}/>}</div>
+      {activity.length>0&&<section className={styles.production} aria-label="Reading production queue activity"><strong>Reading queue</strong>{activity.map(item=><span key={item.label}>{item.label} <b>{item.count}</b></span>)}</section>}
+    </>}
   </div>;
 }

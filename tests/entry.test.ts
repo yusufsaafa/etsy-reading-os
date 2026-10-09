@@ -13,20 +13,25 @@ import { logout } from "../src/app/(public)/auth-actions";
 beforeEach(() => { vi.clearAllMocks(); });
 it("unauthenticated root renders public entry with signup and login, without an app sidebar", async () => {
   mocks.destination.mockResolvedValue({ kind: "PUBLIC", path: "/" });
-  const html = renderToStaticMarkup(await Entry());
+  const html = renderToStaticMarkup(await Entry({searchParams:Promise.resolve({})}));
   expect(html).toContain('href="/sign-up"'); expect(html).toContain('href="/sign-in"');
   expect(html).toContain("without the repetitive work"); expect(html).not.toContain('class="sidebar"');
   expect(mocks.redirect).not.toHaveBeenCalled();
 });
 it.each(["/onboarding/store", "/onboarding/etsy", "/onboarding/products", "/onboarding/products/setup"])("root resumes %s without redirecting back to itself", async path => {
   mocks.destination.mockResolvedValue({ kind: "INCOMPLETE", path });
-  await expect(Entry()).rejects.toThrow(`REDIRECT:${path}`);
+  await expect(Entry({searchParams:Promise.resolve({})})).rejects.toThrow(`REDIRECT:${path}`);
 });
 it("completed root renders the existing operations shell and does not redirect", async () => {
   mocks.destination.mockResolvedValue({ kind: "OPERATIONS_HOME", path: "/" });
-  expect(renderToStaticMarkup(await Entry())).toContain("Protected workspace");
+  expect(renderToStaticMarkup(await Entry({searchParams:Promise.resolve({})}))).toContain("Protected workspace");
   expect(mocks.redirect).not.toHaveBeenCalled();
 });
 it("logout delegates solely to Auth.js session termination and returns to public root", async () => {
   await logout(); expect(mocks.signOut).toHaveBeenCalledExactlyOnceWith({ redirectTo: "/" });
+});
+it("forwards URL range only after the existing operations destination is authorized",async()=>{
+  mocks.destination.mockResolvedValue({kind:"OPERATIONS_HOME",path:"/"});
+  const page=await Entry({searchParams:Promise.resolve({range:"90"})});
+  expect(page.props.children.props.range).toBe("90");expect(mocks.redirect).not.toHaveBeenCalled();
 });

@@ -1,70 +1,73 @@
-# Milestone 2 — Operational Dashboard
+# Milestone 2.1B — Adaptive Hybrid Dashboard
 
-Route: `/`. The approved shell and navigation are unchanged. The Figma reference's compact joined metrics, attention list and recent-order surface are adapted with existing semantic tokens and the reusable `OrderList`.
+Route: `/`, with server-rendered `?range=7`, `?range=30`, or `?range=90`. Default and invalid/repeated values resolve to 30 days. The approved shell, navigation, authentication and onboarding boundaries remain unchanged.
 
-## Sections and sources
+**Dashboard statistics reflect orders persisted in Reading OS. They do not necessarily represent all Etsy shop activity.** Normal live synchronization remains gated; this milestone does not enable it.
 
-- Header: Dashboard, with an operational description.
-- Store notices: persisted `etsy_connections` status/expiry and latest `sync_runs` outcome; existing Settings destination.
-- Overview: four order aggregates, defined below.
-- Requires Attention: at most six distinct orders, with existing order-detail links.
-- Recent Orders: five persisted purchases, using the existing Orders table component.
-- Production Overview: current **reading production** queue entries, one per fulfillment unit.
-- Contextual navigation: Products and PDF Studio, with no new actions.
+## Composition and adaptive states
 
-`src/modules/dashboard/service.ts` is a read-only projection of existing tables, not a new lifecycle or backend subsystem. It uses `orders`, `order_line_items`, `fulfillment_units`, `generations`, `production_queue`, `etsy_connections` and `sync_runs`. No customer answers, provider error text, emails or snapshots are returned.
+Exactly four compact KPI cards use existing shell tokens: Orders, Generated Orders, Issues, Avg AI Execution. Each shows its time context. Definitions are available in a native keyboard/touch-accessible disclosure rather than permanent paragraphs.
 
-## Order metric definitions
+- Getting Started: lifetime persisted order count is zero. Four KPIs, compact integration status and one contextual guidance section with existing Settings/Products links. No empty chart, ranking or production panels.
+- Business Overview: lifetime count is positive. Daily order chart, compact All clear row, latest five lifetime orders and top-five listing ranking. Empty selected periods stay in this mode; they do not imply an empty store.
+- Attention Priority: current attention count is positive. The existing bounded attention list appears above analytics in DOM and visual order. Desktop then pairs the chart and ranking, with recent orders below; mobile preserves that order. No CSS order manipulation or new resolution workflow.
+- Production: a compact reading-queue strip appears only when a current count is nonzero. No controls or Production destination are added.
 
-Orders do not have a persisted unified lifecycle status. The projection classifies each order once, in this precedence:
+Recent orders use the existing read contract, purchase ordering and order-detail links. A Dashboard-specific compact list replaces the shared five-column table here because its viewport breakpoints do not reflect the narrower grid column. Orders page presentation and fetching are unchanged.
 
-1. Canceled: `orders.canceled`; excluded from operational categories and attention.
-2. Attention: unpaid orders, refunds other than `none`, persisted reading issues, terminal/current generation failures, queue `ATTENTION`, or a successful latest generation whose customer revision differs from the reading revision.
-3. In production: at least one queue entry in `QUEUED`, `CLAIMED`, `EXECUTING`, `RETRY_WAIT`, or latest generation in `PROCESSING`, and no attention condition.
-4. Generated: at least one reading, **every** reading has a latest `SUCCEEDED` generation with matching customer revision and no issues, and no earlier category applies. Missing generation rows explicitly count as not generated.
-5. Pending: remaining noncanceled orders, including partially generated work without active production or issues.
+## KPI definitions
 
-Visible cards: Total Orders (all persisted orders, including canceled), Pending Orders, In Production, Generated Orders. Attention has its own total. These exclusive categories plus canceled partition Total Orders. Generated does **not** imply review approval, PDF completion or delivery. Completed Orders is omitted because delivery is not represented reliably by these states. Ready for Review is not inferred from generation success because existing approval state is a separate contract.
+| KPI | Meaning | Time basis |
+| --- | --- | --- |
+| Orders | Count of persisted purchases in the selected UTC interval, including canceled orders | Selected period |
+| Generated Orders | Existing Milestone 2 current generated-order classification | Now, independent of range |
+| Issues | Existing distinct noncanceled attention-order count | Now, independent of range |
+| Avg AI Execution | Mean recorded execution duration of eligible successful reading requests | Request finished in selected period |
 
-## Attention and production semantics
+The existing lifecycle classification is unchanged: canceled, attention, active production, fully generated, then pending. Generated requires every reading to have a successful latest generation with matching customer revision and no issues; absent generation rows do not count as generated. Generated does not mean approved, PDF-complete or delivered.
 
-Attention is ordered by processing failure/queue attention first, stale generated information second, other stored issues/payment/refund holds third; oldest purchase first within priority, then UUID ascending. Unknown persisted issue codes remain actionable through generic safe copy; no unsupported issue code is invented. A latest failed generation with a queued/claimed/executing/retry-wait queue entry is treated as active recovery rather than a new terminal failure. Successful generated work alone is not an error.
+Attention preserves its maximum of six distinct orders, existing safe descriptions and detail links. Failures/queue attention precede stale results, then stored information/payment/refund issues, with oldest purchase and UUID tie-breakers. Retry-wait/queued/active recovery is not silently converted into terminal failure. Attention does not inherit the analytics date filter.
 
-Production counts queue entries independently of order categories:
+## Period and analytics calculations
 
-| Label | Persisted queue states |
-| --- | --- |
-| Queued | `QUEUED` |
-| Active | `CLAIMED`, `EXECUTING` |
-| Waiting to retry | `RETRY_WAIT` |
-| Needs attention | `ATTENTION` |
+One render-time cutoff is passed into the read projection. Periods begin at UTC midnight N−1 days before today and end at that exclusive cutoff. Today is partial; future purchases and records exactly at the cutoff are excluded. The server or browser's local timezone does not affect buckets.
 
-Canceled orders are excluded. `SKIPPED` and `COMPLETED` are not current activity. Retries update a single unique queue row; they do not inflate these counts. Orders with issues and active queue rows may appear in attention while their queue rows remain visible in production. Direct/manual generation can affect In Production without creating a queue entry; these different counting units are labeled explicitly.
+- Orders Over Time: database-side UTC daily counts from `orders.createdAt`, which intake retains from the external purchase timestamp. Returns exactly 7/30/90 buckets, including explicit zero days. A wholly empty period renders concise no-activity copy instead of a zero-filled chart.
+- Top Products: group period line items by Etsy `listingExternalId`; count distinct `orderId`, ignoring quantity and duplicate lines/variants within an order. Include canceled purchases consistently. Return at most five, sorted count descending then external ID ascending. Current owned listing title is preferred; otherwise use the most recent deterministic retained line title, then `Listing #…`. A generic retained `Unconfigured purchase` title is not presented as an original Etsy listing title. Listings do not require active Product configuration and no ambiguous Product detail links are created.
+- Avg AI Execution: `ai_requests.durationMs` for operation `PERSONALIZED_CONTENT_GENERATION`, provider `google` (the current real provider), `SUCCEEDED` requests with a generation binding, nonnull start/finish/duration, nonnegative duration and finish not before start. Filter by finish timestamp using the shared period. Fake providers, style analysis, failed/pre-dispatch/running requests and missing/invalid timing are excluded. Each eligible successful attempt contributes once. Failed-attempt duration and retry backoff are not included. No samples displays `—`; sample count appears in definitions.
 
-## Access and query behavior
+Duration is the gateway's recorded provider execution plus response validation. It is not delivery time, pure model inference time, or `generation.completedAt - generation.createdAt`, which can include retries.
 
-The existing root entry, authenticated `currentScope`, onboarding redirects and shell remain authoritative. The query revalidates persisted membership via `verifyScope`. Organization and store predicates constrain every source; joined children retain matching tenant keys. The existing selected store semantics (earliest authorized store through `findUserStore`) are preserved, without cross-store aggregation or invented switching.
+## Integration state
 
-A single SQL statement provides a consistent aggregate/list snapshot. The latest-generation CTE uses `(unit_id, created_at DESC, id DESC)` once per store instead of repeatedly scanning attempts per reading. Counts are computed in the database, never by loading all records into JavaScript. Recent and attention lists are limited to five and six; listing titles are loaded only for their combined order IDs. Recent sorting is purchase `orders.created_at DESC, id DESC`; intake sets this from the external purchase timestamp, not import time. Dates display in UTC.
+The projection returns source, persisted connection status, expiry at the shared cutoff and latest sync status for the **current connection epoch**. Old failed imports do not remain current after reconnection. No tokens, scopes or raw provider error bodies are returned.
 
-The query must scan relevant store history to calculate exact totals; no schema/index changes were made. Very large stores may need measured query-plan optimization in a separately authorized milestone. No polling, writes, billable requests or new API routes are introduced.
+Getting Started distinguishes absent connection records, disconnected, connected/no imported orders, reauthorization required, expired authorization, queued/running/failed imports and successful imports with zero stored orders. Unknown/absent state does not become connected or disconnected. Demo connections are labeled as such. Existing Settings links provide navigation; no new sync action or promise of live updates is introduced.
 
-## States and accessibility
+## Query and authorization architecture
 
-Authentication/onboarding runs before the Dashboard Suspense fallback. Loading uses stable compact skeleton surfaces and `aria-busy`. Empty orders link to integration Settings; empty reading-attention and queue states describe their scope. Data errors show unavailable data with reload/Orders links, never fabricated zeros or provider internals. AccessDenied is propagated to the existing access/error boundary.
+`currentDestination` and `currentScope` remain authoritative. `dashboardData` revalidates persisted membership with `verifyScope`; every new source is constrained by organization and store. Existing earliest-authorized-store selection is preserved. URL parameters select a range only, never a tenant.
 
-Dashboard-specific CSS uses existing shell tokens, two-column metrics and production counts at 760px, stacked attention rows, wrapping text, and 44px action targets. The existing responsive Orders table is reused. Semantic section headings, definition lists and real links preserve keyboard focus treatment; no new main landmark or navigation system is added. Reduced motion is respected.
+The existing current-state SQL projection is extended, not replaced. Its lifetime order classifications, latest generation selection, bounded recent/attention lists and queue counts remain intact. A period-order CTE uses direct indexed tenant/date predicates; period lines are shared by the ranking. Daily buckets and AI timing are aggregated in the database. Only five ranked title fallbacks are resolved against shared period evidence. No full order history is loaded into JavaScript, no per-order requests occur, and aggregates/lists share one SQL statement snapshot.
 
-## Deferred and limited
+No schema/index changes, API layer, polling, generation, accounting, production or PDF behavior changes are introduced. Current-state aggregates still require store history. Completed-request timing lacks a dedicated tenant/finish-time index; large-store query plans and latency remain unmeasured and may require separately authorized optimization.
 
-- Delivery/completed-order analytics, revenue, trends and charts.
-- Review approval aggregation and review-specific queues.
-- PDF/document-production queue aggregation: the Production Overview is explicitly the reading queue, not all document jobs.
-- Production controls, retries, new workflows, Readers/Production pages and navigation.
-- Live refresh/polling and broader Orders redesign.
+## Accessibility and responsive behavior
 
-## Verification
+Real range links have an accessible navigation label and active-state indication. Native details/summary provides keyboard, mouse and touch access to definitions and daily values. The SVG is visual; an accessible date/count table provides every daily value, including zero days, without hover. Keyboard-focusable scroll region bounds long daily tables. Product bars are accompanied by titles and integer order counts.
 
-- VERIFIED PASS: repository branch/base checks; focused Dashboard and shell/navigation/onboarding/PDF/access tests; persisted PGlite Dashboard aggregates, isolation, attention priority, queue transitions, retry counting, empty/failure states and bounded stable ordering; existing production/onboarding database regressions; typecheck; production build; diff check.
-- Browser acceptance: NOT VERIFIED. Controllable browsers have no attached authenticated tabs; native Chrome shows its profile picker, and inspected Safari is not displaying Reading OS. Desktop/mobile visual layout, overflow and interactive navigation have not been accepted in a live authenticated browser.
-- Pre-existing generated `next-env.d.ts` and `tsconfig.json` changes are preserved and excluded from the milestone commit.
+Desktop uses a 2:1 grid where space permits. Tablet reflows to one column; mobile uses two-by-two KPIs, stacked panels and compact order rows. Touch controls target 44px. Existing focus treatment, mobile drawer, main landmark and reduced-motion behavior are preserved.
+
+Loading retains compact skeletons with `aria-busy`. Query failure renders unavailable copy and a working range-preserving reload link rather than invented zeros. AccessDenied is propagated. Authentication/onboarding runs before Dashboard data or loading state is streamed.
+
+## Verification and limits
+
+VERIFIED PASS: 89 focused UI/range/root-entry and shell/navigation/onboarding/PDF/access tests; 45 persisted Dashboard/production/onboarding database tests (18 Dashboard, 27 regressions); typecheck; production build; working and staged diff checks. Database fixtures enforce the existing accounting contract and make no provider dispatches.
+
+Commands: `pnpm test` with the focused/regression file list; `pnpm test:db tests/dashboard.db.test.ts tests/production.db.test.ts tests/onboarding.db.test.ts`; `pnpm typecheck`; `pnpm build`; `git diff --check` and `git diff --cached --check`.
+
+Browser acceptance: **NOT VERIFIED**. No authenticated controllable Reading OS tab was available; attached browsers had no tabs and inspected Chrome showed its profile picker. Desktop/390px layout, chart readability, actual overflow, touch interaction and drawer compatibility require authenticated browser acceptance. Source/UI tests do not establish visual PASS.
+
+Deferred: revenue, traffic, profitability, success-rate percentages, AI cost analytics, PDF/document queue aggregation, review-specific metrics, production controls, live synchronization, polling and the broader Orders redesign.
+
+Pre-existing generated `next-env.d.ts` and `tsconfig.json` changes remain preserved and excluded from this milestone commit.
