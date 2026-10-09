@@ -3,14 +3,14 @@ import {z} from "zod";
 import {parseEtsyJson,normalizeEtsyReceipt} from "./raw-normalizer";
 import {etsyId} from "./source-contract";
 const identifier=z.union([etsyId,z.number().int().positive().safe().transform(String)]);
-export class ReceiptPilotError extends Error {constructor(readonly stage:string,readonly httpStatus?:number){super("RECEIPT_PILOT_FAILED");}}
+export class ReceiptPilotError extends Error {constructor(readonly stage:string,readonly httpStatus?:number,readonly retryAfterSeconds?:number){super("RECEIPT_PILOT_FAILED");}}
 function receiptReader(shopId:string,token:string,config:{clientId:string;secret:string},fetcher:typeof fetch){
  etsyId.parse(shopId);
  const evidence:{stage:string;status:number;json:boolean}[]=[];
  async function get(path:string,stage:string){
   const response=await fetcher(`https://api.etsy.com/v3/application/shops/${shopId}/receipts${path}`,{method:"GET",headers:{"x-api-key":`${config.clientId}:${config.secret}`,Authorization:`Bearer ${token}`},cache:"no-store",redirect:"error",signal:AbortSignal.timeout(15000)});
   const json=response.headers.get("content-type")?.includes("application/json")??false;evidence.push({stage,status:response.status,json});
-  if(!response.ok||!json)throw new ReceiptPilotError(stage,response.status);
+  if(!response.ok||!json){const rawRetry=response.headers.get("retry-after");const retry=rawRetry&&/^\d{1,9}$/.test(rawRetry)?Math.max(1,Number(rawRetry)):undefined;throw new ReceiptPilotError(stage,response.status,retry);}
   const reader=response.body?.getReader();if(!reader)throw new ReceiptPilotError(stage);
   const chunks:Uint8Array[]=[];let size=0;
   try{for(;;){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>1048576)throw new ReceiptPilotError("response_bound");chunks.push(value);}}finally{await reader.cancel();}

@@ -19,7 +19,7 @@ it("counts independent readings, validated current output and affected units rat
 });
 it("contains both dialogs in Summary, preserves original/current evidence and partial recorded activity",()=>{
  const markup=html();const summary=markup.slice(markup.indexOf('aria-labelledby="order-summary"'),markup.indexOf('aria-labelledby="purchased-readings"'));
- expect(summary).toContain('aria-label="View Purchase Information"');expect(summary).toContain('aria-label="View Activity"');expect(summary.match(/<dialog/g)).toHaveLength(2);expect(summary).toContain("Original answer");expect(markup).toContain("Edited answer");expect(summary).toContain("Partial activity");expect(summary).toContain("Paid");expect(markup).not.toContain("Order Total");expect(markup).not.toContain("Action Center");expect(markup).toContain("q=Love&amp;page=2");
+ expect(summary).toContain('aria-label="View Purchase Information"');expect(summary).toContain('aria-label="View Activity"');expect(summary.match(/<dialog/g)).toHaveLength(2);expect(summary).toContain("Original answer");expect(markup).toContain("Edited answer");expect(summary).toContain("Partial activity");expect(summary).toContain("Paid");expect(markup).toContain("Amount unavailable");expect(markup).not.toContain("Action Center");expect(markup).toContain("q=Love&amp;page=2");
 });
 it("shows no exceptions for ordinary pending, processing or current generated readings",()=>{
  for(const operations of [readingOperations(evidence()),readingOperations(evidence({queue:"EXECUTING"})),readingOperations(evidence({generation:{id:"g",status:"SUCCEEDED",customerRevision:0},review:"Ready for review"}))])expect(html(view([reading({operations})]))).not.toContain('id="action-required"');

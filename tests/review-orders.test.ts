@@ -12,6 +12,7 @@ vi.mock("@/components/generation/reading-preparation",()=>({ReadingPreparation:(
 vi.mock("@/modules/documents/artifact-service",()=>({orderAvailableDocumentArtifacts:async()=>[]}));
 vi.mock("@/modules/seller-style/service",()=>({sellerStyleData:async()=>({})}));
 vi.mock("@/infrastructure/document-runtime",()=>({configuredDocumentPorts:()=>undefined}));
+vi.mock("@/modules/orders-finance/service",()=>({orderFinanceView:async()=>({state:"UNAVAILABLE"})}));
 import OrderDetail from "../src/app/(operations)/orders/[id]/page";
 it.each([true,false])("Order reading action follows persisted eligibility %s",async eligible=>{
  mocks.status.mockResolvedValue(eligible?"Ready for review":null);mocks.data.mockResolvedValue({attempts:[],canOperate:true,order:{id:"order",externalId:"2002",buyerName:"Customer",paid:true,canceled:false,refund:"none",createdAt:new Date()},history:[{unitId:"one",id:"generation",status:"SUCCEEDED",customerRevision:0,createdAt:new Date()}],queue:[],lines:[{id:"line",orderId:"order",title:"Love",quantity:2,listingExternalId:"101",variantKey:"default",snapshot:{variations:[],answers:[]}}],units:[{id:"one",lineItemId:"line",unitIndex:1,issues:[],productionStatus:"SUCCEEDED",revision:0,configurationState:"versioned"}],inputs:[],mappings:[],versions:[]});

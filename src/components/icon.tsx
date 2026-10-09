@@ -1,11 +1,12 @@
 import type { SVGProps } from "react";
-export type IconName = "document" | "home" | "orders" | "products" | "settings" | "arrow" | "search" | "store" | "image" | "layers" | "check" | "attention" | "payment" | "history" | "chevron" | "close";
+export type IconName = "document" | "home" | "orders" | "products" | "settings" | "arrow" | "search" | "store" | "image" | "layers" | "check" | "attention" | "payment" | "history" | "chevron" | "close" | "wallet";
 const paths: Record<IconName, React.ReactNode> = {
   layers: <><path d="m12 3 9 5-9 5-9-5 9-5ZM3 12l9 5 9-5M3 16l9 5 9-5"/></>,
   check: <><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></>,
   attention: <><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 17h.01"/></>,
   payment: <><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h3"/></>,
   history: <><path d="M3 11a9 9 0 1 1 2 7M3 4v7h7M12 7v5l3 2"/></>,
+  wallet: <><path d="M20 8V5H5a2 2 0 0 0 0 4h15v11H5a2 2 0 0 1-2-2V7"/><path d="M20 12h-5v5h5M16 14.5h.01"/></>,
   close: <path d="m6 6 12 12M18 6 6 18"/>,
   chevron: <path d="m9 5 7 7-7 7"/>,
   document: <><path d="M6 3h8l4 4v14H6V3Z"/><path d="M14 3v5h4M9 12h6M9 16h6"/></>,

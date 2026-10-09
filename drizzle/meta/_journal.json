@@ -176,6 +176,13 @@
       "when": 1791495560644,
       "tag": "0024_giant_giant_girl",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1791587073828,
+      "tag": "0025_far_ironclad",
+      "breakpoints": true
     }
   ]
 }

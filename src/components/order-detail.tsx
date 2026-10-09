@@ -4,14 +4,15 @@ import type {Answer} from "@/modules/intake/contracts";
 import type {ReadingOperations} from "@/modules/orders/operations";
 import {CustomerInformation} from "./customer-information";
 import {Badge} from "./ui";
-import {Icon} from "./icon";
+import {Icon,type IconName} from "./icon";
+import {formatReceiptMoney,type OrderFinanceView} from "@/modules/orders-finance/money";
 import {InformationPopover} from "./information-popover";
 import {displayDate} from "./seller-status";
 import {customerIdentity} from "@/modules/orders/customer";
 import {shortOrderStatus} from "./order-list";
 import styles from "./order-detail.module.css";
 export type DetailReading={id:string;index:number;status:string;revision:number;answers:Answer[];queue?:string;generation?:{status:string;revision:number;date:string};operations?:ReadingOperations;workflow?:ReactNode};
-export type DetailView={reference:string;customer:string;date:string;status:string;payment:string;sample?:boolean;items:{id:string;title:string;quantity:number;variations:string[];answers:Answer[];readings:DetailReading[]}[]};
+export type DetailView={reference:string;customer:string;date:string;status:string;payment:string;finance?:OrderFinanceView;sample?:boolean;items:{id:string;title:string;quantity:number;variations:string[];answers:Answer[];readings:DetailReading[]}[]};
 export function compactReadingStatus(reading:DetailReading){
  const operations=reading.operations;
  if(operations?.issues.some(i=>i.key==="canceled"))return "Canceled";
@@ -28,6 +29,9 @@ export function compactReadingStatus(reading:DetailReading){
 export function orderSummary(data:DetailView){
  const readings=data.items.flatMap(item=>item.readings);
  return {readings:readings.length,generated:readings.filter(r=>r.operations?.output==="Current generated reading"||r.operations?.output==="Approved reading").length,attention:readings.filter(r=>r.operations?.issues.length).length};
+}
+function SummaryMetric({icon,label,value,attention=false}:{icon:IconName;label:string;value:ReactNode;attention?:boolean}){
+ return <div className={`${styles.metric} ${attention?styles.attentionMetric:""}`}><Icon name={icon}/><div><strong className={styles.metricValue}>{value}</strong><span className={styles.metricLabel}>{label}</span></div></div>;
 }
 export function OrderDetailView({data,backHref}:{data:DetailView;backHref:string}){
  const readings=data.items.flatMap(i=>i.readings),summary=orderSummary(data);
@@ -55,10 +59,12 @@ export function OrderDetailView({data,backHref}:{data:DetailView;backHref:string
   {data.sample&&<div className={styles.preview} role="status"><Badge>SAMPLE DATA</Badge><span>Read-only development preview. Workflow actions are disabled.</span><Link href="/orders">Exit Preview</Link></div>}
   <section className={styles.panel} aria-labelledby="order-summary"><h2 id="order-summary">Order Summary</h2>
    <div className={styles.metrics}>
-    <div><Icon name="layers"/><strong>{summary.readings}</strong><span>Readings</span></div>
-    <div><Icon name="check"/><strong>{summary.generated}</strong><span>Generated</span></div>
-    <div className={summary.attention?styles.attentionMetric:undefined}><Icon name="attention"/><strong>{summary.attention}</strong><span>Needs Attention</span></div>
-    <div><Icon name="payment"/><span>Payment</span><strong>{data.payment}</strong></div>
+    <SummaryMetric icon="layers" label="Total Readings" value={summary.readings}/>
+    <SummaryMetric icon="check" label="Generated" value={summary.generated}/>
+    <SummaryMetric icon="attention" label="Needs Attention" value={summary.attention} attention={summary.attention>0}/>
+    <SummaryMetric icon="payment" label="Payment Status" value={data.payment}/>
+    {!data.sample&&<SummaryMetric icon="wallet" label="Order Total" value={data.finance?.state==="VERIFIED"?formatReceiptMoney(data.finance.total):"Amount unavailable"}/>}
+
    </div>
    <div className={styles.summaryActions}>
     <InformationPopover dialog label="View Purchase Information" triggerContent={<><Icon name="document"/>View Purchase Information</>}>

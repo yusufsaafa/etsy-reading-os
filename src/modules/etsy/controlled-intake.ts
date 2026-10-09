@@ -69,7 +69,7 @@ export async function ingestControlledReceipt(db:Database,scope:Scope,body:strin
  const command=controlledIntakeCommand.parse(rawCommand);
  return db.transaction(async tx=>{
   await verifyScope(tx,scope,true);
-  await tx.select().from(stores).where(and(eq(stores.id,scope.storeId),eq(stores.organizationId,scope.organizationId))).for("update");
+  const [ownedStore]=await tx.select().from(stores).where(and(eq(stores.id,scope.storeId),eq(stores.organizationId,scope.organizationId))).for("update");
   if(options.verifiedShopId){
    const [store]=await tx.select().from(stores).where(and(eq(stores.id,scope.storeId),eq(stores.organizationId,scope.organizationId)));
    if(store?.externalShopId!==options.verifiedShopId)throw new AccessDenied();
@@ -81,6 +81,11 @@ export async function ingestControlledReceipt(db:Database,scope:Scope,body:strin
   if(entries.some(([id,version])=>command.approvedVersions[id]!==version)||Object.keys(command.approvedVersions).some(id=>assessment.resolvedVersions[id]!==command.approvedVersions[id]))throw new Error("PRODUCT_VERSION_MISMATCH");
   if(assessment.report.holdReasons.source_changed)throw new Error("SOURCE_CHANGED");
   const id=await ingestOrderInTransaction(tx,scope,assessment.order,{controlled:{commandId:command.commandId,versions:command.approvedVersions},suppressProductionAdmission:true,epoch:options.epoch,failAfterLines:options.failAfterLines});
-  return {orderId:id,report:assessment.report};
+  // Finance-only projection is not part of the purchased snapshot/fingerprint.
+  // Savepoint failure cannot roll back successfully validated operational intake.
+  let finance: string="UNAVAILABLE";
+  try{if(ownedStore?.source==="etsy")finance=await tx.transaction(async financeTx=>{const {captureReceiptFinanceInTransaction}=await import("../orders-finance/service");return (await captureReceiptFinanceInTransaction(financeTx,scope,id,body,assessment.sources[0].receipt.shopId,options.epoch)).state;});}
+  catch(error){if(error instanceof AccessDenied||error instanceof Error&&error.message==="CONNECTION_CHANGED")throw error;finance="FAILED";}
+  return {orderId:id,report:assessment.report,finance};
  });
 }

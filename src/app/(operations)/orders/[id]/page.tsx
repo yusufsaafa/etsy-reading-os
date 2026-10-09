@@ -1,3 +1,4 @@
+import {orderFinanceView} from "@/modules/orders-finance/service";
 import Link from "next/link";
 import {notFound} from "next/navigation";
 import {database} from "@/db/client";
@@ -21,10 +22,11 @@ import {InformationPopover} from "@/components/information-popover";
 export default async function OrderDetail({params,searchParams}:{params:Promise<{id:string}>;searchParams?:Promise<Record<string,unknown>>}){
  const scope=await currentScope(),{id}=await params,data=await orderDetailData(database(),scope,id);if(!data)notFound();
  const {order}=data;
- const [reviews,artifacts,profile]=await Promise.all([
+ const [reviews,artifacts,profile,finance]=await Promise.all([
   orderReadingReviewStatuses(database(),scope,id),
   orderAvailableDocumentArtifacts(database(),scope,id),
   data.units.some(u=>!data.history.some(g=>g.unitId===u.id))?sellerStyleData(database(),scope):null,
+  orderFinanceView(database(),scope,id),
  ]);
  const style=styleConfiguration.safeParse(profile?.active?.configuration);
  const profileReady=!!profile?.seller&&style.success&&!publishErrors(style.data).length;
@@ -54,6 +56,6 @@ export default async function OrderDetail({params,searchParams}:{params:Promise<
  const stale=data.history.some(g=>g.status==="SUCCEEDED"&&g.customerRevision!==data.units.find(u=>u.id===g.unitId)?.revision);
  const generated=data.units.length>0&&data.units.every(u=>data.history.some(g=>g.unitId===u.id&&g.status==="SUCCEEDED"&&g.customerRevision===u.revision)&&!u.issues.length);
  const status=order.canceled?"Canceled":!order.paid?"Awaiting payment":order.refund!=="none"?"Review refund":failed?"Production needs attention":stale?"Review updated information":priority?"Information or setup needed":active?"In production":generated?"Generated":"Pending";
- const view:DetailView={reference:order.externalId,customer:order.buyerName,date:order.createdAt.toISOString(),status,payment:order.canceled?"Canceled":order.paid?"Paid":"Awaiting payment",items};
+ const view:DetailView={finance,reference:order.externalId,customer:order.buyerName,date:order.createdAt.toISOString(),status,payment:order.canceled?"Canceled":order.paid?"Paid":"Awaiting payment",items};
  return <OrderDetailView data={view} backHref={ordersHref(ordersQuery(await searchParams??{}))}/>;
 }

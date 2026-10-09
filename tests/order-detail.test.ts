@@ -14,6 +14,7 @@ vi.mock("@/components/generation/reading-preparation",()=>({ReadingPreparation:(
 vi.mock("@/modules/documents/artifact-service",()=>({orderAvailableDocumentArtifacts:async()=>[]}));
 vi.mock("@/modules/seller-style/service",()=>({sellerStyleData:async()=>({})}));
 vi.mock("@/infrastructure/document-runtime",()=>({configuredDocumentPorts:()=>undefined}));
+vi.mock("@/modules/orders-finance/service",()=>({orderFinanceView:async()=>({state:"UNAVAILABLE"})}));
 import RealPage from "../src/app/(operations)/orders/[id]/page";
 import SamplePage from "../src/app/(operations)/orders/preview/[id]/page";
 import {sampleOrderDetail} from "../src/modules/orders/sample-preview";

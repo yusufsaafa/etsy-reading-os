@@ -126,3 +126,17 @@ it("future approval precheck requires confirmed review and fresh evidence but ne
 it("operator membership cannot review owner purchases",async()=>{
  await db.insert(schema.memberships).values({organizationId:a.organizationId,userId:"b",role:"operator"});const scope=await authorizeStore(db,"b",a.storeId);await expect(reviewCandidates(db,scope,body(receipt(true)))).rejects.toThrow();await expect(recordCandidateReview(db,scope,reviewCommand(),reviewReader())).rejects.toThrow();
 });
+
+
+it("new authorized Etsy receipt captures exact finance without affecting operational identity or dispatch",async()=>{
+ await db.update(schema.stores).set({source:"etsy"}).where(eq(schema.stores.id,a.storeId));
+ const r={...receipt(),grandtotal:{amount:2499,divisor:100,currency_code:"EUR"}};
+ const result=await ingestControlledReceipt(db,a,body(r),now(),command(r));expect(result.finance).toBe("VERIFIED");
+ const [finance]=await db.select().from(schema.orderFinances);expect(finance).toMatchObject({orderId:result.orderId,receiptId:"900",shopId:"77",amount:2499n,divisor:100n,currency:"EUR"});
+ const before=await workspaceData(db,a);await ingestControlledReceipt(db,a,body(r),now()+1,command(r));const after=await workspaceData(db,a);expect(after.units).toEqual(before.units);expect(after.inputs).toEqual(before.inputs);expect(after.lines).toEqual(before.lines);expect(after.orders[0].purchasedSnapshot).toEqual(before.orders[0].purchasedSnapshot);expect(await db.select().from(schema.orderFinances)).toHaveLength(1);await noExecution();
+});
+it("optional finance savepoint failure leaves authorized purchase intake intact and observable",async()=>{
+ await db.update(schema.stores).set({source:"etsy"}).where(eq(schema.stores.id,a.storeId));await pg.exec('ALTER TABLE order_finances RENAME TO unavailable_finances');
+ const r={...receipt(),grandtotal:{amount:2499,divisor:100,currency_code:"USD"}};
+ const result=await ingestControlledReceipt(db,a,body(r),now(),command(r));expect(result.finance).toBe("FAILED");expect((await workspaceData(db,a)).units).toHaveLength(1);await noExecution();
+});

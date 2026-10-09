@@ -90,7 +90,22 @@ export const orders = pgTable("orders", {
   paid: boolean("paid").notNull(), canceled: boolean("canceled").notNull(), refund: text("refund").notNull(),
   sourceUpdatedAt: integer("source_updated_at").notNull(), purchasedSnapshot: jsonb("purchased_snapshot").$type<ExternalOrder>().notNull(),
   latestSnapshot: jsonb("latest_snapshot").$type<ExternalOrder>().notNull(), createdAt: time("created_at").notNull(),
-}, t => [unique().on(t.organizationId, t.storeId, t.externalId), unique().on(t.organizationId, t.storeId, t.id), foreignKey({ columns: [t.organizationId, t.storeId], foreignColumns: [stores.organizationId, stores.id] }), index("order_store_created").on(t.organizationId, t.storeId, t.createdAt)]);
+}, t => [unique().on(t.organizationId, t.storeId, t.externalId), unique().on(t.organizationId, t.storeId, t.id), unique("order_finance_identity").on(t.organizationId,t.storeId,t.id,t.externalId), foreignKey({ columns: [t.organizationId, t.storeId], foreignColumns: [stores.organizationId, stores.id] }), index("order_store_created").on(t.organizationId, t.storeId, t.createdAt)]);
+export const orderFinances = pgTable("order_finances", {
+ id:id(),organizationId:org(),storeId:store(),orderId:uuid("order_id").notNull(),receiptId:text("receipt_id").notNull(),shopId:text("shop_id").notNull(),
+ source:text("source").notNull().default("etsy"),contract:text("contract").notNull().default("etsy-receipt-finance/v1"),
+ state:text("state").notNull(),amount:bigint("amount",{mode:"bigint"}),divisor:bigint("divisor",{mode:"bigint"}),currency:text("currency"),
+ sourceUpdatedAt:integer("source_updated_at"),totalSourceUpdatedAt:integer("total_source_updated_at"),sourceHash:text("source_hash").notNull(),
+ totalVerifiedAt:time("total_verified_at"),refundObservedAt:time("refund_observed_at"),checkedAt:time("checked_at").defaultNow().notNull(),
+},t=>[
+ unique("finance_order_unique").on(t.organizationId,t.storeId,t.orderId),
+ foreignKey({name:"finance_exact_receipt_fk",columns:[t.organizationId,t.storeId,t.orderId,t.receiptId],foreignColumns:[orders.organizationId,orders.storeId,orders.id,orders.externalId]}),
+ check("finance_source_contract",sql`${t.source}='etsy' and ${t.contract}='etsy-receipt-finance/v1'`),
+ check("finance_ids",sql`${t.receiptId} ~ '^[1-9][0-9]{0,19}$' and ${t.shopId} ~ '^[1-9][0-9]{0,19}$' and ${t.sourceHash} ~ '^[a-f0-9]{64}$'`),
+ check("finance_state",sql`${t.state} in ('VERIFIED','MISSING','INVALID','UNCERTAIN')`),
+ check("finance_money",sql`(${t.state}='VERIFIED' and ${t.amount} is not null and ${t.divisor} is not null and ${t.currency} is not null and ${t.sourceUpdatedAt} is not null and ${t.amount}>=0 and ${t.divisor} between 1 and 1000000000 and 1000000000::bigint % nullif(${t.divisor},0)=0 and ${t.currency} ~ '^[A-Z]{3}$' and ${t.totalVerifiedAt} is not null and ${t.totalSourceUpdatedAt} is not null and ${t.sourceUpdatedAt}>=${t.totalSourceUpdatedAt}) or (${t.state}<>'VERIFIED' and ${t.amount} is null and ${t.divisor} is null and ${t.currency} is null and ${t.totalVerifiedAt} is null and ${t.totalSourceUpdatedAt} is null)`),
+ check("finance_timestamp",sql`(${t.sourceUpdatedAt} is null or ${t.sourceUpdatedAt}>=0) and (${t.totalSourceUpdatedAt} is null or ${t.totalSourceUpdatedAt}>=0)`),
+]);
 export const lineItems = pgTable("order_line_items", {
   id: id(), organizationId: org(), storeId: store(), orderId: uuid("order_id").notNull(), externalId: text("external_id").notNull(),
   listingExternalId: text("listing_external_id").notNull(), title: text("title").notNull(), quantity: integer("quantity").notNull(),

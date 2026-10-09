@@ -232,3 +232,7 @@ The existing seller-style Settings surface invokes the shared execution service 
 ## Document/PDF Part 4 storage boundary
 
 Documents owns immutable PDF artifact evidence and recoverable downstream work. Database PENDING evidence precedes conditional external writes; AVAILABLE follows bounded key/MIME/length/SHA verification. ImmutableArtifactStorage is a provider-neutral capability alongside existing ports, not an AWS/CloudFront adapter. PDF bytes never enter PostgreSQL. Retrieval authorizes Store/Reading/artifact ownership and returns private bytes/versioned metadata without exposing keys or URLs. Real conditional creation, retention, bounded reads and native concurrency require separate acceptance. See DOCUMENT_ENGINE.md and PILOT_ACCEPTANCE.md.
+
+## Milestone 4.2 isolated financial projection
+
+`src/modules/orders-finance` owns one exact receipt-money projection per organization/store/order, with an exact order/receipt composite FK. It is separate from operational purchase snapshots/fingerprints, input revisions, generation and document/queue state. Controlled receipt intake captures from its existing raw evidence in an optional savepoint; explicit owner/operator refresh/backfill uses the existing owned Etsy receipt transport. The authorized Order Detail DTO exposes only verified canonical money strings or unavailable, without raw responses/secrets or page-load API calls. No new worker, ledger or OAuth system is added. See [financial source, limitations and operator procedure](ORDERS_FINANCE_MILESTONE4_2.md).
