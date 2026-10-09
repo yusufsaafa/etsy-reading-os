@@ -1,7 +1,8 @@
 import { it,expect,vi,beforeEach } from "vitest";
 import { studioPreset } from "../src/modules/documents/studio-templates";
-const mocks=vi.hoisted(()=>({auth:vi.fn(),find:vi.fn(),authorize:vi.fn(),render:vi.fn()}));
+const mocks=vi.hoisted(()=>({auth:vi.fn(),find:vi.fn(),authorize:vi.fn(),render:vi.fn(),media:vi.fn()}));
 vi.mock("@/auth",()=>({auth:mocks.auth}));vi.mock("@/db/client",()=>({database:()=>({})}));vi.mock("@/modules/identity/service",()=>({findUserStore:mocks.find,authorizeStore:mocks.authorize}));vi.mock("@/modules/documents/studio-preview",()=>({renderStudioPreview:mocks.render}));
+vi.mock("@/modules/documents/studio-media",()=>({studioPreviewMedia:mocks.media}));
 import { POST } from "../src/app/api/document-designs/preview/route";
 const request=(body=JSON.stringify(studioPreset("classic")),origin="https://example.test")=>new Request("https://example.test/api/document-designs/preview",{method:"POST",headers:{Origin:origin,"Content-Type":"application/json"},body});
 beforeEach(()=>{vi.clearAllMocks();mocks.auth.mockResolvedValue({user:{id:"owner"}});mocks.find.mockResolvedValue({id:"owned-store"});mocks.authorize.mockResolvedValue({});mocks.render.mockResolvedValue({pdf:{copyBytes:()=>Buffer.from("synthetic PDF"),metadata:{pageCount:4}}});});
@@ -17,3 +18,5 @@ it("simultaneous body reads cannot exceed render admission",async()=>{let finish
 
 it("proxy listen URL does not replace the actual same-origin HTTP Host",async()=>{const req=new Request("http://127.0.0.1:3000/api/document-designs/preview",{method:"POST",headers:{host:"owner.example.test",origin:"https://owner.example.test","content-type":"application/json"},body:JSON.stringify(studioPreset("classic"))});expect((await POST(req)).status).toBe(200);});
 it("forged forwarded Host cannot authorize a foreign origin",async()=>{const req=new Request("https://example.test/api/document-designs/preview",{method:"POST",headers:{host:"example.test",origin:"https://untrusted.test","x-forwarded-host":"untrusted.test","content-type":"application/json"},body:JSON.stringify(studioPreset("classic"))});expect((await POST(req)).status).toBe(403);expect(mocks.render).not.toHaveBeenCalled();});
+
+it("card toggle uses only the server-authorized sample resolver and controlled failures",async()=>{const c=studioPreset("classic");c.display.cardImagery=true;const ports={media:{mode:"TAROT_CARDS"},readAsset:vi.fn()};mocks.media.mockResolvedValue(ports);expect((await POST(request(JSON.stringify(c)))).status).toBe(200);expect(mocks.media).toHaveBeenCalled();expect(mocks.render).toHaveBeenCalledWith(c,ports);mocks.media.mockRejectedValue(Error("private path"));const failure=await POST(request(JSON.stringify(c)));expect(failure.status).toBe(422);expect(await failure.text()).not.toContain("private path");});

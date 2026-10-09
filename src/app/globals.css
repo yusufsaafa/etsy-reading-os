@@ -345,3 +345,23 @@ fieldset.studio-card { position:relative; padding-top:44px; }
 @media(max-width:440px) { .studio-templates { grid-template-columns:repeat(2,minmax(0,1fr)); } .studio-card { padding:16px; } .studio-two { grid-template-columns:1fr; gap:0; } .studio-products li { align-items:flex-start; flex-direction:column; } .studio-preview-tools { gap:6px; } }
 
 .studio-templates + button { margin-top:12px; }
+
+/* Product-scoped PDF appearance shares the Studio's merchant controls. */
+.pdf-appearance { max-width:1000px; }
+.studio-state { color:var(--text-secondary,#64748B); margin:0 0 16px; }
+.assignment-current { display:flex; flex-wrap:wrap; align-items:center; gap:16px; margin:20px 0; }
+.assignment-current > div { flex:1; min-width:220px; }
+.assignment-current p { margin:6px 0 0; overflow-wrap:anywhere; }
+.assignment-form fieldset { border:0; margin:0; padding:0; }
+.assignment-designs { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:16px 0; }
+.assignment-choice { display:flex; align-items:center; gap:12px; min-height:90px; padding:14px; border:1px solid #CBD5E1; border-radius:8px; cursor:pointer; }
+.assignment-choice:has(input:checked) { border-color:#2563EB; background:#EFF6FF; }
+.assignment-choice:focus-within { outline:2px solid #2563EB; outline-offset:2px; }
+.assignment-choice input { width:20px; min-height:20px; height:20px; flex:none; }
+.assignment-choice strong,.assignment-choice small { display:block; overflow-wrap:anywhere; }
+.assignment-choice small { margin-top:5px; color:#64748B; }
+.assignment-swatch { flex:none; display:flex; flex-direction:column; justify-content:center; align-items:center; width:52px; height:68px; border:1px solid; background:#F8F4EB; font-family:serif; }
+.assignment-swatch span { font-size:9px; }
+.assignment-swatch.mystic { background:#F5EDD9; }.assignment-swatch.minimal,.assignment-swatch.modern,.assignment-swatch.tarot-atelier { background:white; }
+.product-pdf-links { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+@media(max-width:600px) { .assignment-designs { grid-template-columns:1fr; }.assignment-current > div { min-width:0; flex-basis:100%; } }

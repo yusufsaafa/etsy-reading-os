@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { database } from "@/db/client";
 import { findUserStore,authorizeStore } from "@/modules/identity/service";
 import { documentDesignSchema } from "@/modules/documents/contracts";
+import { studioPreviewMedia } from "@/modules/documents/studio-media";
 import { renderStudioPreview } from "@/modules/documents/studio-preview";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
@@ -15,7 +16,8 @@ export async function POST(request:Request) {
  let sameOrigin=false;
  try{const origin=new URL(rawOrigin??"");sameOrigin=origin.origin===rawOrigin&&origin.host===host.toLowerCase()&&(origin.protocol==="https:"||(process.env.NODE_ENV!=="production"&&origin.protocol==="http:"));}catch{}
  if(!sameOrigin)return new Response("Preview unavailable.",{status:403,headers});
- try{const db=database(),store=await findUserStore(db,user.id);if(!store)throw new Error("DENIED");await authorizeStore(db,user.id,store.id,true);}catch{return new Response("Preview unavailable.",{status:403,headers});}
+ let scope;let db:ReturnType<typeof database>;
+ try{db=database();const store=await findUserStore(db,user.id);if(!store)throw new Error("DENIED");scope=await authorizeStore(db,user.id,store.id,true);}catch{return new Response("Preview unavailable.",{status:403,headers});}
  if(rendering>=2)return new Response("Preview is busy. Try again.",{status:429,headers:{...headers,"Retry-After":"2"}});
  let configuration;
  try{
@@ -27,7 +29,7 @@ export async function POST(request:Request) {
  // Recheck after the asynchronous body read; simultaneous requests must not race admission.
  if(rendering>=2)return new Response("Preview is busy. Try again.",{status:429,headers:{...headers,"Retry-After":"2"}});
  rendering++;
- try{const {pdf}=await renderStudioPreview(configuration);return new Response(Buffer.from(pdf.copyBytes()),{headers:{...headers,"Content-Type":"application/pdf","Content-Disposition":'inline; filename="design-preview.pdf"',"X-Preview-Pages":String(pdf.metadata.pageCount)}});}
- catch{return new Response("This design could not be previewed. Check its text and supported fonts.",{status:422,headers});}
+ try{const ports=configuration.display.cardImagery?await studioPreviewMedia(db,scope):undefined;const {pdf}=await (ports?renderStudioPreview(configuration,ports):renderStudioPreview(configuration));return new Response(Buffer.from(pdf.copyBytes()),{headers:{...headers,"Content-Type":"application/pdf","Content-Disposition":'inline; filename="design-preview.pdf"',"X-Preview-Pages":String(pdf.metadata.pageCount)}});}
+ catch{return new Response("Preview unavailable. Check the design and approved card availability, then retry.",{status:422,headers});}
  finally{rendering--;}
 }

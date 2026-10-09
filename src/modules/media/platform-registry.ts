@@ -6,8 +6,28 @@ import { z } from "zod";
 import type { Database } from "../../db/client";
 import { platformAssets, tarotDecks, tarotDeckVersions } from "../../db/schema";
 import { assetSchema, deckSchema, deckVersionSchema, deckReferenceSchema, validateDeckVersion, validateAsset, MediaUnavailable } from "./contracts";
+import { validateBundledDeck } from "./bundled-deck";
+import { stableJson } from "../intake/contracts";
 export function platformMediaRegistry(db:Database) {
  return Object.freeze({
+  /** Offline explicit provisioning only. Atomic and replay-safe; immutable conflicts never repaired. */
+  async importApprovedDeck(raw:unknown):Promise<void> {
+   const value=validateBundledDeck(raw);
+   await db.transaction(async tx=>{
+    await tx.insert(tarotDecks).values(value.deck).onConflictDoNothing();
+    const [deck]=await tx.select().from(tarotDecks).where(eq(tarotDecks.key,value.deck.key)).for("update");
+    if(stableJson(deckSchema.parse(deck))!==stableJson(value.deck))throw new MediaUnavailable();
+    for(const a of value.assets){
+     await tx.insert(platformAssets).values({id:a.id,objectKey:a.objectKey,metadata:a}).onConflictDoNothing();
+     const [row]=await tx.select().from(platformAssets).where(eq(platformAssets.id,a.id));
+     if(!row||row.objectKey!==a.objectKey||stableJson(row.metadata)!==stableJson(a))throw new MediaUnavailable();
+    }
+    const [previous]=await tx.select().from(tarotDeckVersions).where(and(eq(tarotDeckVersions.deckKey,value.deck.key),eq(tarotDeckVersions.version,value.version.version)));
+    if(previous){if(previous.status!=="PUBLISHED"||stableJson(previous.manifest)!==stableJson(value.version))throw new MediaUnavailable();return;}
+    const manifest=validateDeckVersion(value.version,value.assets);
+    await tx.insert(tarotDeckVersions).values({deckKey:value.deck.key,version:manifest.version,status:"PUBLISHED",manifest});
+   });
+  },
   async registerAsset(raw:unknown):Promise<void> {
    const value=assetSchema.parse(raw);
    await db.insert(platformAssets).values({id:value.id,objectKey:value.objectKey,metadata:value});

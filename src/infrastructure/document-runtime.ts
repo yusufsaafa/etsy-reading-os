@@ -6,7 +6,7 @@ import {ArtifactStorageError,type PlatformAssetStorage} from "./object-storage";
 import {objectKeySchema} from "../modules/media/contracts";
 import type {DocumentProductionPorts} from "../modules/production/documents";
 /** Optional read-only platform image root. No remote fetching or buyer uploads. */
-class LocalPlatformAssets implements PlatformAssetStorage {
+export class LocalPlatformAssets implements PlatformAssetStorage {
  constructor(private readonly root?:string){}
  async read(input:Parameters<PlatformAssetStorage["read"]>[0]){
   try{
@@ -22,13 +22,17 @@ class LocalPlatformAssets implements PlatformAssetStorage {
   }catch(e){if(e instanceof ArtifactStorageError)throw e;throw new ArtifactStorageError("UNAVAILABLE");}
  }
 }
+/** Packaged approved artwork is read-only and independent of private customer artifact storage. */
+export function configuredPlatformAssets(env:NodeJS.ProcessEnv=process.env):PlatformAssetStorage {
+ return new LocalPlatformAssets(env.DOCUMENT_ASSET_ROOT??resolve(process.cwd(),"resources"));
+}
 /** No implicit directory creation or work execution. Production needs separately supplied durable ports. */
 export function configuredDocumentPorts(env:NodeJS.ProcessEnv=process.env):DocumentProductionPorts|undefined {
  if(!env.DOCUMENT_STORAGE_DRIVER)return undefined;
  if(env.DOCUMENT_STORAGE_DRIVER!=="local"||env.NODE_ENV==="production"||!env.DOCUMENT_ARTIFACT_ROOT)throw new ArtifactStorageError("UNAVAILABLE");
  const root=resolve(env.DOCUMENT_ARTIFACT_ROOT),repo=resolve(process.cwd());
  if(root===repo||root.startsWith(repo+sep))throw new ArtifactStorageError("UNAVAILABLE");
- return Object.freeze({artifacts:new LocalArtifactStorage(env.DOCUMENT_ARTIFACT_ROOT),assets:new LocalPlatformAssets(env.DOCUMENT_ASSET_ROOT)});
+ return Object.freeze({artifacts:new LocalArtifactStorage(env.DOCUMENT_ARTIFACT_ROOT),assets:configuredPlatformAssets(env)});
 }
 
 /** Bounded infrastructure status; no paths, keys or filesystem writes returned. */

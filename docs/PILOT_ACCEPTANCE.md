@@ -192,3 +192,9 @@ ETSY-E2E-01, ETSY-CARDINALITY-01 and ETSY-INPUTS-01 remain **OPEN — BLOCKS MRH
 No real owner selection/confirmation or historical approval was executed. Authenticated browser review remains NOT VERIFIED. Fresh bounded reads now contain two exact active matches (one normal, one historical), so prior count distributions must not be treated as original-candidate identity proof. The owner must establish a new exact private review before separately authorizing adoption. A future executor must revalidate the confirmed fingerprint/version before using the existing adoption command. Single-line authorization must not silently include held sibling receipt lines.
 
 ETSY-E2E-01, ETSY-CARDINALITY-01 and ETSY-INPUTS-01 remain **OPEN — BLOCKS MRH PILOT**. No generation, PDF or delivery acceptance is added.
+
+## Tarot artwork / Studio integration evidence — 2026-10-09
+
+The owner-supplied `cards.zip` was verified as 78 distinct readable canonical cards and imported into the existing local platform registry. All 78 resolve; repeat import is idempotent. Actual synthetic Studio PDFs embed three original approved JPEG streams byte-for-byte, with gallery pages rasterized/visually inspected. ON/OFF, NONE-media isolation, assignment persistence and historical snapshots are tested. See [integration evidence](TAROT_STUDIO_INTEGRATION.md).
+
+TAROT-ASSETS-01 remains OPEN: mapping/image/local availability subcriteria have new real-artwork evidence, but independent commercial rights/provenance and intended deployment retention still require acceptance. Owner-supplied permission is recorded without a public-domain claim. PDF browser acceptance remains NOT VERIFIED: the existing development origin shows a Cloudflare Tunnel error. STORAGE-REAL-01, PDF-REAL-01 and unrelated Etsy input/E2E/cardinality/delivery debts are unchanged. No real customer PDF, ingestion, generation or delivery occurred; no real Store design assignment was changed.

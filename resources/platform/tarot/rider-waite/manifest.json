@@ -1,0 +1,2219 @@
+{
+  "deck": {
+    "key": "rider-waite",
+    "name": "Rider–Waite",
+    "description": "Owner-approved supplied artwork; exact canonical 78-card mapping."
+  },
+  "version": {
+    "deckKey": "rider-waite",
+    "version": 1,
+    "status": "PUBLISHED",
+    "rights": {
+      "state": "APPROVED",
+      "classification": "LICENSED",
+      "source": "Owner-supplied cards.zip",
+      "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+      "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+    },
+    "mappings": [
+      {
+        "cardKey": "THE_FOOL",
+        "assetId": "f3452097-a5a9-4aa5-8174-11d42699d7c1"
+      },
+      {
+        "cardKey": "THE_MAGICIAN",
+        "assetId": "cfa0a9ac-c32b-451c-87df-ed494fca45d6"
+      },
+      {
+        "cardKey": "THE_HIGH_PRIESTESS",
+        "assetId": "322a6eac-c6a3-4575-8a12-936eb2856de5"
+      },
+      {
+        "cardKey": "THE_EMPRESS",
+        "assetId": "7bd0c69e-fd57-461e-8c38-b78033191418"
+      },
+      {
+        "cardKey": "THE_EMPEROR",
+        "assetId": "84fcad2e-1e74-4a0b-87f2-138200d9570d"
+      },
+      {
+        "cardKey": "THE_HIEROPHANT",
+        "assetId": "1be1cd7a-6f52-41ff-803d-358eb9f4e1fa"
+      },
+      {
+        "cardKey": "THE_LOVERS",
+        "assetId": "65a3b78e-8a84-4400-88f2-23f09468e0df"
+      },
+      {
+        "cardKey": "THE_CHARIOT",
+        "assetId": "6821e1c2-3504-4325-885d-109eade89530"
+      },
+      {
+        "cardKey": "STRENGTH",
+        "assetId": "1abbbc84-1994-40c8-8e0a-c290c88f6320"
+      },
+      {
+        "cardKey": "THE_HERMIT",
+        "assetId": "0bb02582-8189-4b43-8965-5aba777b070b"
+      },
+      {
+        "cardKey": "WHEEL_OF_FORTUNE",
+        "assetId": "e988d0e1-858f-429e-8ca6-f15a767e8f49"
+      },
+      {
+        "cardKey": "JUSTICE",
+        "assetId": "3ae1d57c-af42-4991-8a0e-daa943bea029"
+      },
+      {
+        "cardKey": "THE_HANGED_MAN",
+        "assetId": "b828dec1-51cc-4a00-80f9-7f1d0267bfda"
+      },
+      {
+        "cardKey": "DEATH",
+        "assetId": "2ae6bdb7-848b-4a0c-8030-c3f7f39104d8"
+      },
+      {
+        "cardKey": "TEMPERANCE",
+        "assetId": "7423bfe3-ab37-4920-848e-2ea0d6f1740d"
+      },
+      {
+        "cardKey": "THE_DEVIL",
+        "assetId": "6766ca37-6457-4588-8af9-4eaf7ae7542a"
+      },
+      {
+        "cardKey": "THE_TOWER",
+        "assetId": "c75e2323-1c42-445b-8080-275e2ba683e8"
+      },
+      {
+        "cardKey": "THE_STAR",
+        "assetId": "322fb1cc-4cc5-488b-8dc2-dea6fe5f4863"
+      },
+      {
+        "cardKey": "THE_MOON",
+        "assetId": "303f338b-d7d3-4ec3-83b7-b97efefb060f"
+      },
+      {
+        "cardKey": "THE_SUN",
+        "assetId": "58e49851-fe55-4953-86f0-cd609d1cd495"
+      },
+      {
+        "cardKey": "JUDGEMENT",
+        "assetId": "045dcfe9-8d1f-490c-8992-107bdb1f63e9"
+      },
+      {
+        "cardKey": "THE_WORLD",
+        "assetId": "d6a21ba2-3026-4216-81bb-515d67ed4bb0"
+      },
+      {
+        "cardKey": "ACE_OF_WANDS",
+        "assetId": "d580390a-5308-43ff-8c17-27bdca5e89e4"
+      },
+      {
+        "cardKey": "TWO_OF_WANDS",
+        "assetId": "39fa9897-eab0-4915-87de-bcb6ded59ccd"
+      },
+      {
+        "cardKey": "THREE_OF_WANDS",
+        "assetId": "65432609-f254-48d8-8a00-a8fec7f6d656"
+      },
+      {
+        "cardKey": "FOUR_OF_WANDS",
+        "assetId": "c9cb8dac-6fd3-4c30-86c3-b3192e1cc314"
+      },
+      {
+        "cardKey": "FIVE_OF_WANDS",
+        "assetId": "438c3f6d-e9e6-4d1a-8c8d-de6da08f2f67"
+      },
+      {
+        "cardKey": "SIX_OF_WANDS",
+        "assetId": "47943dd7-d167-4ff9-8910-fc4afc51f673"
+      },
+      {
+        "cardKey": "SEVEN_OF_WANDS",
+        "assetId": "5609d0bb-e645-4022-893e-34cba9dd4820"
+      },
+      {
+        "cardKey": "EIGHT_OF_WANDS",
+        "assetId": "a15250bc-6d58-4418-830c-9babe2a66f69"
+      },
+      {
+        "cardKey": "NINE_OF_WANDS",
+        "assetId": "62076303-27cd-4e94-8b3d-e0fdbb551bc7"
+      },
+      {
+        "cardKey": "TEN_OF_WANDS",
+        "assetId": "d11b8861-ce14-4d97-80fb-919ee4be4d12"
+      },
+      {
+        "cardKey": "PAGE_OF_WANDS",
+        "assetId": "40fd9f04-73df-460f-8486-94bd9b32957d"
+      },
+      {
+        "cardKey": "KNIGHT_OF_WANDS",
+        "assetId": "02a27c41-0997-424c-8265-0efb04a01ed6"
+      },
+      {
+        "cardKey": "QUEEN_OF_WANDS",
+        "assetId": "98b7a32d-22e8-400d-854a-3948e04988a3"
+      },
+      {
+        "cardKey": "KING_OF_WANDS",
+        "assetId": "b620709d-0052-40d1-8390-0e7e57886842"
+      },
+      {
+        "cardKey": "ACE_OF_CUPS",
+        "assetId": "39bdfd4c-4457-4c13-8fe6-19f52ea1625d"
+      },
+      {
+        "cardKey": "TWO_OF_CUPS",
+        "assetId": "b75e48e6-95c9-4a22-8495-44b70f606e80"
+      },
+      {
+        "cardKey": "THREE_OF_CUPS",
+        "assetId": "ce8a9d50-9bee-44e1-89dd-525bd39a4246"
+      },
+      {
+        "cardKey": "FOUR_OF_CUPS",
+        "assetId": "094d4fb8-963c-458d-8602-bbd58ccc87c5"
+      },
+      {
+        "cardKey": "FIVE_OF_CUPS",
+        "assetId": "9eba5297-6be5-40ab-8b92-3c4232f5e2d1"
+      },
+      {
+        "cardKey": "SIX_OF_CUPS",
+        "assetId": "1f457032-1f84-4713-8451-1e5a89cb2fe2"
+      },
+      {
+        "cardKey": "SEVEN_OF_CUPS",
+        "assetId": "56d38f38-ff25-4141-8992-4e1fdf48669d"
+      },
+      {
+        "cardKey": "EIGHT_OF_CUPS",
+        "assetId": "a90dd843-4a78-473d-8db8-8f2c39d16ce7"
+      },
+      {
+        "cardKey": "NINE_OF_CUPS",
+        "assetId": "1598bad4-3d95-4bd7-8698-0d8f83e9ac41"
+      },
+      {
+        "cardKey": "TEN_OF_CUPS",
+        "assetId": "34989405-5c52-47e0-85ce-b40939ba0b4c"
+      },
+      {
+        "cardKey": "PAGE_OF_CUPS",
+        "assetId": "c0eedbad-3027-4b1b-808b-629566d2fc9b"
+      },
+      {
+        "cardKey": "KNIGHT_OF_CUPS",
+        "assetId": "c6eeff67-09f9-4d44-8277-ba972e583c45"
+      },
+      {
+        "cardKey": "QUEEN_OF_CUPS",
+        "assetId": "f817ef02-4e74-4fc0-8101-7e0729c2c6c3"
+      },
+      {
+        "cardKey": "KING_OF_CUPS",
+        "assetId": "7a9c85a2-9589-4329-89e9-5a2e49f1f860"
+      },
+      {
+        "cardKey": "ACE_OF_SWORDS",
+        "assetId": "e0633276-80de-4819-8b19-19eb3391733f"
+      },
+      {
+        "cardKey": "TWO_OF_SWORDS",
+        "assetId": "0dca15c5-f888-478c-8b20-246bf16045b3"
+      },
+      {
+        "cardKey": "THREE_OF_SWORDS",
+        "assetId": "90a67a3f-5c56-4ba3-8270-eb991be560a8"
+      },
+      {
+        "cardKey": "FOUR_OF_SWORDS",
+        "assetId": "0481e2a5-36e3-4e7f-81aa-04d282c23718"
+      },
+      {
+        "cardKey": "FIVE_OF_SWORDS",
+        "assetId": "ea921fe8-b135-422e-8b44-04bd659700d3"
+      },
+      {
+        "cardKey": "SIX_OF_SWORDS",
+        "assetId": "a06da6e5-fbcd-49ba-85c1-48dee0297686"
+      },
+      {
+        "cardKey": "SEVEN_OF_SWORDS",
+        "assetId": "eff9bdf6-6aef-4db3-8300-60fbbe4f56a9"
+      },
+      {
+        "cardKey": "EIGHT_OF_SWORDS",
+        "assetId": "6fbed0fb-d66f-4912-8c4c-bd88686dc1b1"
+      },
+      {
+        "cardKey": "NINE_OF_SWORDS",
+        "assetId": "f6e413a0-1c7d-4bc9-8839-07f8b24c516f"
+      },
+      {
+        "cardKey": "TEN_OF_SWORDS",
+        "assetId": "765b6009-648b-4786-86aa-afe65912045b"
+      },
+      {
+        "cardKey": "PAGE_OF_SWORDS",
+        "assetId": "846460e6-0df1-4e91-80cb-8d879daf6581"
+      },
+      {
+        "cardKey": "KNIGHT_OF_SWORDS",
+        "assetId": "24cc2d27-406d-45f9-893b-1898277f21b8"
+      },
+      {
+        "cardKey": "QUEEN_OF_SWORDS",
+        "assetId": "b542fb93-7ad9-432e-8a30-a1d3bd4d67a9"
+      },
+      {
+        "cardKey": "KING_OF_SWORDS",
+        "assetId": "8e0bd520-c742-4d48-8452-91af1274e26a"
+      },
+      {
+        "cardKey": "ACE_OF_PENTACLES",
+        "assetId": "6e34e96c-fd3f-40ef-8255-a484101c3708"
+      },
+      {
+        "cardKey": "TWO_OF_PENTACLES",
+        "assetId": "6cf85281-a1f2-4ea2-8ced-247674cdeac1"
+      },
+      {
+        "cardKey": "THREE_OF_PENTACLES",
+        "assetId": "1aa2c606-edeb-4e8d-846e-f3ee068ab07d"
+      },
+      {
+        "cardKey": "FOUR_OF_PENTACLES",
+        "assetId": "015c7d23-93e4-4a84-87ec-fb2d72f38203"
+      },
+      {
+        "cardKey": "FIVE_OF_PENTACLES",
+        "assetId": "f8a034ae-bbb5-4137-8cd4-83fa89b7b613"
+      },
+      {
+        "cardKey": "SIX_OF_PENTACLES",
+        "assetId": "3e37ba4e-30cd-4e27-8745-1c55c1513dc0"
+      },
+      {
+        "cardKey": "SEVEN_OF_PENTACLES",
+        "assetId": "47fb0145-d2ac-4887-8c01-809ab083027e"
+      },
+      {
+        "cardKey": "EIGHT_OF_PENTACLES",
+        "assetId": "f16e5f78-9961-4304-8097-c26ce2ee69d2"
+      },
+      {
+        "cardKey": "NINE_OF_PENTACLES",
+        "assetId": "a22e0215-fe96-46b7-8c91-2fe629e8ab71"
+      },
+      {
+        "cardKey": "TEN_OF_PENTACLES",
+        "assetId": "780808b0-9cfa-46fd-89f7-13a9bcba959b"
+      },
+      {
+        "cardKey": "PAGE_OF_PENTACLES",
+        "assetId": "b6440666-302b-4288-89a9-8629c9942f55"
+      },
+      {
+        "cardKey": "KNIGHT_OF_PENTACLES",
+        "assetId": "d654676a-1810-4923-8e55-cd5a73b5ed06"
+      },
+      {
+        "cardKey": "QUEEN_OF_PENTACLES",
+        "assetId": "6b926f1f-240a-4bff-85dc-f3177a4254ee"
+      },
+      {
+        "cardKey": "KING_OF_PENTACLES",
+        "assetId": "3581ed2c-ce40-4637-8f9b-47c606d11249"
+      }
+    ],
+    "mappingHash": "0ebb447c7fa1baaaafd06d7091fbf4b553d9b41ac25c5af63fc5348e2c201d92",
+    "createdAt": "2026-10-09T12:39:18.000Z"
+  },
+  "assets": [
+    {
+      "id": "f3452097-a5a9-4aa5-8174-11d42699d7c1",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/889fae03c0ddd4918de6e8c8801874181d017245421b3246897295f0da00247b.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 285790,
+      "contentHash": "889fae03c0ddd4918de6e8c8801874181d017245421b3246897295f0da00247b",
+      "width": 825,
+      "height": 1429,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "cfa0a9ac-c32b-451c-87df-ed494fca45d6",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/e5aa3df345d9ea9f1a2155b9c86d8c3342569ec67d1cedd4a2756e9eed6e7100.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 249220,
+      "contentHash": "e5aa3df345d9ea9f1a2155b9c86d8c3342569ec67d1cedd4a2756e9eed6e7100",
+      "width": 849,
+      "height": 1429,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "322a6eac-c6a3-4575-8a12-936eb2856de5",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/1d43b8da0ea05f2359caa2d1e4ddff4e8a008968bfd4fdfed1e0a521ae3686e0.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 277326,
+      "contentHash": "1d43b8da0ea05f2359caa2d1e4ddff4e8a008968bfd4fdfed1e0a521ae3686e0",
+      "width": 819,
+      "height": 1451,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "7bd0c69e-fd57-461e-8c38-b78033191418",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/ff13b579cad45d32f5a98b0fb323e9a6fab5ea6082613d5b1b33972f563b5161.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 298148,
+      "contentHash": "ff13b579cad45d32f5a98b0fb323e9a6fab5ea6082613d5b1b33972f563b5161",
+      "width": 860,
+      "height": 1455,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "84fcad2e-1e74-4a0b-87f2-138200d9570d",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/357702d260530fced6d22e91b5d9a29da7bb3210365af99ca4b301467fd39975.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 308069,
+      "contentHash": "357702d260530fced6d22e91b5d9a29da7bb3210365af99ca4b301467fd39975",
+      "width": 816,
+      "height": 1417,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "1be1cd7a-6f52-41ff-803d-358eb9f4e1fa",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/f68645f05b578cbb2efaa9ab7c4d14a30e7b9eaca3567d237b446568f21ea8d3.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 287944,
+      "contentHash": "f68645f05b578cbb2efaa9ab7c4d14a30e7b9eaca3567d237b446568f21ea8d3",
+      "width": 832,
+      "height": 1416,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "65a3b78e-8a84-4400-88f2-23f09468e0df",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/11aa508b03fcf5c4542a77a0f4fcb36450193f7aaab05048aea3aff97e32657b.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 352215,
+      "contentHash": "11aa508b03fcf5c4542a77a0f4fcb36450193f7aaab05048aea3aff97e32657b",
+      "width": 814,
+      "height": 1430,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "6821e1c2-3504-4325-885d-109eade89530",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/791984b33e757222e9a64eb139a2cdbcd70034236d739fa0aeec7170d67494b7.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 279161,
+      "contentHash": "791984b33e757222e9a64eb139a2cdbcd70034236d739fa0aeec7170d67494b7",
+      "width": 838,
+      "height": 1441,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "1abbbc84-1994-40c8-8e0a-c290c88f6320",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/115fc565055ec61dd037d1127f31e463defa17db0531969e133b00df9902b76c.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 238076,
+      "contentHash": "115fc565055ec61dd037d1127f31e463defa17db0531969e133b00df9902b76c",
+      "width": 817,
+      "height": 1413,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "0bb02582-8189-4b43-8965-5aba777b070b",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/27ed36b8579f553f5ed00407fa059d01d52d710454a300ccabecb7063d615bd6.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 240315,
+      "contentHash": "27ed36b8579f553f5ed00407fa059d01d52d710454a300ccabecb7063d615bd6",
+      "width": 842,
+      "height": 1424,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "e988d0e1-858f-429e-8ca6-f15a767e8f49",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/883f5e41b2d9697d42785c37ddbd3b70c13a169edc49a0313b9b85bdfe1f1fb0.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 339256,
+      "contentHash": "883f5e41b2d9697d42785c37ddbd3b70c13a169edc49a0313b9b85bdfe1f1fb0",
+      "width": 814,
+      "height": 1437,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "3ae1d57c-af42-4991-8a0e-daa943bea029",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/969039bf40d59837850ee000a2f3c494f09554b359097256c5f63f8fecc31f18.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 281592,
+      "contentHash": "969039bf40d59837850ee000a2f3c494f09554b359097256c5f63f8fecc31f18",
+      "width": 828,
+      "height": 1441,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "b828dec1-51cc-4a00-80f9-7f1d0267bfda",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/39b0b223a8541a68e957c944c302bb414473903abb79d0cba5905961018cf4fb.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 258309,
+      "contentHash": "39b0b223a8541a68e957c944c302bb414473903abb79d0cba5905961018cf4fb",
+      "width": 812,
+      "height": 1423,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "2ae6bdb7-848b-4a0c-8030-c3f7f39104d8",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/4a7acac293935b022890843e11d5059fdeaa7930e1752cab918b5b3f79fd24fe.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 286734,
+      "contentHash": "4a7acac293935b022890843e11d5059fdeaa7930e1752cab918b5b3f79fd24fe",
+      "width": 831,
+      "height": 1424,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "7423bfe3-ab37-4920-848e-2ea0d6f1740d",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/91855cf4c4d98f2c8d89d8d9c1574768c81d0979d05619cb8f4065259f60f5e0.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 303909,
+      "contentHash": "91855cf4c4d98f2c8d89d8d9c1574768c81d0979d05619cb8f4065259f60f5e0",
+      "width": 826,
+      "height": 1433,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "6766ca37-6457-4588-8af9-4eaf7ae7542a",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/f46c1904785439f26b6b054477b67488142c26d5fc87235d472d1d2b3e93981a.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 351037,
+      "contentHash": "f46c1904785439f26b6b054477b67488142c26d5fc87235d472d1d2b3e93981a",
+      "width": 849,
+      "height": 1453,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "c75e2323-1c42-445b-8080-275e2ba683e8",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/e1a8a02bc16dc524b9b4e2db4480fd648ddb2db90f327d5285d76e5c274e5951.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 273786,
+      "contentHash": "e1a8a02bc16dc524b9b4e2db4480fd648ddb2db90f327d5285d76e5c274e5951",
+      "width": 814,
+      "height": 1424,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "322fb1cc-4cc5-488b-8dc2-dea6fe5f4863",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/3e2579ec903c6126699a51733671d9237a90a2671d3e9fc2c4adad8cc38e7d49.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 310556,
+      "contentHash": "3e2579ec903c6126699a51733671d9237a90a2671d3e9fc2c4adad8cc38e7d49",
+      "width": 839,
+      "height": 1421,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "303f338b-d7d3-4ec3-83b7-b97efefb060f",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/1d576eca8f4703770cf230b23155451af6c0171add51036d43597322e42c75e5.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 322903,
+      "contentHash": "1d576eca8f4703770cf230b23155451af6c0171add51036d43597322e42c75e5",
+      "width": 814,
+      "height": 1441,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "58e49851-fe55-4953-86f0-cd609d1cd495",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/864ce813adcdce64260037b3b6c7a45f7556f674e2cdec7756ed5eb2889b88e6.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 323531,
+      "contentHash": "864ce813adcdce64260037b3b6c7a45f7556f674e2cdec7756ed5eb2889b88e6",
+      "width": 848,
+      "height": 1459,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "045dcfe9-8d1f-490c-8992-107bdb1f63e9",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/103432ece8efbc3e900cd24e0ebc79de944efaf658154c7bd44f732c9bf77e69.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 324854,
+      "contentHash": "103432ece8efbc3e900cd24e0ebc79de944efaf658154c7bd44f732c9bf77e69",
+      "width": 832,
+      "height": 1421,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "d6a21ba2-3026-4216-81bb-515d67ed4bb0",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/7ec15febe913d061b8bf7fca99cc2304a91c56e7f1e520fcc820fc8e0463d823.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 321040,
+      "contentHash": "7ec15febe913d061b8bf7fca99cc2304a91c56e7f1e520fcc820fc8e0463d823",
+      "width": 833,
+      "height": 1418,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "d580390a-5308-43ff-8c17-27bdca5e89e4",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/959fe06880c991e8e5afac1feced25e7675588545d81a15a9e00e493f6df590f.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 234664,
+      "contentHash": "959fe06880c991e8e5afac1feced25e7675588545d81a15a9e00e493f6df590f",
+      "width": 815,
+      "height": 1448,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "39fa9897-eab0-4915-87de-bcb6ded59ccd",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/f11cc30acac0b7d2d4b65dc7ee8e7deb35f73692baee86b8ba910418d7d14759.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 257637,
+      "contentHash": "f11cc30acac0b7d2d4b65dc7ee8e7deb35f73692baee86b8ba910418d7d14759",
+      "width": 844,
+      "height": 1435,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "65432609-f254-48d8-8a00-a8fec7f6d656",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/74dea646873a1e94d893cf5e21101aa04ee37205a82e479707417bd493bfe776.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 309758,
+      "contentHash": "74dea646873a1e94d893cf5e21101aa04ee37205a82e479707417bd493bfe776",
+      "width": 816,
+      "height": 1414,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "c9cb8dac-6fd3-4c30-86c3-b3192e1cc314",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/482a449bda7bfb44a195d929bdd69bc8ab060cd16d0cfd173b6435097853e2e0.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 230003,
+      "contentHash": "482a449bda7bfb44a195d929bdd69bc8ab060cd16d0cfd173b6435097853e2e0",
+      "width": 836,
+      "height": 1428,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "438c3f6d-e9e6-4d1a-8c8d-de6da08f2f67",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/ab072b304dfb295c6ff741a2d95469e4ae6830afc40e13f9d50933e128f3b521.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 266790,
+      "contentHash": "ab072b304dfb295c6ff741a2d95469e4ae6830afc40e13f9d50933e128f3b521",
+      "width": 815,
+      "height": 1438,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "47943dd7-d167-4ff9-8910-fc4afc51f673",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/388ed2ee72378c6fd4de1db542603bdc7c4fe1ce6422f19d8a0b25f1ecfac472.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 269731,
+      "contentHash": "388ed2ee72378c6fd4de1db542603bdc7c4fe1ce6422f19d8a0b25f1ecfac472",
+      "width": 843,
+      "height": 1445,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "5609d0bb-e645-4022-893e-34cba9dd4820",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/7fc7a0d5f4a4b25701a98d1d92311d2ccb8863386e06efac2a14a3c2aefba2d1.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 264612,
+      "contentHash": "7fc7a0d5f4a4b25701a98d1d92311d2ccb8863386e06efac2a14a3c2aefba2d1",
+      "width": 821,
+      "height": 1425,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "a15250bc-6d58-4418-830c-9babe2a66f69",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/059f5b7e8b8e1eaf5b1070b5b8f717b700f9c49307a67b60f567baa98cbd34fc.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 250818,
+      "contentHash": "059f5b7e8b8e1eaf5b1070b5b8f717b700f9c49307a67b60f567baa98cbd34fc",
+      "width": 840,
+      "height": 1425,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "62076303-27cd-4e94-8b3d-e0fdbb551bc7",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/5805ca48f9c5759aada5ab9b5a9a9c572041c182f41884ee7625722309d6e3c3.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 315705,
+      "contentHash": "5805ca48f9c5759aada5ab9b5a9a9c572041c182f41884ee7625722309d6e3c3",
+      "width": 819,
+      "height": 1434,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "d11b8861-ce14-4d97-80fb-919ee4be4d12",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/55542e6bcc0bd7e7e0f27f0ce9ac3e644b3bf6956c57600570ee802e52fdbea2.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 277561,
+      "contentHash": "55542e6bcc0bd7e7e0f27f0ce9ac3e644b3bf6956c57600570ee802e52fdbea2",
+      "width": 839,
+      "height": 1439,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "40fd9f04-73df-460f-8486-94bd9b32957d",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/371911a5e9c5ed8d0a4837f73343d8970406d37201e85fb0ccf96b0548c5a745.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 356541,
+      "contentHash": "371911a5e9c5ed8d0a4837f73343d8970406d37201e85fb0ccf96b0548c5a745",
+      "width": 820,
+      "height": 1423,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "02a27c41-0997-424c-8265-0efb04a01ed6",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/0ae1063d9ab8a124ed7b30b068176e42e6f170bc08eab705916045fedab677d4.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 322709,
+      "contentHash": "0ae1063d9ab8a124ed7b30b068176e42e6f170bc08eab705916045fedab677d4",
+      "width": 833,
+      "height": 1415,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "98b7a32d-22e8-400d-854a-3948e04988a3",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/1011811b9e4dd581bb4fb05a0b37d28e05adc23bd1f826b5dfa62f454514e703.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 385629,
+      "contentHash": "1011811b9e4dd581bb4fb05a0b37d28e05adc23bd1f826b5dfa62f454514e703",
+      "width": 822,
+      "height": 1446,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "b620709d-0052-40d1-8390-0e7e57886842",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/17d6b42ff6be64f1e0c9f44462825653fb0ed29ca10c3fca1713b2343fe34f6c.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 357455,
+      "contentHash": "17d6b42ff6be64f1e0c9f44462825653fb0ed29ca10c3fca1713b2343fe34f6c",
+      "width": 851,
+      "height": 1441,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "39bdfd4c-4457-4c13-8fe6-19f52ea1625d",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/5fc92ca4221579ece7c09ceed820ecc88bd581b2ddd68420dfe40d2a89910a75.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 260497,
+      "contentHash": "5fc92ca4221579ece7c09ceed820ecc88bd581b2ddd68420dfe40d2a89910a75",
+      "width": 816,
+      "height": 1418,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "b75e48e6-95c9-4a22-8495-44b70f606e80",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/bbe7054640ef5b16b3b2aa715afa6e269f03d3bff3ee765144ed771820ba8b8f.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 279993,
+      "contentHash": "bbe7054640ef5b16b3b2aa715afa6e269f03d3bff3ee765144ed771820ba8b8f",
+      "width": 833,
+      "height": 1413,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "ce8a9d50-9bee-44e1-89dd-525bd39a4246",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/a09e9fce565e8dfd7a07923ae413e482ff47b75c1cf8f45d13cb5aa549cdb66e.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 326724,
+      "contentHash": "a09e9fce565e8dfd7a07923ae413e482ff47b75c1cf8f45d13cb5aa549cdb66e",
+      "width": 818,
+      "height": 1448,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "094d4fb8-963c-458d-8602-bbd58ccc87c5",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/2ab922dfa0f9dac26be9cfe2a542073e584f5018291083ee812104b9bb67bf88.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 282885,
+      "contentHash": "2ab922dfa0f9dac26be9cfe2a542073e584f5018291083ee812104b9bb67bf88",
+      "width": 839,
+      "height": 1433,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "9eba5297-6be5-40ab-8b92-3c4232f5e2d1",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/d1c6b168e723135a3e7e3f3fc952cd9f9c9f63ce4c32921e620446c33a6ec530.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 214150,
+      "contentHash": "d1c6b168e723135a3e7e3f3fc952cd9f9c9f63ce4c32921e620446c33a6ec530",
+      "width": 818,
+      "height": 1430,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "1f457032-1f84-4713-8451-1e5a89cb2fe2",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/6f363d904e534ddcc13a1577803fd819d88ac64d99191b1fe854f5cc6950183f.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 299769,
+      "contentHash": "6f363d904e534ddcc13a1577803fd819d88ac64d99191b1fe854f5cc6950183f",
+      "width": 834,
+      "height": 1424,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "56d38f38-ff25-4141-8992-4e1fdf48669d",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/618fadd41324a8a029daddd987a8bef426c5634e46b5c5d02bd3aa0c8a398520.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 306762,
+      "contentHash": "618fadd41324a8a029daddd987a8bef426c5634e46b5c5d02bd3aa0c8a398520",
+      "width": 817,
+      "height": 1451,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "a90dd843-4a78-473d-8db8-8f2c39d16ce7",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/bd8896083ba2c3d7cdb245ed9dae4528a0637a527f45bced93b6f6ed89c1b9fc.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 257546,
+      "contentHash": "bd8896083ba2c3d7cdb245ed9dae4528a0637a527f45bced93b6f6ed89c1b9fc",
+      "width": 830,
+      "height": 1438,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "1598bad4-3d95-4bd7-8698-0d8f83e9ac41",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/b6187e1e0248eab57db2846fdd9ce65d4b4bead4b39998f45dbb994e4c113ad4.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 252646,
+      "contentHash": "b6187e1e0248eab57db2846fdd9ce65d4b4bead4b39998f45dbb994e4c113ad4",
+      "width": 818,
+      "height": 1421,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "34989405-5c52-47e0-85ce-b40939ba0b4c",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/1f8d98f30fc898927c41deac233e52eda126260a5144e1f8264f3803d23d05d7.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 319153,
+      "contentHash": "1f8d98f30fc898927c41deac233e52eda126260a5144e1f8264f3803d23d05d7",
+      "width": 841,
+      "height": 1420,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "c0eedbad-3027-4b1b-808b-629566d2fc9b",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/1269eb8aac06ab056c5e89280a35e93e91b7f5d6c9c5541fff94f5ce40452cfb.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 297219,
+      "contentHash": "1269eb8aac06ab056c5e89280a35e93e91b7f5d6c9c5541fff94f5ce40452cfb",
+      "width": 817,
+      "height": 1436,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "c6eeff67-09f9-4d44-8277-ba972e583c45",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/8973fdad4545eebe527756e0ab41892c1d06cf7bde315ebb7a507ad5700935b6.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 273220,
+      "contentHash": "8973fdad4545eebe527756e0ab41892c1d06cf7bde315ebb7a507ad5700935b6",
+      "width": 836,
+      "height": 1436,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "f817ef02-4e74-4fc0-8101-7e0729c2c6c3",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/24ce4bd36d361e3484bf4b67fbbf3a063418588e3ec73da670135e626ba0f502.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 278785,
+      "contentHash": "24ce4bd36d361e3484bf4b67fbbf3a063418588e3ec73da670135e626ba0f502",
+      "width": 820,
+      "height": 1425,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "7a9c85a2-9589-4329-89e9-5a2e49f1f860",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/48e79018e323ce1645077566f7bb9c0385729fe1105ba7aeb6d8ae4e4bcf0381.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 274600,
+      "contentHash": "48e79018e323ce1645077566f7bb9c0385729fe1105ba7aeb6d8ae4e4bcf0381",
+      "width": 838,
+      "height": 1424,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "e0633276-80de-4819-8b19-19eb3391733f",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/9c0b23e1b5046a38a528955b7936de6f293d5c6800916e8e3a191a28b3f47640.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 245669,
+      "contentHash": "9c0b23e1b5046a38a528955b7936de6f293d5c6800916e8e3a191a28b3f47640",
+      "width": 826,
+      "height": 1443,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "0dca15c5-f888-478c-8b20-246bf16045b3",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/683e913500e13e142069ffbbf958bf0d199389085533ddd91224649131402f56.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 245680,
+      "contentHash": "683e913500e13e142069ffbbf958bf0d199389085533ddd91224649131402f56",
+      "width": 839,
+      "height": 1432,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "90a67a3f-5c56-4ba3-8270-eb991be560a8",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/d15c9f3ddfb34a2ec51e89515ca7541536561d9eb9f210339fbcb75fdf9c73dc.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 212563,
+      "contentHash": "d15c9f3ddfb34a2ec51e89515ca7541536561d9eb9f210339fbcb75fdf9c73dc",
+      "width": 818,
+      "height": 1418,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "0481e2a5-36e3-4e7f-81aa-04d282c23718",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/5e274dd72e170edcd80e0af5b21c67d60b830bade46b0168348b43d92932bfbe.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 245437,
+      "contentHash": "5e274dd72e170edcd80e0af5b21c67d60b830bade46b0168348b43d92932bfbe",
+      "width": 834,
+      "height": 1418,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "ea921fe8-b135-422e-8b44-04bd659700d3",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/b680f17c65b5b2e0ac0a92d70b0178e2a1f9e4dda61816e26594a217a5eb3ad5.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 313195,
+      "contentHash": "b680f17c65b5b2e0ac0a92d70b0178e2a1f9e4dda61816e26594a217a5eb3ad5",
+      "width": 816,
+      "height": 1434,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "a06da6e5-fbcd-49ba-85c1-48dee0297686",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/0ff17f2714a2937af75346da6dfcd791cbf764ada2ab9c4a89062d96975d73fd.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 259245,
+      "contentHash": "0ff17f2714a2937af75346da6dfcd791cbf764ada2ab9c4a89062d96975d73fd",
+      "width": 842,
+      "height": 1440,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "eff9bdf6-6aef-4db3-8300-60fbbe4f56a9",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/fc393357fc9f632600f8d1abca48ee0a3fc0f25310d4c17b03e1e3019ae6e702.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 238391,
+      "contentHash": "fc393357fc9f632600f8d1abca48ee0a3fc0f25310d4c17b03e1e3019ae6e702",
+      "width": 816,
+      "height": 1433,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "6fbed0fb-d66f-4912-8c4c-bd88686dc1b1",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/cd246c7e3f23cc988278dddb4ad38e0f46773244bc87d873d7cbeb8acc57c165.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 254971,
+      "contentHash": "cd246c7e3f23cc988278dddb4ad38e0f46773244bc87d873d7cbeb8acc57c165",
+      "width": 838,
+      "height": 1428,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "f6e413a0-1c7d-4bc9-8839-07f8b24c516f",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/d8ded085df0868492e048b70974d9dd6461be77a066c7eeff8596244fba4d466.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 312975,
+      "contentHash": "d8ded085df0868492e048b70974d9dd6461be77a066c7eeff8596244fba4d466",
+      "width": 817,
+      "height": 1453,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "765b6009-648b-4786-86aa-afe65912045b",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/000c7db7c41c1f1a082359a82b3a86519e246c56235df7c292e2fa06b0bad046.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 261476,
+      "contentHash": "000c7db7c41c1f1a082359a82b3a86519e246c56235df7c292e2fa06b0bad046",
+      "width": 846,
+      "height": 1453,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "846460e6-0df1-4e91-80cb-8d879daf6581",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/14aeb106c2a96e5c274134f1d9c955a3ea76d99f5c9df207161cf26bd381a51e.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 253590,
+      "contentHash": "14aeb106c2a96e5c274134f1d9c955a3ea76d99f5c9df207161cf26bd381a51e",
+      "width": 818,
+      "height": 1430,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "24cc2d27-406d-45f9-893b-1898277f21b8",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/34459dac9c86d4ec7739c339307689a958e4e0805264a0aebde6105d1eaa6591.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 262860,
+      "contentHash": "34459dac9c86d4ec7739c339307689a958e4e0805264a0aebde6105d1eaa6591",
+      "width": 837,
+      "height": 1419,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "b542fb93-7ad9-432e-8a30-a1d3bd4d67a9",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/68e0be383d9395028497f433cb828791d065a0e513dc4ab12f552d210ec2043f.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 264036,
+      "contentHash": "68e0be383d9395028497f433cb828791d065a0e513dc4ab12f552d210ec2043f",
+      "width": 819,
+      "height": 1452,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "8e0bd520-c742-4d48-8452-91af1274e26a",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/ee1d243fc0b8135a2eaa8eb7a97eafbc2a157735e99a48694ac0696a0c8469b1.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 286202,
+      "contentHash": "ee1d243fc0b8135a2eaa8eb7a97eafbc2a157735e99a48694ac0696a0c8469b1",
+      "width": 846,
+      "height": 1442,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "6e34e96c-fd3f-40ef-8255-a484101c3708",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/03b9001caafe05556965891d2861279f54bfa1fedfdfb536a77003fd33feb2f0.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 242590,
+      "contentHash": "03b9001caafe05556965891d2861279f54bfa1fedfdfb536a77003fd33feb2f0",
+      "width": 819,
+      "height": 1423,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "6cf85281-a1f2-4ea2-8ced-247674cdeac1",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/330f5a87f433e005680c514b50814a7b0daeb58e15876f3fb83fc92d64581f6c.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 298555,
+      "contentHash": "330f5a87f433e005680c514b50814a7b0daeb58e15876f3fb83fc92d64581f6c",
+      "width": 833,
+      "height": 1423,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "1aa2c606-edeb-4e8d-846e-f3ee068ab07d",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/b605ac243a94c28b97b3bbf1dde7caecd02eeb90a42b1cc1ea4604fcd75aabb0.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 345119,
+      "contentHash": "b605ac243a94c28b97b3bbf1dde7caecd02eeb90a42b1cc1ea4604fcd75aabb0",
+      "width": 817,
+      "height": 1443,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "015c7d23-93e4-4a84-87ec-fb2d72f38203",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/1d83adb2c14010569ccae0fc02c2434a9f3e364e0f2df2ba91860e285567d928.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 247667,
+      "contentHash": "1d83adb2c14010569ccae0fc02c2434a9f3e364e0f2df2ba91860e285567d928",
+      "width": 843,
+      "height": 1449,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "f8a034ae-bbb5-4137-8cd4-83fa89b7b613",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/3f5fd1fc7c2998324578bcd06ded8f26dbb5ae7d188c4a5247a11e6bac5b793f.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 295415,
+      "contentHash": "3f5fd1fc7c2998324578bcd06ded8f26dbb5ae7d188c4a5247a11e6bac5b793f",
+      "width": 823,
+      "height": 1412,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "3e37ba4e-30cd-4e27-8745-1c55c1513dc0",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/b319a9998d67a6742ed77d0c7de8d0e1a022c2026642aca41cf6aa1c64261cc5.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 250711,
+      "contentHash": "b319a9998d67a6742ed77d0c7de8d0e1a022c2026642aca41cf6aa1c64261cc5",
+      "width": 840,
+      "height": 1415,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "47fb0145-d2ac-4887-8c01-809ab083027e",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/1cfb2615c67cd81f97a53745844f0a89fddfbf36d3bc37a4a8631e9d743deef0.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 307445,
+      "contentHash": "1cfb2615c67cd81f97a53745844f0a89fddfbf36d3bc37a4a8631e9d743deef0",
+      "width": 818,
+      "height": 1444,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "f16e5f78-9961-4304-8097-c26ce2ee69d2",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/708ef93dddb4f8f011a916052289b58787649347ae89eb4db912dfad7653340a.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 261207,
+      "contentHash": "708ef93dddb4f8f011a916052289b58787649347ae89eb4db912dfad7653340a",
+      "width": 839,
+      "height": 1452,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "a22e0215-fe96-46b7-8c91-2fe629e8ab71",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/cd7f70ce84193e1c548805af0371585eb90839f8565f6e2fff16117ade39ca24.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 262124,
+      "contentHash": "cd7f70ce84193e1c548805af0371585eb90839f8565f6e2fff16117ade39ca24",
+      "width": 817,
+      "height": 1420,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "780808b0-9cfa-46fd-89f7-13a9bcba959b",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/e0321b700be0fa8a3f73ba5df10ef024000f26c32843690d4d38daaf276e77df.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 288046,
+      "contentHash": "e0321b700be0fa8a3f73ba5df10ef024000f26c32843690d4d38daaf276e77df",
+      "width": 834,
+      "height": 1434,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "b6440666-302b-4288-89a9-8629c9942f55",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/4d20ae2e2e97dca4d0d3b3d95d00458ff4d0483125f32ecabd144423a189ffde.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 244348,
+      "contentHash": "4d20ae2e2e97dca4d0d3b3d95d00458ff4d0483125f32ecabd144423a189ffde",
+      "width": 816,
+      "height": 1438,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "d654676a-1810-4923-8e55-cd5a73b5ed06",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/64cdac9ba94ea71c8675d456c6b94e7ab956f3db45a944b3585b9c1d5a730d20.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 244638,
+      "contentHash": "64cdac9ba94ea71c8675d456c6b94e7ab956f3db45a944b3585b9c1d5a730d20",
+      "width": 844,
+      "height": 1440,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "6b926f1f-240a-4bff-85dc-f3177a4254ee",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/5c4da762b508ced686889a81a6b4d274d6f1a5521ec0dfac78ff50cf00c689f7.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 360963,
+      "contentHash": "5c4da762b508ced686889a81a6b4d274d6f1a5521ec0dfac78ff50cf00c689f7",
+      "width": 825,
+      "height": 1431,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    },
+    {
+      "id": "3581ed2c-ce40-4637-8f9b-47c606d11249",
+      "kind": "TAROT_CARD_IMAGE",
+      "objectKey": "platform/tarot/rider-waite/1/4e34780f06ecb0d0207f0c87b4de8ec6ea067992b5f13cd00bb2799f97e6bb38.jpeg",
+      "mediaType": "image/jpeg",
+      "byteSize": 282351,
+      "contentHash": "4e34780f06ecb0d0207f0c87b4de8ec6ea067992b5f13cd00bb2799f97e6bb38",
+      "width": 839,
+      "height": 1419,
+      "status": "READY",
+      "rights": {
+        "state": "APPROVED",
+        "classification": "LICENSED",
+        "source": "Owner-supplied cards.zip",
+        "evidenceReference": "docs/TAROT_STUDIO_INTEGRATION.md#owner-artwork-approval",
+        "notes": "Owner explicitly supplied and approved these artwork files for this Reading OS integration. Records owner permission, not an independent public-domain or third-party commercial-license verification."
+      },
+      "createdAt": "2026-10-09T12:39:18.000Z"
+    }
+  ],
+  "source": {
+    "zipName": "cards.zip",
+    "zipSha256": "d17209353d35972149bdf69d017ccdbe1c54dc44226a76c8f551e96db8658b68",
+    "totalEntries": 81,
+    "ignoredEntries": 3,
+    "images": 78,
+    "mappingReview": "All 78 images visually inspected against canonical identities.",
+    "files": [
+      {
+        "cardKey": "THE_FOOL",
+        "file": "00-the-fool.jpeg",
+        "assetId": "f3452097-a5a9-4aa5-8174-11d42699d7c1"
+      },
+      {
+        "cardKey": "THE_MAGICIAN",
+        "file": "01-the-magician.jpeg",
+        "assetId": "cfa0a9ac-c32b-451c-87df-ed494fca45d6"
+      },
+      {
+        "cardKey": "THE_HIGH_PRIESTESS",
+        "file": "02-the-high-priestess.jpeg",
+        "assetId": "322a6eac-c6a3-4575-8a12-936eb2856de5"
+      },
+      {
+        "cardKey": "THE_EMPRESS",
+        "file": "03-the-empress.jpeg",
+        "assetId": "7bd0c69e-fd57-461e-8c38-b78033191418"
+      },
+      {
+        "cardKey": "THE_EMPEROR",
+        "file": "04-the-emperor.jpeg",
+        "assetId": "84fcad2e-1e74-4a0b-87f2-138200d9570d"
+      },
+      {
+        "cardKey": "THE_HIEROPHANT",
+        "file": "05-the-hierophant.jpeg",
+        "assetId": "1be1cd7a-6f52-41ff-803d-358eb9f4e1fa"
+      },
+      {
+        "cardKey": "THE_LOVERS",
+        "file": "06-the-lovers.jpeg",
+        "assetId": "65a3b78e-8a84-4400-88f2-23f09468e0df"
+      },
+      {
+        "cardKey": "THE_CHARIOT",
+        "file": "07-the-chariot.jpeg",
+        "assetId": "6821e1c2-3504-4325-885d-109eade89530"
+      },
+      {
+        "cardKey": "STRENGTH",
+        "file": "08-strength.jpeg",
+        "assetId": "1abbbc84-1994-40c8-8e0a-c290c88f6320"
+      },
+      {
+        "cardKey": "THE_HERMIT",
+        "file": "09-the-hermit.jpeg",
+        "assetId": "0bb02582-8189-4b43-8965-5aba777b070b"
+      },
+      {
+        "cardKey": "WHEEL_OF_FORTUNE",
+        "file": "10-wheel-of-fortune.jpeg",
+        "assetId": "e988d0e1-858f-429e-8ca6-f15a767e8f49"
+      },
+      {
+        "cardKey": "JUSTICE",
+        "file": "11-justice.jpeg",
+        "assetId": "3ae1d57c-af42-4991-8a0e-daa943bea029"
+      },
+      {
+        "cardKey": "THE_HANGED_MAN",
+        "file": "12-the-hanged-man.jpeg",
+        "assetId": "b828dec1-51cc-4a00-80f9-7f1d0267bfda"
+      },
+      {
+        "cardKey": "DEATH",
+        "file": "13-death.jpeg",
+        "assetId": "2ae6bdb7-848b-4a0c-8030-c3f7f39104d8"
+      },
+      {
+        "cardKey": "TEMPERANCE",
+        "file": "14-temperance.jpeg",
+        "assetId": "7423bfe3-ab37-4920-848e-2ea0d6f1740d"
+      },
+      {
+        "cardKey": "THE_DEVIL",
+        "file": "15-the-devil.jpeg",
+        "assetId": "6766ca37-6457-4588-8af9-4eaf7ae7542a"
+      },
+      {
+        "cardKey": "THE_TOWER",
+        "file": "16-the-tower.jpeg",
+        "assetId": "c75e2323-1c42-445b-8080-275e2ba683e8"
+      },
+      {
+        "cardKey": "THE_STAR",
+        "file": "17-the-star.jpeg",
+        "assetId": "322fb1cc-4cc5-488b-8dc2-dea6fe5f4863"
+      },
+      {
+        "cardKey": "THE_MOON",
+        "file": "18-the-moon.jpeg",
+        "assetId": "303f338b-d7d3-4ec3-83b7-b97efefb060f"
+      },
+      {
+        "cardKey": "THE_SUN",
+        "file": "19-the-sun.jpeg",
+        "assetId": "58e49851-fe55-4953-86f0-cd609d1cd495"
+      },
+      {
+        "cardKey": "JUDGEMENT",
+        "file": "20-judgement.jpeg",
+        "assetId": "045dcfe9-8d1f-490c-8992-107bdb1f63e9"
+      },
+      {
+        "cardKey": "THE_WORLD",
+        "file": "21-the-world.jpeg",
+        "assetId": "d6a21ba2-3026-4216-81bb-515d67ed4bb0"
+      },
+      {
+        "cardKey": "ACE_OF_WANDS",
+        "file": "01-ace-of-wands.jpeg",
+        "assetId": "d580390a-5308-43ff-8c17-27bdca5e89e4"
+      },
+      {
+        "cardKey": "TWO_OF_WANDS",
+        "file": "02-two-of-wands.jpeg",
+        "assetId": "39fa9897-eab0-4915-87de-bcb6ded59ccd"
+      },
+      {
+        "cardKey": "THREE_OF_WANDS",
+        "file": "03-three-of-wands.jpeg",
+        "assetId": "65432609-f254-48d8-8a00-a8fec7f6d656"
+      },
+      {
+        "cardKey": "FOUR_OF_WANDS",
+        "file": "04-four-of-wands.jpeg",
+        "assetId": "c9cb8dac-6fd3-4c30-86c3-b3192e1cc314"
+      },
+      {
+        "cardKey": "FIVE_OF_WANDS",
+        "file": "05-five-of-wands.jpeg",
+        "assetId": "438c3f6d-e9e6-4d1a-8c8d-de6da08f2f67"
+      },
+      {
+        "cardKey": "SIX_OF_WANDS",
+        "file": "06-six-of-wands.jpeg",
+        "assetId": "47943dd7-d167-4ff9-8910-fc4afc51f673"
+      },
+      {
+        "cardKey": "SEVEN_OF_WANDS",
+        "file": "07-seven-of-wands.jpeg",
+        "assetId": "5609d0bb-e645-4022-893e-34cba9dd4820"
+      },
+      {
+        "cardKey": "EIGHT_OF_WANDS",
+        "file": "08-eight-of-wands.jpeg",
+        "assetId": "a15250bc-6d58-4418-830c-9babe2a66f69"
+      },
+      {
+        "cardKey": "NINE_OF_WANDS",
+        "file": "09-nine-of-wands.jpeg",
+        "assetId": "62076303-27cd-4e94-8b3d-e0fdbb551bc7"
+      },
+      {
+        "cardKey": "TEN_OF_WANDS",
+        "file": "10-ten-of-wands.jpeg",
+        "assetId": "d11b8861-ce14-4d97-80fb-919ee4be4d12"
+      },
+      {
+        "cardKey": "PAGE_OF_WANDS",
+        "file": "11-page-of-wands.jpeg",
+        "assetId": "40fd9f04-73df-460f-8486-94bd9b32957d"
+      },
+      {
+        "cardKey": "KNIGHT_OF_WANDS",
+        "file": "12-knight-of-wands.jpeg",
+        "assetId": "02a27c41-0997-424c-8265-0efb04a01ed6"
+      },
+      {
+        "cardKey": "QUEEN_OF_WANDS",
+        "file": "13-queen-of-wands.jpeg",
+        "assetId": "98b7a32d-22e8-400d-854a-3948e04988a3"
+      },
+      {
+        "cardKey": "KING_OF_WANDS",
+        "file": "14-king-of-wands.jpeg",
+        "assetId": "b620709d-0052-40d1-8390-0e7e57886842"
+      },
+      {
+        "cardKey": "ACE_OF_CUPS",
+        "file": "01-ace-of-cups.jpeg",
+        "assetId": "39bdfd4c-4457-4c13-8fe6-19f52ea1625d"
+      },
+      {
+        "cardKey": "TWO_OF_CUPS",
+        "file": "02-two-of-cups.jpeg",
+        "assetId": "b75e48e6-95c9-4a22-8495-44b70f606e80"
+      },
+      {
+        "cardKey": "THREE_OF_CUPS",
+        "file": "03-three-of-cups.jpeg",
+        "assetId": "ce8a9d50-9bee-44e1-89dd-525bd39a4246"
+      },
+      {
+        "cardKey": "FOUR_OF_CUPS",
+        "file": "04-four-of-cups.jpeg",
+        "assetId": "094d4fb8-963c-458d-8602-bbd58ccc87c5"
+      },
+      {
+        "cardKey": "FIVE_OF_CUPS",
+        "file": "05-five-of-cups.jpeg",
+        "assetId": "9eba5297-6be5-40ab-8b92-3c4232f5e2d1"
+      },
+      {
+        "cardKey": "SIX_OF_CUPS",
+        "file": "06-six-of-cups.jpeg",
+        "assetId": "1f457032-1f84-4713-8451-1e5a89cb2fe2"
+      },
+      {
+        "cardKey": "SEVEN_OF_CUPS",
+        "file": "07-seven-of-cups.jpeg",
+        "assetId": "56d38f38-ff25-4141-8992-4e1fdf48669d"
+      },
+      {
+        "cardKey": "EIGHT_OF_CUPS",
+        "file": "08-eight-of-cups.jpeg",
+        "assetId": "a90dd843-4a78-473d-8db8-8f2c39d16ce7"
+      },
+      {
+        "cardKey": "NINE_OF_CUPS",
+        "file": "09-nine-of-cups.jpeg",
+        "assetId": "1598bad4-3d95-4bd7-8698-0d8f83e9ac41"
+      },
+      {
+        "cardKey": "TEN_OF_CUPS",
+        "file": "10-ten-of-cups.jpeg",
+        "assetId": "34989405-5c52-47e0-85ce-b40939ba0b4c"
+      },
+      {
+        "cardKey": "PAGE_OF_CUPS",
+        "file": "11-page-of-cups.jpeg",
+        "assetId": "c0eedbad-3027-4b1b-808b-629566d2fc9b"
+      },
+      {
+        "cardKey": "KNIGHT_OF_CUPS",
+        "file": "12-knight-of-cups.jpeg",
+        "assetId": "c6eeff67-09f9-4d44-8277-ba972e583c45"
+      },
+      {
+        "cardKey": "QUEEN_OF_CUPS",
+        "file": "13-queen-of-cups.jpeg",
+        "assetId": "f817ef02-4e74-4fc0-8101-7e0729c2c6c3"
+      },
+      {
+        "cardKey": "KING_OF_CUPS",
+        "file": "14-king-of-cups.jpeg",
+        "assetId": "7a9c85a2-9589-4329-89e9-5a2e49f1f860"
+      },
+      {
+        "cardKey": "ACE_OF_SWORDS",
+        "file": "01-ace-of-swords.jpeg",
+        "assetId": "e0633276-80de-4819-8b19-19eb3391733f"
+      },
+      {
+        "cardKey": "TWO_OF_SWORDS",
+        "file": "02-two-of-swords.jpeg",
+        "assetId": "0dca15c5-f888-478c-8b20-246bf16045b3"
+      },
+      {
+        "cardKey": "THREE_OF_SWORDS",
+        "file": "03-three-of-swords.jpeg",
+        "assetId": "90a67a3f-5c56-4ba3-8270-eb991be560a8"
+      },
+      {
+        "cardKey": "FOUR_OF_SWORDS",
+        "file": "04-four-of-swords.jpeg",
+        "assetId": "0481e2a5-36e3-4e7f-81aa-04d282c23718"
+      },
+      {
+        "cardKey": "FIVE_OF_SWORDS",
+        "file": "05-five-of-swords.jpeg",
+        "assetId": "ea921fe8-b135-422e-8b44-04bd659700d3"
+      },
+      {
+        "cardKey": "SIX_OF_SWORDS",
+        "file": "06-six-of-swords.jpeg",
+        "assetId": "a06da6e5-fbcd-49ba-85c1-48dee0297686"
+      },
+      {
+        "cardKey": "SEVEN_OF_SWORDS",
+        "file": "07-seven-of-swords.jpeg",
+        "assetId": "eff9bdf6-6aef-4db3-8300-60fbbe4f56a9"
+      },
+      {
+        "cardKey": "EIGHT_OF_SWORDS",
+        "file": "08-eight-of-swords.jpeg",
+        "assetId": "6fbed0fb-d66f-4912-8c4c-bd88686dc1b1"
+      },
+      {
+        "cardKey": "NINE_OF_SWORDS",
+        "file": "09-nine-of-swords.jpeg",
+        "assetId": "f6e413a0-1c7d-4bc9-8839-07f8b24c516f"
+      },
+      {
+        "cardKey": "TEN_OF_SWORDS",
+        "file": "10-ten-of-swords.jpeg",
+        "assetId": "765b6009-648b-4786-86aa-afe65912045b"
+      },
+      {
+        "cardKey": "PAGE_OF_SWORDS",
+        "file": "11-page-of-swords.jpeg",
+        "assetId": "846460e6-0df1-4e91-80cb-8d879daf6581"
+      },
+      {
+        "cardKey": "KNIGHT_OF_SWORDS",
+        "file": "12-knight-of-swords.jpeg",
+        "assetId": "24cc2d27-406d-45f9-893b-1898277f21b8"
+      },
+      {
+        "cardKey": "QUEEN_OF_SWORDS",
+        "file": "13-queen-of-swords.jpeg",
+        "assetId": "b542fb93-7ad9-432e-8a30-a1d3bd4d67a9"
+      },
+      {
+        "cardKey": "KING_OF_SWORDS",
+        "file": "14-king-of-swords.jpeg",
+        "assetId": "8e0bd520-c742-4d48-8452-91af1274e26a"
+      },
+      {
+        "cardKey": "ACE_OF_PENTACLES",
+        "file": "01-ace-of-pentacles.jpeg",
+        "assetId": "6e34e96c-fd3f-40ef-8255-a484101c3708"
+      },
+      {
+        "cardKey": "TWO_OF_PENTACLES",
+        "file": "02-two-of-pentacles.jpeg",
+        "assetId": "6cf85281-a1f2-4ea2-8ced-247674cdeac1"
+      },
+      {
+        "cardKey": "THREE_OF_PENTACLES",
+        "file": "03-three-of-pentacles.jpeg",
+        "assetId": "1aa2c606-edeb-4e8d-846e-f3ee068ab07d"
+      },
+      {
+        "cardKey": "FOUR_OF_PENTACLES",
+        "file": "04-four-of-pentacles.jpeg",
+        "assetId": "015c7d23-93e4-4a84-87ec-fb2d72f38203"
+      },
+      {
+        "cardKey": "FIVE_OF_PENTACLES",
+        "file": "05-five-of-pentacles.jpeg",
+        "assetId": "f8a034ae-bbb5-4137-8cd4-83fa89b7b613"
+      },
+      {
+        "cardKey": "SIX_OF_PENTACLES",
+        "file": "06-six-of-pentacles.jpeg",
+        "assetId": "3e37ba4e-30cd-4e27-8745-1c55c1513dc0"
+      },
+      {
+        "cardKey": "SEVEN_OF_PENTACLES",
+        "file": "07-seven-of-pentacles.jpeg",
+        "assetId": "47fb0145-d2ac-4887-8c01-809ab083027e"
+      },
+      {
+        "cardKey": "EIGHT_OF_PENTACLES",
+        "file": "08-eight-of-pentacles.jpeg",
+        "assetId": "f16e5f78-9961-4304-8097-c26ce2ee69d2"
+      },
+      {
+        "cardKey": "NINE_OF_PENTACLES",
+        "file": "09-nine-of-pentacles.jpeg",
+        "assetId": "a22e0215-fe96-46b7-8c91-2fe629e8ab71"
+      },
+      {
+        "cardKey": "TEN_OF_PENTACLES",
+        "file": "10-ten-of-pentacles.jpeg",
+        "assetId": "780808b0-9cfa-46fd-89f7-13a9bcba959b"
+      },
+      {
+        "cardKey": "PAGE_OF_PENTACLES",
+        "file": "11-page-of-pentacles.jpeg",
+        "assetId": "b6440666-302b-4288-89a9-8629c9942f55"
+      },
+      {
+        "cardKey": "KNIGHT_OF_PENTACLES",
+        "file": "12-knight-of-pentacles.jpeg",
+        "assetId": "d654676a-1810-4923-8e55-cd5a73b5ed06"
+      },
+      {
+        "cardKey": "QUEEN_OF_PENTACLES",
+        "file": "13-queen-of-pentacles.jpeg",
+        "assetId": "6b926f1f-240a-4bff-85dc-f3177a4254ee"
+      },
+      {
+        "cardKey": "KING_OF_PENTACLES",
+        "file": "14-king-of-pentacles.jpeg",
+        "assetId": "3581ed2c-ce40-4637-8f9b-47c606d11249"
+      }
+    ]
+  }
+}

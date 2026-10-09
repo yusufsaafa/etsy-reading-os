@@ -16,7 +16,7 @@ const config: NextConfig = {
   } : {}),
   poweredByHeader: false,
   // Trusted server resources must accompany deployment; never resolve from public/ or network.
-  outputFileTracingIncludes: { "/**": ["./resources/fonts/**/*"] },
+  outputFileTracingIncludes: { "/**": ["./resources/fonts/**/*", "./resources/platform/**/*"] },
   async headers() {
     return [{ source: "/:path*", headers: [
       { key: "Referrer-Policy", value: "no-referrer" },
