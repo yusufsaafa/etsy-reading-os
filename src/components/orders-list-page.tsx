@@ -1,0 +1,19 @@
+import Link from "next/link";
+import {InformationPopover} from "./information-popover";
+import {Icon} from "./icon";
+import {OrderList} from "./order-list";
+import type {OrdersData} from "@/modules/orders/service";
+import {ORDER_FILTERS,ORDER_PAGE_SIZE,ordersHref,type OrdersQuery} from "@/modules/orders/query";
+import styles from "./orders.module.css";
+export function OrdersLoading(){return <div className={styles.page} aria-busy="true" aria-label="Loading Orders"><header className={styles.header}><h1>Orders</h1></header><div className={styles.skeleton}/></div>;}
+export function OrdersError({query}:{query:OrdersQuery}){return <div className={styles.page}><header className={styles.header}><h1>Orders</h1></header><section className={styles.surface} role="alert"><div className={styles.empty}><h2>Orders unavailable</h2><p>Your orders could not be loaded. Try again.</p><a className="button secondary" href={ordersHref(query)}>Reload Orders</a></div></section></div>;}
+export function OrdersListPage({data,query}:{data:OrdersData;query:OrdersQuery}){
+ const current={...query,page:data.page},filtered=Boolean(query.q)||query.filter!=="all";
+ return <div className={styles.page}><header className={styles.header}><h1>Orders</h1><InformationPopover label="Order status information" iconOnly><p>Pending means no current generated result or active production. Generated means current successful reading results, not approval, PDF completion or delivery. Needs Attention includes persisted information, payment, refund or production issues. Queued and retrying work remain in production.</p></InformationPopover></header>
+ <form className={styles.toolbar} role="search" action="/orders" method="get"><input type="hidden" name="filter" value={query.filter}/><label className="sr-only" htmlFor="order-search">Search order identifier or retained product title</label><div className={styles.search}><Icon name="search"/><input id="order-search" name="q" defaultValue={query.q} placeholder="Search orders..." type="search" maxLength={200}/></div><label className={styles.sort}>Sort<select name="sort" defaultValue={query.sort}><option value="newest">Newest purchases</option><option value="oldest">Oldest purchases</option></select></label><button className="button secondary" type="submit">Search</button></form>
+ <nav className={styles.filters} aria-label="Order status filters">{ORDER_FILTERS.map(([key,label])=><Link key={key} href={ordersHref(query,{filter:key,page:1})} aria-current={query.filter===key?"page":undefined}>{label}</Link>)}</nav>
+ {data.connectionAttention&&<div className={styles.notice}><span>Review your store connection</span><Link href="/settings">Settings →</Link></div>}
+ {data.rows.length?<OrderList rows={data.rows}/>:<section className={styles.surface}><div className={styles.empty}><h2>{!data.total?"No imported orders":query.q?"No matching orders":"No orders in this status"}</h2><p>{!data.total?"Orders persisted in Reading OS will appear here.":query.q?"Try another order identifier or product title.":"Choose another status to see your orders."}</p>{filtered&&<Link className="button secondary" href="/orders">Clear filters</Link>}</div></section>}
+ <footer className={styles.pagination}><span>{data.matched? `${(data.page-1)*ORDER_PAGE_SIZE+1}–${Math.min(data.page*ORDER_PAGE_SIZE,data.matched)} of ${data.matched} orders`:"0 matching orders"}</span><nav aria-label="Orders pagination">{data.page>1&&<Link href={ordersHref(current,{page:data.page-1})} rel="prev">Previous</Link>}<span>Page {data.page} of {data.pages}</span>{data.page<data.pages&&<Link href={ordersHref(current,{page:data.page+1})} rel="next">Next</Link>}</nav></footer>
+ </div>;
+}
