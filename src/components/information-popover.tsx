@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import {Icon} from "./icon";
 import styles from "./information-popover.module.css";
 
 export function informationPosition(trigger: {left:number;top:number;bottom:number}, panel: {width:number;height:number}, viewport: {width:number;height:number}) {
@@ -12,7 +13,7 @@ export function informationPosition(trigger: {left:number;top:number;bottom:numb
 
 /** Native top-layer popover: light-dismiss, Escape and keyboard activation.
  * Long reference content uses a modal dialog instead of a cramped popover. */
-export function InformationPopover({label,children,dialog=false,iconOnly=false}:{label:string;children:ReactNode;dialog?:boolean;iconOnly?:boolean}) {
+export function InformationPopover({label,children,dialog=false,iconOnly=false,triggerContent}:{label:string;children:ReactNode;dialog?:boolean;iconOnly?:boolean;triggerContent?:ReactNode}) {
   const id=useId(),trigger=useRef<HTMLButtonElement>(null),panel=useRef<HTMLDivElement>(null),modal=useRef<HTMLDialogElement>(null);
   const [open,setOpen]=useState(false);
   function position(){
@@ -36,13 +37,13 @@ export function InformationPopover({label,children,dialog=false,iconOnly=false}:
   return <>
     <button ref={trigger} type="button" className={iconOnly?styles.iconTrigger:styles.trigger} aria-label={label} aria-haspopup="dialog" aria-expanded={open} aria-controls={id}
       {...(dialog?{onClick:()=>{modal.current?.showModal();setOpen(true);}}:{popoverTarget:id})}>
-      {iconOnly?<span aria-hidden="true">ⓘ</span>:label}
+      {triggerContent??(iconOnly?<span aria-hidden="true">ⓘ</span>:label)}
     </button>
     {dialog?<dialog ref={modal} id={id} className={styles.modal} aria-label={label} onClose={restore} onClick={event=>{if(event.target===event.currentTarget){const r=event.currentTarget.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)event.currentTarget.close();}}}>
-      <div className={styles.heading}><strong>{label}</strong><button type="button" autoFocus onClick={()=>modal.current?.close()} aria-label={`Close ${label}`}>×</button></div>{children}
+      <div className={styles.heading}><strong>{label}</strong><button type="button" autoFocus onClick={()=>modal.current?.close()} aria-label={`Close ${label}`}><Icon name="close"/></button></div>{children}
     </dialog>:<div ref={panel} id={id} popover="auto" role="dialog" aria-label={label} tabIndex={-1} className={styles.panel} onKeyDown={event=>{if(event.key==="Escape"){event.preventDefault();panel.current?.hidePopover();trigger.current?.focus();}}}
       onToggle={event=>{const opened=event.newState==="open";setOpen(opened);if(opened){position();panel.current?.focus({preventScroll:true});}else if(document.activeElement===panel.current||panel.current?.contains(document.activeElement))trigger.current?.focus();}}>
-      <div className={styles.heading}><strong>{label}</strong><button type="button" popoverTarget={id} popoverTargetAction="hide" onClick={()=>trigger.current?.focus()} aria-label={`Close ${label}`}>×</button></div>{children}
+      <div className={styles.heading}><strong>{label}</strong><button type="button" popoverTarget={id} popoverTargetAction="hide" onClick={()=>trigger.current?.focus()} aria-label={`Close ${label}`}><Icon name="close"/></button></div>{children}
     </div>}
   </>;
 }

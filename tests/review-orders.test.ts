@@ -16,7 +16,7 @@ import OrderDetail from "../src/app/(operations)/orders/[id]/page";
 it.each([true,false])("Order reading action follows persisted eligibility %s",async eligible=>{
  mocks.status.mockResolvedValue(eligible?"Ready for review":null);mocks.data.mockResolvedValue({attempts:[],canOperate:true,order:{id:"order",externalId:"2002",buyerName:"Customer",paid:true,canceled:false,refund:"none",createdAt:new Date()},history:[{unitId:"one",id:"generation",status:"SUCCEEDED",customerRevision:0,createdAt:new Date()}],queue:[],lines:[{id:"line",orderId:"order",title:"Love",quantity:2,listingExternalId:"101",variantKey:"default",snapshot:{variations:[],answers:[]}}],units:[{id:"one",lineItemId:"line",unitIndex:1,issues:[],productionStatus:"SUCCEEDED",revision:0,configurationState:"versioned"}],inputs:[],mappings:[],versions:[]});
  const html=renderToStaticMarkup(await OrderDetail({params:Promise.resolve({id:"order"})}));
- expect(html.includes("View Reading")).toBe(eligible);expect(html.includes("Reading ready for review")).toBe(eligible);expect(html).toContain("Reading 1");
+ expect(html.includes("View Reading")).toBe(eligible);expect(html.includes('href="/orders/order/readings/one/review"')).toBe(eligible);expect(html).toContain("Reading 1");
  expect(html).not.toMatch(/SUCCEEDED|Gemini|AIRequest|canonical/);
 });
 

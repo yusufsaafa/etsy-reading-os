@@ -30,7 +30,7 @@ it.each(["sign-in","onboarding","scope denied"])("requires existing access check
 it.each(["DEMO-9999","DEMO-1051","real-uuid","DEMO-1001-extra"])("rejects invalid or missing fixture %s",async id=>{await expect(page(id)).rejects.toThrow("NOT_FOUND");});
 it("renders the shared interface with no workflow controls and preserves validated return state",async()=>{
  const result=await page("DEMO-1003",{q:"DEMO",filter:"generated",sort:"oldest",page:"2",returnTo:"https://evil.example"});expect(result.type).toBe(OrderDetailView);
- const html=renderToStaticMarkup(result);for(const text of ["SAMPLE DATA","Purchased Items","Customer Information","Reading Information","Production Overview","Recorded Activity","Sophia Miller","Back to Sample Orders","Exit Preview"])expect(html).toContain(text);
+ const html=renderToStaticMarkup(result);for(const text of ["SAMPLE DATA","Purchased Readings","Customer Information","Order Summary","View Purchase Information","View Activity","Sophia Miller","Back to Sample Orders","Exit Preview"])expect(html).toContain(text);
  expect(html).toContain("preview=sample");expect(html).toContain("page=2");expect(html).not.toContain("evil.example");expect(html).not.toContain("<form");expect(html).not.toContain("<details");for(const op of Object.values(mocks.db))expect(op).not.toHaveBeenCalled();expect(mocks.verify).toHaveBeenCalledWith(mocks.db,scope);
 });
 it("supports consistent generated, active, attention, canceled and multiple-reading scenarios",()=>{
@@ -48,7 +48,7 @@ it("shows customer identity with safe separated detail links",()=>{
  const html=renderToStaticMarkup(createElement(OrderList,{rows:[row],preview:true,returnQuery:"?page=2"}));expect(html).toContain("Customer</th>");expect(html).toContain("Emily Carter");expect(html).toContain("/orders/preview/DEMO-1001?page=2");expect(html).not.toContain('href="/orders/DEMO');
 });
 it("keeps responsive structure, headings and read-only preview isolation",()=>{
- const css=readFileSync("src/components/order-detail.module.css","utf8");expect(css).toContain("minmax(0,2fr) minmax(0,1fr)");expect(css).toContain("@media(max-width:900px)");expect(css).toContain("overflow-wrap:anywhere");
+ const css=readFileSync("src/components/order-detail.module.css","utf8");expect(css).toContain(".readingActions");expect(css).toContain("flex-basis:100%");expect(css).toContain("@media(max-width:900px)");expect(css).toContain("overflow-wrap:anywhere");
  const route=readFileSync("src/app/(operations)/orders/preview/[id]/page.tsx","utf8");expect(route).not.toContain("ReadingPreparation");expect(route).not.toContain("InputEditor");
 });
 

@@ -24,3 +24,10 @@ it("long reference dialog opens through its button and restores focus after clos
  const invoker={focus:vi.fn()},surface={showModal:vi.fn(),close:vi.fn()};trigger.props.ref.current=invoker;dialog.props.ref.current=surface;
  trigger.props.onClick();expect(surface.showModal).toHaveBeenCalledOnce();tree.find(n=>n.props["aria-label"]==="Close Daily values")!.props.onClick();expect(surface.close).toHaveBeenCalledOnce();dialog.props.onClose();expect(invoker.focus).toHaveBeenCalledOnce();
 });
+it("Summary dialog backdrop closes only outside its bounds and supports the native Escape close event",()=>{
+ const tree=nodes(InformationPopover({label:"View Activity",children:"Partial history",dialog:true})),trigger=tree.find(n=>n.type==="button")!,dialog=tree.find(n=>n.type==="dialog")!;
+ const surface={close:vi.fn(),getBoundingClientRect:()=>({left:16,right:374,top:100,bottom:500})},invoker={focus:vi.fn()};dialog.props.ref.current=surface;trigger.props.ref.current=invoker;
+ dialog.props.onClick({target:surface,currentTarget:surface,clientX:100,clientY:200});expect(surface.close).not.toHaveBeenCalled();
+ dialog.props.onClick({target:surface,currentTarget:surface,clientX:5,clientY:200});expect(surface.close).toHaveBeenCalledOnce();
+ expect(dialog.props.onCancel).toBeUndefined();dialog.props.onClose();expect(invoker.focus).toHaveBeenCalledOnce();
+});
