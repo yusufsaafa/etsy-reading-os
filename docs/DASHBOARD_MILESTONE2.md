@@ -1,4 +1,4 @@
-# Milestone 2.1B — Adaptive Hybrid Dashboard
+# Milestone 2.1C — Unified Hybrid Dashboard
 
 Route: `/`, with server-rendered `?range=7`, `?range=30`, or `?range=90`. Default and invalid/repeated values resolve to 30 days. The approved shell, navigation, authentication and onboarding boundaries remain unchanged.
 
@@ -8,9 +8,11 @@ Route: `/`, with server-rendered `?range=7`, `?range=30`, or `?range=90`. Defaul
 
 Exactly four compact KPI cards use existing shell tokens: Orders, Generated Orders, Issues, Avg AI Execution. Each shows its time context. Definitions are available in a native keyboard/touch-accessible disclosure rather than permanent paragraphs.
 
-- Getting Started: lifetime persisted order count is zero. Four KPIs, compact integration status and one contextual guidance section with existing Settings/Products links. No empty chart, ranking or production panels.
-- Business Overview: lifetime count is positive. Daily order chart, compact All clear row, latest five lifetime orders and top-five listing ranking. Empty selected periods stay in this mode; they do not imply an empty store.
-- Attention Priority: current attention count is positive. The existing bounded attention list appears above analytics in DOM and visual order. Desktop then pairs the chart and ranking, with recent orders below; mobile preserves that order. No CSS order manipulation or new resolution workflow.
+- One unified composition: four KPIs followed by Orders Over Time, Requires Attention, Recent Orders and Top Products, regardless of lifetime order count.
+- Desktop positions stay fixed: chart/recent orders on the left, attention/product ranking on the right. DOM order is chart, attention, recent orders, products; mobile stacks in that same order.
+- Zero lifetime orders: concise empty states inside the normal sections, no fake chart or ranking, and one persisted-state integration guidance message. There is no separate Getting Started page composition.
+- Existing orders: real chart/ranking values, stronger KPI numbers, emphasized order links and concise truthful status badges. A period with no activity retains lifetime recent orders and the same layout.
+- Attention: the existing bounded list keeps its priority ordering and destinations inside the fixed right panel, emphasized with a warning border and count. No issues shows a compact All clear row. No CSS order manipulation or new resolution workflow.
 - Production: a compact reading-queue strip appears only when a current count is nonzero. No controls or Production destination are added.
 
 Recent orders use the existing read contract, purchase ordering and order-detail links. A Dashboard-specific compact list replaces the shared five-column table here because its viewport breakpoints do not reflect the narrower grid column. Orders page presentation and fetching are unchanged.
@@ -42,7 +44,7 @@ Duration is the gateway's recorded provider execution plus response validation. 
 
 The projection returns source, persisted connection status, expiry at the shared cutoff and latest sync status for the **current connection epoch**. Old failed imports do not remain current after reconnection. No tokens, scopes or raw provider error bodies are returned.
 
-Getting Started distinguishes absent connection records, disconnected, connected/no imported orders, reauthorization required, expired authorization, queued/running/failed imports and successful imports with zero stored orders. Unknown/absent state does not become connected or disconnected. Demo connections are labeled as such. Existing Settings links provide navigation; no new sync action or promise of live updates is introduced.
+The single zero-order integration presentation distinguishes absent connection records, disconnected, connected/no imported orders, reauthorization required, expired authorization, queued/running/failed imports and successful imports with zero stored orders. Unknown/absent state does not become connected or disconnected. Demo connections are labeled as such. Existing Settings links provide navigation; no new sync action or promise of live updates is introduced.
 
 ## Query and authorization architecture
 
@@ -62,11 +64,11 @@ Loading retains compact skeletons with `aria-busy`. Query failure renders unavai
 
 ## Verification and limits
 
-VERIFIED PASS: 89 focused UI/range/root-entry and shell/navigation/onboarding/PDF/access tests; 45 persisted Dashboard/production/onboarding database tests (18 Dashboard, 27 regressions); typecheck; production build; working and staged diff checks. Database fixtures enforce the existing accounting contract and make no provider dispatches.
+VERIFIED PASS: 92 focused UI/range/root-entry and shell/navigation/onboarding/PDF/access tests; 45 persisted Dashboard/production/onboarding database tests (18 Dashboard, 27 regressions); typecheck; production build; working and staged diff checks. Database fixtures enforce the existing accounting contract and make no provider dispatches.
 
 Commands: `pnpm test` with the focused/regression file list; `pnpm test:db tests/dashboard.db.test.ts tests/production.db.test.ts tests/onboarding.db.test.ts`; `pnpm typecheck`; `pnpm build`; `git diff --check` and `git diff --cached --check`.
 
-Browser acceptance: **NOT VERIFIED**. No authenticated controllable Reading OS tab was available; attached browsers had no tabs and inspected Chrome showed its profile picker. Desktop/390px layout, chart readability, actual overflow, touch interaction and drawer compatibility require authenticated browser acceptance. Source/UI tests do not establish visual PASS.
+Browser acceptance: **NOT VERIFIED**. No authenticated controllable Reading OS tab was available; attached browser surfaces had no tabs and the available Safari session showed an unrelated site. Desktop/390px layout, chart readability, actual overflow, touch interaction and drawer compatibility require authenticated browser acceptance. Source/UI tests do not establish visual PASS.
 
 Deferred: revenue, traffic, profitability, success-rate percentages, AI cost analytics, PDF/document queue aggregation, review-specific metrics, production controls, live synchronization, polling and the broader Orders redesign.
 

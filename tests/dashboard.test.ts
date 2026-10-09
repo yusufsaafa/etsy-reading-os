@@ -26,20 +26,22 @@ it("renders exactly four compact KPIs, range links and accessible definitions",(
   expect(markup).toContain('aria-label="Dashboard date range"');for(const range of [7,30,90])expect(markup).toContain(`href="/?range=${range}"`);
   expect(markup).toMatch(/<a[^>]*aria-current="page"[^>]*href="\/\?range=7"|<a[^>]*href="\/\?range=7"[^>]*aria-current="page"/);
 });
-it("getting started omits empty panels and keeps real guidance and navigation",()=>{
-  const markup=html(empty);expect(markup).toContain('data-mode="getting-started"');expect(markup).toContain("Etsy connected");expect(markup).toContain("Live updates are not enabled");
-  for(const title of ["Orders Over Time","Recent Orders","Top Products","Reading queue"])expect(markup).not.toContain(title+"</h2>");
-  expect(markup).not.toContain("<svg");expect(markup).toContain('href="/settings"');expect(markup).toContain('href="/products"');expect(markup).not.toContain("0.0s");
+it("zero orders retain all core sections with compact empty states and one guidance message",()=>{
+  const markup=html(empty);expect(markup).toContain('data-layout="unified"');expect(markup).toContain('data-activity="empty"');
+  for(const title of ["Orders Over Time","Requires Attention","Recent Orders","Top Products"])expect(markup).toContain(title+"</h2>");
+  expect(markup).toContain("No imported orders yet.");expect(markup).toContain("No product activity in this period.");expect(markup).toContain("All clear");
+  expect(markup.match(/Live updates are not enabled/g)).toHaveLength(1);expect(markup).not.toContain("Your workspace is ready");
+  expect(markup).not.toContain("<svg");expect(markup).not.toContain("<ol");expect(markup).not.toContain("0.0s");
 });
 it("business overview shows real chart values, ranking and lifetime order links",()=>{
-  const markup=html(business);expect(markup).toContain('data-mode="business-overview"');expect(markup).toContain("Orders Over Time");expect(markup).toContain("<svg");expect(markup).toContain("<summary>Daily values");expect(markup).toContain("2026-10-03");expect(markup).toContain("Today is partial");expect(markup).toContain("Love Reading");expect(markup).toContain('href="/orders/order-id"');expect(markup).toContain('href="/orders"');expect(markup).toContain("All clear");expect(markup).not.toContain("Production Overview");
+  const markup=html(business);expect(markup).toContain('data-layout="unified"');expect(markup).toContain("Orders Over Time");expect(markup).toContain("<svg");expect(markup).toContain("<summary>Daily values");expect(markup).toContain("2026-10-03");expect(markup).toContain("Today is partial");expect(markup).toContain("Love Reading");expect(markup).toContain('href="/orders/order-id"');expect(markup).toContain('href="/orders"');expect(markup).toContain("All clear");expect(markup).not.toContain("Production Overview");
 });
-it("attention precedes analytics in DOM order and is independent of range activity",()=>{
+it("attention remains prominent in its fixed position independent of range activity",()=>{
   const markup=html({...business,metrics:{...business.metrics,attention:1},attention:[row],analytics:{...empty.analytics}});
-  expect(markup).toContain('data-mode="attention-priority"');expect(markup.indexOf('id="dashboard-attention"')).toBeLessThan(markup.indexOf('id="order-trend-title"'));expect(markup).toContain("Production needs attention");expect(markup).toContain('aria-label="Review order 2001"');expect(markup).not.toContain("All clear");
+  expect(markup).toContain("attentionPanel");expect(markup.indexOf('id="order-trend-title"')).toBeLessThan(markup.indexOf('id="dashboard-attention"'));expect(markup).toContain("Production needs attention");expect(markup).toContain('aria-label="Review order 2001"');expect(markup).not.toContain("All clear");
 });
-it("period-empty stores remain in business overview without a zero chart",()=>{
-  const markup=html({...business,analytics:empty.analytics});expect(markup).toContain('data-mode="business-overview"');expect(markup).toContain("No imported orders in this period");expect(markup).toContain("No product activity in this period");expect(markup).not.toContain("<svg");expect(markup).toContain("Recent Orders");
+it("period-empty stores retain the unified layout and lifetime orders without a zero chart",()=>{
+  const markup=html({...business,analytics:empty.analytics});expect(markup).toContain('data-layout="unified"');expect(markup).toContain("No imported orders in this period");expect(markup).toContain("No product activity in this period");expect(markup).not.toContain("<svg");expect(markup).toContain("Recent Orders");
 });
 it("shows only nonzero reading queue counts without adding controls",()=>{
   const markup=html({...business,production:{queued:2,active:1,retry:0,attention:0}});expect(markup).toContain("Reading queue");expect(markup).toContain("Queued");expect(markup).not.toContain("Retrying");expect(markup).not.toContain('href="/production"');expect(markup).not.toContain("Retry production");
@@ -67,4 +69,18 @@ it("normalizes invalid URL range at the server boundary",async()=>{
 });
 it("query failure preserves the selected range on its working reload link",()=>{
   expect(renderToStaticMarkup(createElement(DashboardError,{days:90}))).toContain('href="/?range=90"');
+});
+
+it("keeps identical section positions for empty, populated and attention states",()=>{
+  const sections=(data:DashboardData)=>[...html(data).matchAll(/<section[^>]*aria-labelledby="([^"]+)"/g)].map(match=>match[1]);
+  const expected=["order-trend-title","dashboard-attention","dashboard-recent","dashboard-products"];
+  for(const data of [empty,business,{...business,metrics:{...business.metrics,attention:1},attention:[row]}])expect(sections(data)).toEqual(expected);
+});
+it("emphasizes real order identity with truthful status badges and no invented notifications",()=>{
+  const markup=html(business);expect(markup).toContain('data-activity="populated"');expect(markup).toContain('class="badge neutral"');expect(markup).toContain(row.status);
+  expect(markup).not.toMatch(/\b(?:NEW|UNREAD)\b/);expect(markup).not.toContain("No imported orders yet.");
+});
+it("does not show zero-order integration guidance on a populated store",()=>{
+  const markup=html({...business,integration:{...business.integration,syncStatus:"succeeded"}});
+  expect(markup).toContain("Etsy connected");expect(markup).not.toContain("No orders have been imported");
 });
