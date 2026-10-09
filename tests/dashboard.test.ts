@@ -28,20 +28,20 @@ it("renders exactly four compact KPIs, range links and accessible definitions",(
 });
 it("zero orders retain all core sections with compact empty states and one guidance message",()=>{
   const markup=html(empty);expect(markup).toContain('data-layout="unified"');expect(markup).toContain('data-activity="empty"');
-  for(const title of ["Orders Over Time","Requires Attention","Recent Orders","Top Products"])expect(markup).toContain(title+"</h2>");
+  for(const title of ["Order Activity","Requires Attention","Recent Orders","Top Products"])expect(markup).toContain(title+"</h2>");
   expect(markup).toContain("No imported orders yet.");expect(markup).toContain("No product activity in this period.");expect(markup).toContain("All clear");
   expect(markup.match(/Live updates are not enabled/g)).toHaveLength(1);expect(markup).not.toContain("Your workspace is ready");
-  expect(markup).not.toContain("<svg");expect(markup).not.toContain("<ol");expect(markup).not.toContain("0.0s");
+  expect(markup).not.toContain('viewBox="0 0 600 170"');expect(markup).not.toContain("<ol");expect(markup).not.toContain("0.0s");
 });
 it("business overview shows real chart values, ranking and lifetime order links",()=>{
-  const markup=html(business);expect(markup).toContain('data-layout="unified"');expect(markup).toContain("Orders Over Time");expect(markup).toContain("<svg");expect(markup).toContain("<summary>Daily values");expect(markup).toContain("2026-10-03");expect(markup).toContain("Today is partial");expect(markup).toContain("Love Reading");expect(markup).toContain('href="/orders/order-id"');expect(markup).toContain('href="/orders"');expect(markup).toContain("All clear");expect(markup).not.toContain("Production Overview");
+  const markup=html(business);expect(markup).toContain('data-layout="unified"');expect(markup).toContain("Order Activity");expect(markup).toContain('viewBox="0 0 600 170"');expect(markup).toContain("<summary>Daily values");expect(markup).toContain("2026-10-03");expect(markup).toContain("Today is partial");expect(markup).toContain("Love Reading");expect(markup).toContain('href="/orders/order-id"');expect(markup).toContain('href="/orders"');expect(markup).toContain("All clear");expect(markup).not.toContain("Production Overview");
 });
 it("attention remains prominent in its fixed position independent of range activity",()=>{
   const markup=html({...business,metrics:{...business.metrics,attention:1},attention:[row],analytics:{...empty.analytics}});
   expect(markup).toContain("attentionPanel");expect(markup.indexOf('id="order-trend-title"')).toBeLessThan(markup.indexOf('id="dashboard-attention"'));expect(markup).toContain("Production needs attention");expect(markup).toContain('aria-label="Review order 2001"');expect(markup).not.toContain("All clear");
 });
 it("period-empty stores retain the unified layout and lifetime orders without a zero chart",()=>{
-  const markup=html({...business,analytics:empty.analytics});expect(markup).toContain('data-layout="unified"');expect(markup).toContain("No imported orders in this period");expect(markup).toContain("No product activity in this period");expect(markup).not.toContain("<svg");expect(markup).toContain("Recent Orders");
+  const markup=html({...business,analytics:empty.analytics});expect(markup).toContain('data-layout="unified"');expect(markup).toContain("No imported orders in this period");expect(markup).toContain("No product activity in this period");expect(markup).not.toContain('viewBox="0 0 600 170"');expect(markup).toContain("Recent Orders");
 });
 it("shows only nonzero reading queue counts without adding controls",()=>{
   const markup=html({...business,production:{queued:2,active:1,retry:0,attention:0}});expect(markup).toContain("Reading queue");expect(markup).toContain("Queued");expect(markup).not.toContain("Retrying");expect(markup).not.toContain('href="/production"');expect(markup).not.toContain("Retry production");
@@ -83,4 +83,17 @@ it("emphasizes real order identity with truthful status badges and no invented n
 it("does not show zero-order integration guidance on a populated store",()=>{
   const markup=html({...business,integration:{...business.integration,syncStatus:"succeeded"}});
   expect(markup).toContain("Etsy connected");expect(markup).not.toContain("No orders have been imported");
+});
+
+it("renders five recent purchases, ranked listings and attention using isolated populated fixtures",()=>{
+  const recent=Array.from({length:5},(_,i)=>({...row,id:`order-${i}`,externalId:String(2001+i),products:i%2?"Career Reading":"Love Reading"}));
+  const topProducts=[{listingId:"101",title:"Love Reading",orders:5},{listingId:"102",title:"Career Reading",orders:3},{listingId:"103",title:"Psychic Reading",orders:1}];
+  const markup=html({...business,recent,attention:[recent[0]],metrics:{...business.metrics,attention:1},analytics:{...business.analytics,topProducts}});
+  for(const order of recent)expect(markup).toContain(`aria-label="Open order ${order.externalId}"`);
+  for(const product of topProducts)expect(markup).toContain(product.title);
+  expect(markup).toContain('aria-label="Review order 2001"');expect(markup).toContain('width:60%');expect(markup).toContain("Order Activity</h2>");
+});
+it("keeps integration guidance in a keyboard and touch-accessible compact disclosure",()=>{
+  const markup=html(empty);expect(markup).toContain("<summary>Connection details</summary>");expect(markup).toContain("Live updates are not enabled");
+  const css=readFileSync("src/components/dashboard.module.css","utf8");expect(css).toContain("align-items:stretch");expect(css).toContain("min-height:122px");expect(css).not.toContain("!important");
 });
