@@ -1,20 +1,22 @@
-import Link from "next/link";
-import { and, eq, desc } from "drizzle-orm";
+import { Suspense } from "react";
 import { database } from "@/db/client";
-import { stores, connections, syncRuns } from "@/db/schema";
 import { currentScope } from "@/modules/identity/session";
-import { workspaceData, tenantWhere } from "@/modules/intake/service";
-import { Heading, Badge, EmptyState } from "@/components/ui";
-import { OperationalSummary } from "@/components/operational-summary";
-import { OrderList } from "@/components/order-list";
-import { orderStatus, readingStatus, informationIssues } from "@/components/seller-status";
+import { AccessDenied } from "@/modules/identity/service";
+import type { Scope } from "@/modules/intake/contracts";
+import { dashboardData } from "@/modules/dashboard/service";
+import { Dashboard, DashboardError, DashboardLoading } from "./dashboard";
+
+async function DashboardContent({ scope }: { scope: Scope }) {
+  try {
+    return <Dashboard data={await dashboardData(database(), scope)}/>;
+  } catch (error) {
+    // Authorization failures retain the application's access boundary.
+    if (error instanceof AccessDenied) throw error;
+    return <DashboardError/>;
+  }
+}
 export default async function Home() {
-  const scope = await currentScope(), db = database(), data = await workspaceData(db, scope);
-  const [store] = await db.select({name:stores.name}).from(stores).where(and(eq(stores.organizationId,scope.organizationId),eq(stores.id,scope.storeId)));
-  const [connection] = await db.select({status:connections.status,expiresAt:connections.expiresAt}).from(connections).where(tenantWhere(connections,scope));
-  const [lastUpdate] = await db.select({status:syncRuns.status}).from(syncRuns).where(tenantWhere(syncRuns,scope)).orderBy(desc(syncRuns.createdAt)).limit(1);
-  const attention = data.units.filter(u => (u.issues.length || ["FAILED","STALE","SUCCEEDED"].includes(u.productionStatus??"")) && !u.issues.includes("canceled"));
-  const rows = data.orders.map(order => { const lines=data.lines.filter(l=>l.orderId===order.id), readings=data.units.filter(u=>lines.some(l=>l.id===u.lineItemId)); return {id:order.id,externalId:order.externalId,customer:order.buyerName || "Customer name unavailable",products:lines.map(l=>`${l.title} ×${l.quantity}`).join(" · "),count:readings.length,ready:readings.filter(r=>!r.issues.length&&!r.productionStatus).length,status:orderStatus(readings),date:order.createdAt}; }).sort((a,b)=>b.date.getTime()-a.date.getTime()).slice(0,5);
-  const connectionNeedsAttention = connection.status !== "connected" || !!connection.expiresAt && connection.expiresAt < new Date();
-  return <><Heading title="Welcome back" description={store.name} />{connectionNeedsAttention && <div className="notice row spread"><div className="notice-copy"><strong>{connection.status === "disconnected" ? "Your store isn’t connected" : "Your Etsy connection needs attention"}</strong><p>Review your connection to receive store updates.</p></div><Link className="button ghost" href="/settings">Review connection →</Link></div>}{!connectionNeedsAttention && lastUpdate?.status === "failed" && <div className="notice row spread"><span>Your last store update could not finish.</span><Link className="button ghost" href="/settings">Review store updates →</Link></div>}<OperationalSummary newOrders={data.orders.filter(o=>!o.canceled).length} ready={data.units.filter(u=>!u.issues.length&&!u.productionStatus).length} needInformation={data.units.filter(u=>u.issues.some(i=>informationIssues.includes(i))).length}/><p className="small muted">Eligible readings can be prepared from their order details. Sending remains unavailable.</p><div className="section-heading"><h2>Needs your attention</h2>{attention.length > 6 && <Link className="button ghost" href="/orders?filter=attention">View all</Link>}</div>{attention.length ? <div className="attention-list">{attention.slice(0,6).map(reading=>{const line=data.lines.find(l=>l.id===reading.lineItemId)!,order=data.orders.find(o=>o.id===line.orderId)!, setup=readingStatus(reading.issues,reading.productionStatus)==="Product setup required";return <article className="attention-row" key={reading.id}><div><strong dir="auto">{order.buyerName || "Customer order"}</strong><span className="small muted">{line.title}{line.quantity > 1 ? ` · Reading ${reading.unitIndex} of ${line.quantity}` : ""}</span></div><Badge tone="warning">{readingStatus(reading.issues,reading.productionStatus)}</Badge><Link className="button ghost" href={setup ? `/products#product-${line.listingExternalId}` : `/orders/${order.id}#reading-${reading.id}`}>{setup ? "Set up" : "Review"} →</Link></article>;})}</div> : <div className="quiet-state"><strong>You're up to date</strong><p className="muted small">No customer information or product setup needs your attention.</p></div>}<div className="section-heading"><h2>Recent orders</h2><Link className="button ghost" href="/orders">View orders →</Link></div>{rows.length ? <OrderList rows={rows} /> : <EmptyState title="No orders yet" href="/settings" action="Open settings">Connect your store and update your orders to get started.</EmptyState>}</>;
+  // Authenticate and enforce onboarding before streaming any Dashboard state.
+  const scope = await currentScope();
+  return <Suspense fallback={<DashboardLoading/>}><DashboardContent scope={scope}/></Suspense>;
 }

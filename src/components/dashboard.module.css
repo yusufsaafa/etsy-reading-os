@@ -1,0 +1,28 @@
+.dashboard { display:grid; gap:28px; min-width:0; }
+.metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); margin:0; background:var(--surface); border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+.metric { padding:22px 24px; border-right:1px solid var(--border); min-width:0; }
+.metric:last-child { border-right:0; }
+.metric dt { font-size:13px; font-weight:600; }
+.metric dd { margin:10px 0 6px; font-size:30px; line-height:1.2; font-weight:650; letter-spacing:-.8px; }
+.metric p { font-weight:400; letter-spacing:normal; margin-top:6px; }
+.metric p,.sectionHeading p,.surface p,.note { color:var(--text-secondary); font-size:13px; line-height:1.6; margin:0; }
+.sectionHeading { display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:12px; }
+.sectionHeading h2,.surface h2 { font-size:18px; margin:0 0 4px; }
+.surface { padding:22px 24px; border:1px solid var(--border); border-radius:10px; background:var(--surface); }
+.surface h3 { font-size:14px; margin:0 0 6px; }
+.attention { list-style:none; padding:0; margin:0; border:1px solid var(--border); border-radius:10px; background:var(--surface); }
+.attention li { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:16px; align-items:center; padding:16px 20px; border-bottom:1px solid var(--border); }
+.attention li:last-child { border-bottom:0; }
+.identity { display:grid; gap:4px; min-width:0; overflow-wrap:anywhere; font-size:14px; }
+.identity span { color:var(--text-secondary); font-size:12px; }
+.production { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px; margin:18px 0; }
+.production dt { color:var(--text-secondary); font-size:13px; }
+.production dd { margin:6px 0 0; font-size:24px; font-weight:600; }
+.actions { display:flex; flex-wrap:wrap; align-items:center; gap:12px; color:var(--text-secondary); font-size:13px; }
+.actions a,.sectionHeading a,.attention a { min-height:44px; }
+.surface .actions { margin-top:16px; }
+.skeleton,.skeletonPanel { background:var(--surface-subtle); min-height:140px; border:1px solid var(--border); border-radius:10px; }
+.skeletonPanel { min-height:180px; }
+@media(max-width:1100px) { .metric { padding:18px; } }
+@media(max-width:760px) { .metrics,.production { grid-template-columns:repeat(2,minmax(0,1fr)); } .metric:nth-child(2) { border-right:0; } .metric:nth-child(-n+2) { border-bottom:1px solid var(--border); } .attention li { grid-template-columns:minmax(0,1fr); gap:8px; } .attention li a { justify-self:start; } .sectionHeading { align-items:flex-start; flex-wrap:wrap; } .surface { padding:18px; } .dashboard { gap:24px; } }
+@media(prefers-reduced-motion:reduce) { .dashboard * { animation:none; transition:none; } }
