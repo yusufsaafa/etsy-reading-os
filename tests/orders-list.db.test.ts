@@ -105,3 +105,21 @@ it("preserves current-epoch integration guidance without inventing imported orde
  await db.update(schema.connections).set({status:"connected",expiresAt:new Date("2099-01-01")}).where(eq(schema.connections.storeId,a.storeId));
  expect((await ordersData(db,a,ordersQuery())).connectionAttention).toBe(false);
 });
+
+
+it("loads only the owned order's purchase evidence and current readings",async()=>{
+ const {orderDetailData}=await import("../src/modules/orders/detail");
+ await order("901");await order("902");await order("903",{},1,b);
+ const [owned]=await db.select().from(schema.orders).where(eq(schema.orders.externalId,"901"));
+ const detail=await orderDetailData(db,a,owned.id);expect(detail?.order.externalId).toBe("901");expect(detail?.lines).toHaveLength(1);expect(detail?.units).toHaveLength(1);expect(detail?.inputs.every(c=>detail.units.some(u=>u.id===c.unitId))).toBe(true);
+ expect(await orderDetailData(db,b,owned.id)).toBeNull();expect(await orderDetailData(db,a,"DEMO-1001")).toBeNull();
+},20000);
+it("rejects forged or revoked scope for order detail",async()=>{
+ const {orderDetailData}=await import("../src/modules/orders/detail");await order("904");
+ const [owned]=await db.select().from(schema.orders).where(eq(schema.orders.externalId,"904"));
+ await expect(orderDetailData(db,{...a,organizationId:b.organizationId},owned.id)).rejects.toThrow("Resource unavailable");
+},20000);
+it("projects buyer name minimally in real Orders without customer-name search",async()=>{
+ const {ordersData}=await import("../src/modules/orders/service");const {ordersQuery}=await import("../src/modules/orders/query");
+ await order("905",{buyerName:"Verified Buyer"});const data=await ordersData(db,a,ordersQuery());expect(data.rows[0].customer).toBe("Verified Buyer");expect((await ordersData(db,a,ordersQuery({q:"Verified Buyer"}))).matched).toBe(0);
+},20000);

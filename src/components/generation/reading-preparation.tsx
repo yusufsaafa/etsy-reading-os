@@ -7,7 +7,7 @@ import { publishErrors, styleConfiguration } from "@/modules/seller-style/contra
 import { PrepareForm } from "./prepare-form";
 export async function ReadingPreparation({scope,unitId,eligible,currentRevision,productionStatus,reviewHref,approved=false}:{scope:Scope;unitId:string;eligible:boolean;currentRevision:number;productionStatus?:string;reviewHref?:string;approved?:boolean}) {
  if(reviewHref)return <div className="reading-preparation"><Link className="button" href={reviewHref} prefetch={false}>{approved?"View reading":"Review reading"}</Link></div>;
- const [latest]=await generationHistory(database(),scope,unitId);
+ const [latest]=await generationHistory(database(),scope,unitId,1);
  if(latest){
   const {attempts}=await generationAccounting(database(),scope,latest.id);
   return <div className="reading-preparation">

@@ -104,11 +104,12 @@ export async function readGeneration(db:DbExecutor,scope:Scope,generationId:stri
  const [generation]=await db.select().from(generations).where(and(tenantWhere(generations,scope),eq(generations.id,generationId)));
  if(!generation)throw new AccessDenied();return generation;
 }
-export async function generationHistory(db:DbExecutor,scope:Scope,unitId:string) {
+export async function generationHistory(db:DbExecutor,scope:Scope,unitId:string,limit?:number) {
  await verifyScope(db,scope);
  const [unit]=await db.select({id:units.id}).from(units).where(and(tenantWhere(units,scope),eq(units.id,unitId)));
  if(!unit)throw new AccessDenied();
- return db.select().from(generations).where(and(tenantWhere(generations,scope),eq(generations.unitId,unitId))).orderBy(desc(generations.createdAt));
+ const query=db.select().from(generations).where(and(tenantWhere(generations,scope),eq(generations.unitId,unitId))).orderBy(desc(generations.createdAt),desc(generations.id));
+ return limit===undefined?query:query.limit(Math.max(1,Math.min(20,Math.floor(limit))));
 }
 export async function requestAccounting(db:DbExecutor,scope:Scope,requestId:string) {
  await verifyScope(db,scope);

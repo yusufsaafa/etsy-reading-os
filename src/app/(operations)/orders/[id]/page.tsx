@@ -1,20 +1,37 @@
-import { InformationPopover } from "@/components/information-popover";
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { database } from "@/db/client";
-import { currentScope } from "@/modules/identity/session";
-import { workspaceData } from "@/modules/intake/service";
-import { Heading, Badge, issueLabels } from "@/components/ui";
-import { CustomerInformation } from "@/components/customer-information";
-import { InputEditor } from "@/components/input-editor";
-import { readingStatus, displayDate } from "@/components/seller-status";
-import { ReadingPreparation } from "@/components/generation/reading-preparation";
-import { readingReviewStatus } from "@/modules/review/service";
-export default async function OrderDetail({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params, scope=await currentScope(), data = await workspaceData(database(), scope);
-  const order=data.orders.find(o=>o.id===id);if(!order)notFound();
-  const statuses=new Map(await Promise.all(data.units.filter(u=>data.lines.some(l=>l.id===u.lineItemId&&l.orderId===id)).map(async u=>[u.id,await readingReviewStatus(database(),scope,id,u.id)] as const)));
-  const reviewable=new Set([...statuses].filter(([,status])=>status!==null).map(([id])=>id)),approved=new Set([...statuses].filter(([,status])=>status==="Approved").map(([id])=>id));
-  const lines=data.lines.filter(l=>l.orderId===id), total=lines.reduce((n,l)=>n+l.quantity,0);
-  return <><Link href="/orders" className="back-link">← Orders</Link><div className="order-header"><Heading eyebrow={`Order #${order.externalId}`} title={order.buyerName || "Customer order"} description={`${total} ${total === 1 ? "reading" : "readings"} · ${lines.length} ${lines.length === 1 ? "product" : "products"}`} /><div className="order-meta"><Badge>{order.canceled ? "Canceled" : order.paid ? "Paid" : "Awaiting payment"}</Badge>{order.refund!=="none"&&<Badge tone="warning">Refund needs review</Badge>}<span className="muted small">{displayDate(order.createdAt)}</span></div></div><div className="order-detail">{lines.map(line=><section className="product-group" key={line.id}><div className="section-heading"><h2>{line.title}{line.quantity>1 ? ` ×${line.quantity}` : ""}</h2></div>{line.snapshot.variations.length>0&&<p className="muted small">{line.snapshot.variations.map(v=>`${v.label}: ${v.value}`).join(" · ")}</p>}<div className="reading-list">{data.units.filter(u=>u.lineItemId===line.id).sort((a,b)=>a.unitIndex-b.unitIndex).map(unit=>{const context=data.inputs.find(c=>c.unitId===unit.id),inputLabel=data.mappings.find(m=>m.listingExternalId===line.listingExternalId&&m.variantKey===line.variantKey)?.required[0]?.label??"Customer information",setup=unit.issues.includes("unmapped_listing"), ready=!unit.issues.length;return <article className="reading-row" key={unit.id} id={`reading-${unit.id}`}><div className="reading-heading"><h3>Reading {unit.unitIndex}{line.quantity>1 ? ` of ${line.quantity}` : ""}</h3><Badge tone={ready ? "good" : "warning"}>{approved.has(unit.id)?"Approved":reviewable.has(unit.id)?"Ready for review":readingStatus(unit.issues,unit.productionStatus==="SUCCEEDED"?"FAILED":unit.productionStatus)}</Badge></div>{unit.issues.length>0&&<div className="reading-issues"><p className="small issue-heading">Needs attention</p><ul className="issue-list">{unit.issues.map(issue=><li key={issue}>{issueLabels[issue] || "Review this reading before continuing"}</li>)}</ul></div>}{context?.answers.length ? <CustomerInformation answers={context.answers}/> : <p className="muted small">No customer information provided.</p>}{setup&&<Link className="button" href={`/products#product-${line.listingExternalId}`}>Set up product</Link>}<ReadingPreparation approved={approved.has(unit.id)} reviewHref={reviewable.has(unit.id)?`/orders/${id}/readings/${unit.id}/review`:undefined} scope={scope} productionStatus={unit.productionStatus} unitId={unit.id} currentRevision={unit.revision} eligible={ready&&unit.configurationState==="versioned"}/><details className="information-editor"><summary className={!ready&&!setup ? "primary-disclosure" : ""}>{ready || setup ? "Review information" : "Review customer information"}</summary><InputEditor unitId={unit.id} revision={unit.revision} initial={context?.answers??[]} allocated={unit.contextAllocated} needsAllocation={line.quantity>1} inputLabel={inputLabel} definitions={data.versions.find(v=>v.id===unit.productVersionId)?.configuration.inputs}/></details><InformationPopover label="Advanced details"><p className="small muted">Saved information version {unit.revision}. Original purchase information remains unchanged. {unit.productVersionId&&`Product configuration v${data.versions.find(v=>v.id===unit.productVersionId)?.versionNumber} is retained for this reading.`}</p></InformationPopover></article>;})}</div><InformationPopover label="Original purchase & advanced details" dialog><div className="source-details">{line.snapshot.answers.length ? line.snapshot.answers.map((a,i)=><p dir="auto" key={i}><strong>{a.label}: </strong>{a.value}</p>) : <p>No personalization was supplied.</p>}<dl><dt>Etsy listing</dt><dd>{line.listingExternalId}</dd><dt>Purchased variant</dt><dd>{line.variantKey}</dd><dt>SKU</dt><dd>{line.sku || "Not supplied"}</dd><dt>Etsy transaction</dt><dd>{line.externalId}</dd></dl></div></InformationPopover></section>)}</div></>;
+import {notFound} from "next/navigation";
+import {database} from "@/db/client";
+import {currentScope} from "@/modules/identity/session";
+import {orderDetailData} from "@/modules/orders/detail";
+import {OrderDetailView,type DetailView} from "@/components/order-detail";
+import {InputEditor} from "@/components/input-editor";
+import {ReadingPreparation} from "@/components/generation/reading-preparation";
+import {readingStatus} from "@/components/seller-status";
+import {readingReviewStatus} from "@/modules/review/service";
+import {ordersQuery,ordersHref} from "@/modules/orders/query";
+import {InformationPopover} from "@/components/information-popover";
+import {issueLabels} from "@/components/ui";
+export default async function OrderDetail({params,searchParams}:{params:Promise<{id:string}>;searchParams?:Promise<Record<string,unknown>>}){
+ const scope=await currentScope(),{id}=await params,data=await orderDetailData(database(),scope,id);if(!data)notFound();
+ const {order}=data;
+ const items=await Promise.all(data.lines.map(async line=>({id:line.id,title:line.title,quantity:line.quantity,variations:line.snapshot.variations.map(v=>`${v.label}: ${v.value}`),answers:line.snapshot.answers,readings:await Promise.all(data.units.filter(u=>u.lineItemId===line.id).map(async unit=>{
+ const generation=data.history.find(g=>g.unitId===unit.id),queue=data.queue.find(q=>q.unitId===unit.id),context=data.inputs.find(c=>c.unitId===unit.id),review=await readingReviewStatus(database(),scope,id,unit.id);
+ const active=queue&&["QUEUED","CLAIMED","EXECUTING","RETRY_WAIT"].includes(queue.state);
+ const productionStatus=generation?.status==="SUCCEEDED"?(generation.customerRevision!==unit.revision?"STALE":"SUCCEEDED"):active?(queue.state==="EXECUTING"?"PROCESSING":"WAITING"):queue?.state==="ATTENTION"?"FAILED":generation?.status;
+ const status=review??readingStatus(unit.issues,productionStatus==="SUCCEEDED"?"FAILED":productionStatus),setup=unit.issues.includes("unmapped_listing"),ready=!unit.issues.length;
+ return {id:unit.id,index:unit.unitIndex,status,revision:unit.revision,answers:context?.answers??[],queue:queue?.state.replaceAll("_"," "),generation:generation?{status:generation.status,revision:generation.customerRevision,date:generation.createdAt.toISOString()}:undefined,workflow:<>
+ {unit.issues.length>0&&<ul>{unit.issues.map(issue=><li key={issue}>{issueLabels[issue]||"Review this reading before continuing"}</li>)}</ul>}
+ {setup&&<Link className="button" href={`/products#product-${line.listingExternalId}`}>Set up product</Link>}
+ <ReadingPreparation approved={review==="Approved"} reviewHref={review?`/orders/${id}/readings/${unit.id}/review`:undefined} scope={scope} productionStatus={productionStatus} unitId={unit.id} currentRevision={unit.revision} eligible={ready&&unit.configurationState==="versioned"}/>
+ <details className="information-editor"><summary>Review customer information</summary><InputEditor unitId={unit.id} revision={unit.revision} initial={context?.answers??[]} allocated={unit.contextAllocated} needsAllocation={line.quantity>1} inputLabel={data.mappings.find(m=>m.listingExternalId===line.listingExternalId&&m.variantKey===line.variantKey)?.required[0]?.label??"Customer information"} definitions={data.versions.find(v=>v.id===unit.productVersionId)?.configuration.inputs}/></details>
+ <InformationPopover label="Purchase reference"><p>Listing {line.listingExternalId} · Variant {line.variantKey} · SKU {line.sku||"Not supplied"} · Transaction {line.externalId}. {unit.productVersionId&&`Retained configuration v${data.versions.find(v=>v.id===unit.productVersionId)?.versionNumber??"unavailable"}.`}</p></InformationPopover></>};
+ }))})));
+ const priority=data.units.some(u=>u.issues.length)||!order.paid||order.refund!=="none";
+ const active=data.queue.some(q=>["QUEUED","CLAIMED","EXECUTING","RETRY_WAIT"].includes(q.state))||data.history.some(g=>g.status==="PROCESSING");
+ const failed=data.queue.some(q=>q.state==="ATTENTION")||data.history.some(g=>g.status==="FAILED"&&!data.queue.some(q=>q.unitId===g.unitId&&["QUEUED","CLAIMED","EXECUTING","RETRY_WAIT"].includes(q.state)));
+ const stale=data.history.some(g=>g.status==="SUCCEEDED"&&g.customerRevision!==data.units.find(u=>u.id===g.unitId)?.revision);
+ const generated=data.units.length>0&&data.units.every(u=>data.history.some(g=>g.unitId===u.id&&g.status==="SUCCEEDED"&&g.customerRevision===u.revision)&&!u.issues.length);
+ const status=order.canceled?"Canceled":!order.paid?"Awaiting payment":order.refund!=="none"?"Review refund":failed?"Production needs attention":stale?"Review updated information":priority?"Information or setup needed":active?"In production":generated?"Generated":"Pending";
+ const view:DetailView={reference:order.externalId,customer:order.buyerName,date:order.createdAt.toISOString(),status,payment:order.canceled?"Canceled":order.paid?"Paid":"Awaiting payment",items};
+ return <OrderDetailView data={view} backHref={ordersHref(ordersQuery(await searchParams??{}))}/>;
 }

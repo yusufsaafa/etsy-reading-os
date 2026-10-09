@@ -15,7 +15,7 @@ export function sampleOrdersData(query:OrdersQuery):OrdersData {
  const titles=["Sample Love Reading","Sample Career Reading","Sample Psychic Reading · Extended reflection on direction and personal priorities","Sample Pet Reading · Sample Career Reading",""];
  const source=Array.from({length:50},(_,i)=>{
   const state=states[i%states.length],externalId=`DEMO-${1001+i}`;
-  return {id:externalId,externalId,customer:"",products:titles[i%titles.length],count:i%7+1,status:state.status,priority:state.priority,
+  return {id:externalId,externalId,customer:["Emily Carter","Olivia Brown","Sophia Miller","James Wilson","Emma Thompson","Alex Morgan"][i%6],products:titles[i%titles.length],count:titles[i%titles.length].startsWith("Sample Pet Reading")?Math.max(2,i%7+1):i%7+1,status:state.status,priority:state.priority,
    date:new Date(Date.UTC(2026,9,9-Math.floor(i/3),12-i%3)).toISOString(),filter:state.filter};
  });
  const needle=query.q.toLowerCase();
@@ -27,4 +27,18 @@ export function sampleOrdersData(query:OrdersQuery):OrdersData {
  const pages=Math.max(1,Math.ceil(matches.length/ORDER_PAGE_SIZE)),page=Math.min(query.page,pages);
  const rows:DashboardOrder[]=matches.slice((page-1)*ORDER_PAGE_SIZE,page*ORDER_PAGE_SIZE).map(({filter,...row})=>row);
  return {rows,total:source.length,matched:matches.length,page,pages,connectionAttention:false};
+}
+
+export function sampleOrderDetail(id:string){
+ if(process.env.NODE_ENV!=="development")throw new Error("Sample Orders preview is unavailable");
+ if(!/^DEMO-10\d\d$/.test(id))return null;
+ const row=[1,2,3].flatMap(page=>sampleOrdersData({q:"",filter:"all",sort:"newest",page}).rows).find(r=>r.id===id);
+ if(!row)return null;
+ const generated=row.status==="Generated",active=row.status==="In production",attention=row.priority<4,canceled=row.status==="Canceled";
+ const answers=attention?[]:[{label:"Question",value:"What should I consider as I explore a new direction in my life, balance my current commitments, and decide which opportunities deserve my attention?",kind:"text" as const}];
+ const readings=Array.from({length:row.count},(_,i)=>({id:`${id}-reading-${i+1}`,index:i+1,status:canceled?"Canceled":generated?"Generated":active?"Queued":attention?"Customer information needed":"Pending",revision:0,answers,queue:active?"Queued":undefined,generation:generated?{status:"SUCCEEDED",revision:0,date:row.date}:undefined}));
+ const split=row.products.startsWith("Sample Pet Reading")?Math.max(1,Math.floor(readings.length/2)):readings.length;
+ const items=[{id:`${id}-item-1`,title:row.products.startsWith("Sample Pet Reading")?"Sample Pet Reading":row.products,quantity:split,variations:[],answers,readings:readings.slice(0,split)}];
+ if(split<readings.length)items.push({id:`${id}-item-2`,title:"Sample Career Reading",quantity:readings.length-split,variations:[],answers,readings:readings.slice(split)});
+ return {reference:row.externalId,customer:row.customer,date:row.date,status:row.status,payment:canceled?"Canceled purchase":"Paid",sample:true,items};
 }

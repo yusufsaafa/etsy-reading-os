@@ -26,9 +26,9 @@ it("revalidates authorized store scope before accessing fixtures",async()=>{
  const sample=vi.spyOn(samples,"sampleOrdersData");mocks.verify.mockRejectedValueOnce(new Error("Resource unavailable"));
  await expect(page({preview:"sample"})).rejects.toThrow("Resource unavailable");expect(sample).not.toHaveBeenCalled();expect(mocks.verify).toHaveBeenCalledWith(mocks.db,scope);
 });
-it("renders samples through the real Orders UI with no detail actions or database writes",async()=>{
+it("renders samples through the real Orders UI with isolated detail links and no database writes",async()=>{
  const result=await page({preview:"sample"}),markup=renderToStaticMarkup(result);
- expect(result.props.data.total).toBe(50);expect(result.props.data.rows).toHaveLength(20);expect(markup).toContain("SAMPLE DATA");expect(markup).toContain("Exit Preview");expect(markup).toContain('name="preview" value="sample"');expect(markup).toContain('aria-label="Orders pagination"');expect(markup).toContain('role="table"');expect(markup).not.toMatch(/href="\/orders\/DEMO/);expect(markup).toContain("Sample order details are unavailable");expect(markup).toContain("disabled");
+ expect(result.props.data.total).toBe(50);expect(result.props.data.rows).toHaveLength(20);expect(markup).toContain("SAMPLE DATA");expect(markup).toContain("Exit Preview");expect(markup).toContain('name="preview" value="sample"');expect(markup).toContain('aria-label="Orders pagination"');expect(markup).toContain('role="table"');expect(markup).not.toMatch(/href="\/orders\/DEMO/);expect(markup).toContain("/orders/preview/DEMO-1001");
  expect(mocks.data).not.toHaveBeenCalled();for(const operation of Object.values(mocks.db))expect(operation).not.toHaveBeenCalled();
 });
 it("exits preview to real data and validates the exact activation token",async()=>{
@@ -43,7 +43,7 @@ it("offers the control only on the authorized development page",async()=>{
 it("provides deterministic varied fictional records across all five states and three pages",()=>{
  const query=ordersQuery(),first=samples.sampleOrdersData(query),second=samples.sampleOrdersData({...query,page:2}),third=samples.sampleOrdersData({...query,page:3});
  const rows=[...first.rows,...second.rows,...third.rows];
- expect(rows).toHaveLength(50);expect(new Set(rows.map(r=>r.id)).size).toBe(50);expect(rows.every(r=>/^DEMO-10\d\d$/.test(r.id)&&r.customer==="")).toBe(true);
+ expect(rows).toHaveLength(50);expect(new Set(rows.map(r=>r.id)).size).toBe(50);expect(rows.every(r=>/^DEMO-10\d\d$/.test(r.id)&&r.customer.length>0)).toBe(true);
  expect(new Set(rows.map(r=>r.date)).size).toBeGreaterThan(10);expect(new Set(rows.map(r=>r.count)).size).toBe(7);expect(rows.some(r=>!r.products)).toBe(true);expect(rows.some(r=>r.products.includes(" · "))).toBe(true);expect(samples.sampleOrdersData(query)).toEqual(first);
  for(const filter of ["pending","production","generated","attention","canceled"])expect(samples.sampleOrdersData(ordersQuery({filter})).matched).toBe(10);
 });

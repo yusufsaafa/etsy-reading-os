@@ -300,7 +300,19 @@ it.each(["FAILED","ANALYZING","PENDING"])("new admission pins latest READY despi
 it.each(["FAILED","PENDING","ANALYZING"])("only %s analysis uses byte-identical legacy manual context/prompt",async state=>{
  const before=await context();await analysis(a,state);const result=await service().prepare(a,command());
  expect(result.context).toEqual(before);expect(result.context).not.toHaveProperty("styleIntelligence");
- const {assembleInstructions,PLATFORM_RULES}=await import("../src/modules/generation/instructions");expect(assembleInstructions(result.context).system).toBe(PLATFORM_RULES);
+ const {assembleInstructions,PLATFORM_RULES,INTEGRATION_RULES}=await import("../src/modules/generation/instructions");
+ const prompt=assembleInstructions(result.context);
+ expect(result.context.integrationVersion).toBe("generation-context/v2");
+ expect(prompt.system).toBe(assembleInstructions(before).system);
+ expect(JSON.parse(prompt.data)).toEqual(JSON.parse(assembleInstructions(before).data));
+ expect(prompt.system).toBe(PLATFORM_RULES+"\n"+INTEGRATION_RULES);
+ expect(JSON.parse(prompt.data).customerFields).toEqual(before.product.configuration.inputs.map(({key,label,type,helpText,required})=>({key,label,type,helpText,required})));
+ expect(JSON.parse(prompt.data).customerContext).toEqual(before.customer.answers);
+ const legacy=structuredClone(before);delete legacy.integrationVersion;
+ const legacyPrompt=assembleInstructions(legacy);
+ expect(legacyPrompt.system).toBe(PLATFORM_RULES);
+ expect(JSON.parse(legacyPrompt.data)).not.toHaveProperty("customerFields");
+ expect(JSON.parse(legacyPrompt.data)).not.toHaveProperty("product");
 });
 it.each([false,true])("later READY cannot enrich or replace pinned context on retry/replay (initial pin=%s)",async initial=>{
  if(initial)await analysis();const failed=await service(new FakeGenerationProvider({output:"bad"})).prepare(a,command());

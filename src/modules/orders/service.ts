@@ -84,7 +84,7 @@ export async function ordersData(db:DbExecutor,scope:Scope,query:OrdersQuery):Pr
      or coalesce((select status='failed' from sync_runs r where r.organization_id=c.organization_id and r.store_id=c.store_id and r.connection_epoch=c.epoch order by r.created_at desc,r.id desc limit 1),false)
      from etsy_connections c where c.organization_id=${scope.organizationId} and c.store_id=${scope.storeId}),true),
    'rows',coalesce((select jsonb_agg(jsonb_build_object(
-     'id',o.id,'externalId',o.external_id,'customer','','products',coalesce(t.products,''),
+     'id',o.id,'externalId',o.external_id,'customer',coalesce(nullif(trim(o.buyer_name),''),''),'products',coalesce(t.products,''),
      'count',o.reading_count,'status',o.status,'date',o.created_at,'priority',o.priority)
      order by o.created_at ${direction},o.id ${direction})
      from selected o left join titles t on t.order_id=o.id),'[]'::jsonb)

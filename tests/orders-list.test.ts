@@ -29,7 +29,7 @@ it("renders accessible search, all reliable status filters and no inline informa
  expect(markup).toContain('aria-current="page"');expect(markup).not.toContain("<details");expect(markup).not.toContain("Completed");
 });
 it("renders real persisted identity/context, truthful status, UTC purchase date and detail navigation",()=>{
- const markup=html({...empty,rows:[row],total:1,matched:1});expect(markup).toContain("#1024");expect(markup).toContain("Retained reading ×2");expect(markup).toContain('href="/orders/order-id"');expect(markup).toContain('aria-label="Open order 1024"');expect(markup).toContain("Oct 9, 2026");expect(markup).toContain('scope="col"');expect(markup).not.toContain("Delivered");
+ const markup=html({...empty,rows:[row],total:1,matched:1});expect(markup).toContain("#1024");expect(markup).toContain("Retained reading ×2");expect(markup).toContain('href="/orders/order-id?filter=all&amp;sort=newest"');expect(markup).toContain('aria-label="Open order 1024"');expect(markup).toContain("Oct 9, 2026");expect(markup).toContain('scope="col"');expect(markup).not.toContain("Delivered");
 });
 it.each([["Pending",4,"neutral"],["In production",4,"neutral"],["Generated",4,"good"],["Information or setup needed",3,"warning"],["Canceled",1,"neutral"]])("uses restrained tone for %s",(status,priority,tone)=>{expect(orderTone({...row,status,priority:Number(priority)})).toBe(tone);});
 it("distinguishes lifetime empty, search empty and filter empty with truthful connection guidance",()=>{
