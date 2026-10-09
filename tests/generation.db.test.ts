@@ -31,6 +31,18 @@ function service(provider:GenerationProvider=new FakeGenerationProvider(),paid=f
 const command=(unit=unitId)=>({unitId:unit,commandKey:randomUUID()});
 async function prepare(provider=new FakeGenerationProvider()) {const result=await service(provider).prepare(a,command());return {result,provider};}
 async function context() {return db.transaction(tx=>buildGenerationContext(tx,a,unitId),{isolationLevel:"repeatable read"});}
+it("order review projection preserves individual review authorization with bounded reads and no mutations",async()=>{
+ const {orderReadingReviewStatuses,readingReviewStatus,openReadingReview,approveReadingReview}=await import("../src/modules/review/service");
+ const {result}=await prepare(),orderId=result.context.orderId;
+ const requests=(await db.select().from(schema.aiRequests)).length;
+ expect(await orderReadingReviewStatuses(db,a,orderId)).toEqual(new Map([[unitId,await readingReviewStatus(db,a,orderId,unitId)]]));
+ expect(await db.select().from(schema.readingReviews)).toHaveLength(0);
+ await openReadingReview(db,a,orderId,unitId);await approveReadingReview(db,a,orderId,unitId,null);
+ expect((await orderReadingReviewStatuses(db,a,orderId)).get(unitId)).toBe("Approved");
+ expect(await orderReadingReviewStatuses(db,b,orderId)).toEqual(new Map());await expect(orderReadingReviewStatuses(db,{...a,storeId:b.storeId},orderId)).rejects.toThrow();
+ await correctInput(db,a,unitId,0,[{label:"Name",kind:"text",value:"Updated synthetic name"}],false);
+ expect((await orderReadingReviewStatuses(db,a,orderId)).has(unitId)).toBe(false);expect((await db.select().from(schema.aiRequests)).length).toBe(requests);
+});
 beforeEach(async()=>{
  pg=new PGlite();for(const file of readdirSync("drizzle").filter(f=>f.endsWith(".sql")).sort())await pg.exec(readFileSync("drizzle/"+file,"utf8"));db=drizzle(pg,{schema}) as unknown as Database;
  for(const userId of ["generation-a","generation-b"])await db.insert(schema.users).values({id:userId,name:userId});

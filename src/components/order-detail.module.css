@@ -3,7 +3,8 @@
 .header h1 { margin:0 0 8px; font-size:26px; }
 .header p { margin:0; overflow-wrap:anywhere; }
 .header span,.muted { color:var(--text-secondary); font-size:13px; }
-.grid { display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1fr); gap:20px; align-items:start; }
+.grid { display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1fr); grid-template-areas:"main action" "main context"; grid-template-rows:auto 1fr; gap:20px; align-items:start; }
+.main { grid-area:main; }.context { grid-area:context; }.actionCenter { grid-area:action; }
 .main,.context { display:grid; gap:20px; min-width:0; }
 .panel { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:20px; min-width:0; overflow-wrap:anywhere; }
 .panel h2 { margin:0 0 16px; font-size:16px; }.panel h3 { font-size:14px; margin:0; }.panel h4 { font-size:13px; margin:16px 0 8px; }
@@ -11,5 +12,11 @@
 .readingHeader,.preview { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }.readingHeader { justify-content:space-between; }
 .preview { padding:12px 16px; background:var(--surface); border:1px solid var(--border); border-radius:8px; font-size:13px; }
 .preview a { margin-left:auto; min-height:44px; display:flex; align-items:center; }
-@media(max-width:900px) { .grid { grid-template-columns:minmax(0,1fr); } }
+.action { display:grid; gap:8px; }.action+.action { border-top:1px solid var(--border); padding-top:12px; margin-top:12px; }
+.action p,.issues p { margin:0; font-size:13px; }.action a,.outputs a,.issues a { min-height:44px; overflow-wrap:anywhere; }
+.action button,.outputs button,.issues button { white-space:normal; }
+.issues { padding-left:20px; display:grid; gap:12px; font-size:13px; }.issues li { display:grid; gap:8px; }
+.outputs { display:flex; align-items:center; flex-wrap:wrap; gap:12px; margin:12px 0; }
+.item { scroll-margin-top:24px; }.item details { scroll-margin-top:24px; }
+@media(max-width:900px) { .grid { grid-template-columns:minmax(0,1fr); grid-template-areas:"action" "main" "context"; grid-template-rows:auto; } }
 @media(max-width:700px) { .panel { padding:16px; }.page,.main,.context { gap:16px; }.header h1 { font-size:22px; } }

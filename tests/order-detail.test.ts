@@ -8,9 +8,12 @@ vi.mock("@/modules/identity/session",()=>({currentScope:mocks.scope}));
 vi.mock("@/modules/intake/service",()=>({verifyScope:mocks.verify}));
 vi.mock("next/navigation",()=>({notFound:()=>{throw new Error("NOT_FOUND");}}));
 vi.mock("@/modules/orders/detail",()=>({orderDetailData:mocks.data}));
-vi.mock("@/modules/review/service",()=>({readingReviewStatus:mocks.review}));
+vi.mock("@/modules/review/service",()=>({orderReadingReviewStatuses:async()=>new Map([["unit",await mocks.review()]])}));
 vi.mock("@/components/input-editor",()=>({InputEditor:()=>null}));
 vi.mock("@/components/generation/reading-preparation",()=>({ReadingPreparation:()=>null}));
+vi.mock("@/modules/documents/artifact-service",()=>({orderAvailableDocumentArtifacts:async()=>[]}));
+vi.mock("@/modules/seller-style/service",()=>({sellerStyleData:async()=>({})}));
+vi.mock("@/infrastructure/document-runtime",()=>({configuredDocumentPorts:()=>undefined}));
 import RealPage from "../src/app/(operations)/orders/[id]/page";
 import SamplePage from "../src/app/(operations)/orders/preview/[id]/page";
 import {sampleOrderDetail} from "../src/modules/orders/sample-preview";
@@ -56,7 +59,7 @@ it.each([
  ["SUCCEEDED",undefined,0,0,"Generated"],
  [undefined,undefined,0,0,"Pending"],
 ])("preserves real lifecycle %s / %s",async(status,queue,revision,generationRevision,label)=>{
- mocks.review.mockResolvedValue(null);mocks.data.mockResolvedValue({order:{externalId:"123",buyerName:"Persisted Buyer",createdAt:new Date("2026-10-09"),paid:true,canceled:false,refund:"none"},lines:[{id:"line",title:"Historical title",quantity:1,listingExternalId:"101",variantKey:"default",snapshot:{variations:[{label:"Detail",value:"Standard"}],answers:[]}}],units:[{id:"unit",lineItemId:"line",unitIndex:1,issues:[],revision,configurationState:"legacy"}],inputs:[],mappings:[],versions:[],history:status?[{unitId:"unit",status,customerRevision:generationRevision,createdAt:new Date("2026-10-09")}]:[],queue:queue?[{unitId:"unit",state:queue}]:[]});
+ mocks.review.mockResolvedValue(null);mocks.data.mockResolvedValue({attempts:[],canOperate:true,order:{externalId:"123",buyerName:"Persisted Buyer",createdAt:new Date("2026-10-09"),paid:true,canceled:false,refund:"none"},lines:[{id:"line",title:"Historical title",quantity:1,listingExternalId:"101",variantKey:"default",snapshot:{variations:[{label:"Detail",value:"Standard"}],answers:[]}}],units:[{id:"unit",lineItemId:"line",unitIndex:1,issues:[],revision,configurationState:"legacy"}],inputs:[],mappings:[],versions:[],history:status?[{unitId:"unit",status,customerRevision:generationRevision,createdAt:new Date("2026-10-09")}]:[],queue:queue?[{unitId:"unit",state:queue}]:[]});
  const result=await RealPage({params:Promise.resolve({id:"owned-id"}),searchParams:Promise.resolve({filter:"attention",page:"2",returnTo:"https://evil.example"})});expect(result.props.data.status).toBe(label);expect(result.props.data.customer).toBe("Persisted Buyer");expect(result.props.data.items[0].title).toBe("Historical title");expect(result.props.data.items[0].variations).toEqual(["Detail: Standard"]);expect(result.props.backHref).toContain("filter=attention");expect(result.props.backHref).not.toContain("evil");expect(mocks.data).toHaveBeenCalledWith(mocks.db,scope,"owned-id");
 });
 it("keeps real authorization denial and unavailable reads inaccessible",async()=>{

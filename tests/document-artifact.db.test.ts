@@ -52,6 +52,23 @@ async function ready(){const d=await design();await setDefaultDocumentDesign(db,
 async function input(){return createDocumentRenderInput(db,a,{orderId,readingId});}
 const produce=(mediaId:string,storage:MemoryArtifactStorage)=>produceDocumentArtifact(db,a,mediaId,assets,storage);
 const retrieve=(id:string,storage:MemoryArtifactStorage,scope=a)=>retrieveDocumentArtifact(db,scope,{readingId,artifactId:id},storage);
+it("Order PDF projection includes only AVAILABLE owned artifacts and hides storage identities",async()=>{
+ const {orderAvailableDocumentArtifacts}=await import("../src/modules/documents/artifact-service");
+ expect(await orderAvailableDocumentArtifacts(db,a,orderId)).toEqual([]);
+ await ready();const f=await input(),storage=new MemoryArtifactStorage();storage.failBefore=true;
+ await expect(produce(f.media.id,storage)).rejects.toThrow();expect(await orderAvailableDocumentArtifacts(db,a,orderId)).toEqual([]);
+ storage.failBefore=false;const artifact=await produce(f.media.id,storage),reads=storage.reads,writes=storage.writes;
+ const audit=(await db.select().from(schema.auditLogs)).length;
+ const projection=await orderAvailableDocumentArtifacts(db,a,orderId);expect(projection).toEqual([{id:artifact.id,readingId,generationId,customerRevision:0}]);
+ expect(JSON.stringify(projection)).not.toContain("objectKey");expect(storage.reads).toBe(reads);expect(storage.writes).toBe(writes);expect((await db.select().from(schema.auditLogs)).length).toBe(audit);
+ for(const scope of [b,sibling])expect(await orderAvailableDocumentArtifacts(db,scope,orderId)).toEqual([]);
+ await expect(orderAvailableDocumentArtifacts(db,{...a,userId:b.userId},orderId)).rejects.toThrow();expect(await orderAvailableDocumentArtifacts(db,a,randomUUID())).toEqual([]);
+});
+it("inline PDF response retains full artifact integrity checks and private headers",async()=>{
+ const {downloadDocument}=await import("../src/modules/documents/download");await ready();const f=await input(),storage=new MemoryArtifactStorage(),artifact=await produce(f.media.id,storage);
+ const writes=storage.writes;const response=await downloadDocument(db,a,{readingId,artifactId:artifact.id},storage,"inline");expect(response.headers.get("Content-Disposition")).toBe(`inline; filename="reading-${artifact.id}.pdf"`);expect(response.headers.get("Cache-Control")).toBe("private, no-store");expect(response.headers.get("Content-Security-Policy")).toContain("sandbox");expect(sha256(new Uint8Array(await response.arrayBuffer()))).toBe(artifact.sha256);expect(storage.writes).toBe(writes);
+ storage.objects.delete(artifact.objectKey);await expect(downloadDocument(db,a,{readingId,artifactId:artifact.id},storage,"inline")).rejects.toThrow();
+});
 it("actual PDF becomes owned AVAILABLE evidence with exact hashes/size/pages and detached download",async()=>{
  await ready();const frozen=await input(),storage=new MemoryArtifactStorage(),artifact=await produce(frozen.media.id,storage);
  const pdf=await renderDocumentPdfForReading(db,a,frozen.media.id,assets);for(const key of ["sha256","byteLength","pageCount","rendererVersion","layoutHash","resourceHash"] as const)expect(artifact[key]).toBe(pdf.metadata[key]);

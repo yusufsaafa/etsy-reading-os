@@ -12,3 +12,10 @@ it("anonymous access returns 401 without DB/storage access",async()=>{mocks.auth
 it("scope is derived from session and artifact authorization precedes storage access",async()=>{expect((await call()).status).toBe(200);expect(mocks.authorize).toHaveBeenCalledWith({},"github:123","owned-store");expect(mocks.get).toHaveBeenCalledWith({},expect.objectContaining({storeId:"owned-store"}),"reading","artifact");expect(mocks.download).toHaveBeenCalledWith({},expect.objectContaining({storeId:"owned-store"}),{readingId:"reading",artifactId:"artifact"},{});});
 it("cross-Store or forged artifact returns a private safe error without reading bytes",async()=>{mocks.get.mockRejectedValue(new Error("private storage path"));const response=await call();expect(response.status).toBe(404);expect(await response.text()).toBe("Document unavailable");expect(mocks.ports).not.toHaveBeenCalled();expect(mocks.download).not.toHaveBeenCalled();});
 it("missing storage is a controlled unavailable response, no public URL fallback",async()=>{mocks.ports.mockReturnValue(undefined);expect((await call()).status).toBe(503);expect(mocks.download).not.toHaveBeenCalled();});
+it("inline preview uses the same session-owned artifact authorization and private download contract",async()=>{
+ const response=await GET(new Request("http://localhost/api/readings/reading/artifacts/artifact?view=inline"),{params:Promise.resolve({readingId:"reading",artifactId:"artifact"})});expect(response.status).toBe(200);
+ expect(mocks.get).toHaveBeenCalledWith({},expect.objectContaining({storeId:"owned-store"}),"reading","artifact");expect(mocks.download).toHaveBeenCalledWith({},expect.objectContaining({storeId:"owned-store"}),{readingId:"reading",artifactId:"artifact"},{},"inline");
+});
+it.each(["view=inline&view=inline","view=https://evil.example","view=download"])("nonexact preview token %s retains normal attachment behavior",async query=>{
+ await GET(new Request(`http://localhost/api/readings/reading/artifacts/artifact?${query}`),{params:Promise.resolve({readingId:"reading",artifactId:"artifact"})});expect(mocks.download.mock.calls[0]).toHaveLength(4);
+});

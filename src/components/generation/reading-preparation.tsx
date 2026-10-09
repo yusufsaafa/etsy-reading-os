@@ -5,7 +5,12 @@ import { generationHistory, generationAccounting } from "@/modules/generation/se
 import { sellerStyleData } from "@/modules/seller-style/service";
 import { publishErrors, styleConfiguration } from "@/modules/seller-style/contracts";
 import { PrepareForm } from "./prepare-form";
-export async function ReadingPreparation({scope,unitId,eligible,currentRevision,productionStatus,reviewHref,approved=false}:{scope:Scope;unitId:string;eligible:boolean;currentRevision:number;productionStatus?:string;reviewHref?:string;approved?:boolean}) {
+export type PreparationEvidence={mode:"prepare"|"retry"|null;generationId?:string;message:string};
+export async function ReadingPreparation({scope,unitId,eligible,currentRevision,productionStatus,reviewHref,approved=false,evidence}:{scope:Scope;unitId:string;eligible:boolean;currentRevision:number;productionStatus?:string;reviewHref?:string;approved?:boolean;evidence?:PreparationEvidence}) {
+ if(evidence){
+  if(reviewHref)return <div className="reading-preparation"><Link className="button" href={reviewHref} prefetch={false}>View Reading</Link></div>;
+  return evidence.mode?<PrepareForm unitId={unitId} retryGenerationId={evidence.mode==="retry"?evidence.generationId:undefined}/>:evidence.message?<p className="small muted">{evidence.message}</p>:null;
+ }
  if(reviewHref)return <div className="reading-preparation"><Link className="button" href={reviewHref} prefetch={false}>{approved?"View reading":"Review reading"}</Link></div>;
  const [latest]=await generationHistory(database(),scope,unitId,1);
  if(latest){

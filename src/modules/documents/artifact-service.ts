@@ -1,7 +1,7 @@
-import { and,eq,sql } from "drizzle-orm";
+import { and,eq,sql,desc } from "drizzle-orm";
 import { z } from "zod";
 import type { Database,DbExecutor } from "../../db/client";
-import { documentArtifacts,documentMediaSnapshots,documentSnapshots,stores,auditLogs } from "../../db/schema";
+import { documentArtifacts,documentMediaSnapshots,documentSnapshots,stores,auditLogs,units,lineItems,orders,generations } from "../../db/schema";
 import type { Scope } from "../intake/contracts";
 import { verifyScope,tenantWhere } from "../intake/service";
 import type { ImmutableArtifactStorage,PlatformAssetStorage } from "../../infrastructure/object-storage";
@@ -18,6 +18,21 @@ export async function lockDocumentStore(tx:DbExecutor,scope:Scope){
  await tx.select({id:stores.id}).from(stores).where(and(eq(stores.id,scope.storeId),eq(stores.organizationId,scope.organizationId))).for("update");
 }
 function contract(row:typeof documentArtifacts.$inferSelect){return immutableArtifact({...row,contractVersion:"document-artifact/v1",createdAt:row.createdAt.toISOString(),availableAt:row.availableAt?.toISOString()??null});}
+/** Latest AVAILABLE immutable output per reading in this owned order. No object keys or storage I/O. */
+export async function orderAvailableDocumentArtifacts(db:Database,scope:Scope,orderId:string){
+ await verifyScope(db,scope);
+ if(!z.uuid().safeParse(orderId).success)return [];
+ const rows=await db.selectDistinctOn([documentArtifacts.readingId],{artifact:documentArtifacts,generationId:documentSnapshots.generationId,customerRevision:generations.customerRevision}).from(documentArtifacts)
+  .innerJoin(units,and(tenantWhere(units,scope),eq(units.id,documentArtifacts.readingId)))
+  .innerJoin(lineItems,and(tenantWhere(lineItems,scope),eq(lineItems.id,units.lineItemId),eq(lineItems.orderId,orderId)))
+  .innerJoin(orders,and(tenantWhere(orders,scope),eq(orders.id,lineItems.orderId)))
+  .innerJoin(documentSnapshots,and(tenantWhere(documentSnapshots,scope),eq(documentSnapshots.id,documentArtifacts.documentSnapshotId),eq(documentSnapshots.readingId,units.id),eq(documentSnapshots.orderId,orderId)))
+  .innerJoin(generations,and(tenantWhere(generations,scope),eq(generations.id,documentSnapshots.generationId),eq(generations.unitId,units.id)))
+  .innerJoin(documentMediaSnapshots,and(tenantWhere(documentMediaSnapshots,scope),eq(documentMediaSnapshots.id,documentArtifacts.mediaSnapshotId),eq(documentMediaSnapshots.documentSnapshotId,documentSnapshots.id),eq(documentMediaSnapshots.readingId,units.id)))
+  .where(and(tenantWhere(documentArtifacts,scope),eq(documentArtifacts.orderId,orderId),eq(documentArtifacts.state,"AVAILABLE")))
+  .orderBy(documentArtifacts.readingId,desc(documentArtifacts.createdAt),desc(documentArtifacts.id));
+ return rows.flatMap(row=>{try{const artifact=contract(row.artifact);return [{id:artifact.id,readingId:artifact.readingId,generationId:row.generationId,customerRevision:row.customerRevision}];}catch{return [];}});
+}
 /** Historical lookup validates owned immutable relationships, never current design/deck/font state. */
 export async function getDocumentArtifact(db:DbExecutor,scope:Scope,readingId:string,artifactId:string):Promise<DocumentArtifact>{
  await verifyScope(db,scope);

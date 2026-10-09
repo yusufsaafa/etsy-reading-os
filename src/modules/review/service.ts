@@ -4,7 +4,7 @@ import { readingMediaRequirement, readingMediaHash } from "../media/reading-cont
 import { detached } from "../media/contracts";
 import { immutableApprovedReadingMedia, type ApprovedReadingMedia } from "./approved-media";
 import {createHash} from "node:crypto";
-import {and,desc,eq} from "drizzle-orm";
+import {and,desc,eq,inArray} from "drizzle-orm";
 import {z} from "zod";
 import type {Database,DbExecutor} from "../../db/client";
 import {readingReviews,readingReviewDrafts,units,lineItems,orders,generations,stores,productionQueue} from "../../db/schema";
@@ -39,13 +39,16 @@ async function candidate(tx:DbExecutor,scope:Scope,orderId:string,readingId:stri
  if(!unit)throw new ReviewUnavailable();
  const [line]=await tx.select().from(lineItems).where(and(tenantWhere(lineItems,scope),eq(lineItems.id,unit.lineItemId),eq(lineItems.orderId,orderId)));
  const [order]=await tx.select().from(orders).where(and(tenantWhere(orders,scope),eq(orders.id,orderId)));
- if(!line||!order||!Array.isArray(unit.issues)||unit.issues.length||unit.sourceChanged||!order.paid||order.canceled||order.refund!=="none")throw new ReviewUnavailable();
  const [queue]=await tx.select().from(productionQueue).where(and(tenantWhere(productionQueue,scope),eq(productionQueue.unitId,unit.id)));
- if(queue&&["ATTENTION","EXECUTING","CLAIMED","RETRY_WAIT"].includes(queue.state))throw new ReviewUnavailable();
  const [latest]=await tx.select().from(generations).where(and(tenantWhere(generations,scope),eq(generations.unitId,unit.id))).orderBy(desc(generations.createdAt),desc(generations.id)).limit(1);
- if(!latest||latest.status!=="SUCCEEDED")throw new ReviewUnavailable();
  const [review]=await tx.select().from(readingReviews).where(and(tenantWhere(readingReviews,scope),eq(readingReviews.unitId,unit.id)));
  const [generation]=await tx.select().from(generations).where(and(tenantWhere(generations,scope),eq(generations.unitId,unit.id),...(review?[eq(generations.id,review.generationId)]:[]))).orderBy(desc(generations.createdAt),desc(generations.id)).limit(1);
+ return validatedCandidate(unit,line,order,queue,latest,review,generation);
+}
+function validatedCandidate(unit:typeof units.$inferSelect,line:typeof lineItems.$inferSelect|undefined,order:typeof orders.$inferSelect|undefined,queue:{state:string}|undefined,latest:typeof generations.$inferSelect|undefined,review:typeof readingReviews.$inferSelect|undefined,generation:typeof generations.$inferSelect|undefined){
+ if(!line||!order||!Array.isArray(unit.issues)||unit.issues.length||unit.sourceChanged||!order.paid||order.canceled||order.refund!=="none")throw new ReviewUnavailable();
+ if(queue&&["ATTENTION","EXECUTING","CLAIMED","RETRY_WAIT"].includes(queue.state))throw new ReviewUnavailable();
+ if(!latest||latest.status!=="SUCCEEDED")throw new ReviewUnavailable();
  if(!generation||(!review&&generation.customerRevision!==unit.revision)||generation.context?.orderId!==order.id||generation.context?.lineItemId!==line.id)throw new ReviewUnavailable();
  const content=reviewContent(generation);
  return {unit,line,order,generation,review,content};
@@ -139,6 +142,43 @@ export async function readingReviewStatus(db:Database,scope:Scope,orderId:string
   }
   return "Ready for review";
  },{isolationLevel:"repeatable read"});}catch(error){if(error instanceof ReviewUnavailable)return null;throw error;}
+}
+
+/** Order-bounded read only projection. Same candidate/content/approval rules as individual review. */
+export async function orderReadingReviewStatuses(db:Database,scope:Scope,orderId:string){
+ return db.transaction(async tx=>{
+  await verifyScope(tx,scope);
+  if(!identity.safeParse(orderId).success)return new Map<string,string>();
+  const rows=await tx.select({unit:units,line:lineItems,order:orders,queue:productionQueue}).from(units)
+   .innerJoin(lineItems,and(tenantWhere(lineItems,scope),eq(lineItems.id,units.lineItemId),eq(lineItems.orderId,orderId)))
+   .innerJoin(orders,and(tenantWhere(orders,scope),eq(orders.id,lineItems.orderId)))
+   .leftJoin(productionQueue,and(tenantWhere(productionQueue,scope),eq(productionQueue.unitId,units.id))).where(tenantWhere(units,scope));
+  const ids=rows.map(r=>r.unit.id);if(!ids.length)return new Map<string,string>();
+  const [latest,reviews]=await Promise.all([
+   tx.selectDistinctOn([generations.unitId]).from(generations).where(and(tenantWhere(generations,scope),inArray(generations.unitId,ids))).orderBy(generations.unitId,desc(generations.createdAt),desc(generations.id)),
+   tx.select().from(readingReviews).where(and(tenantWhere(readingReviews,scope),inArray(readingReviews.unitId,ids))),
+  ]);
+  const [retained,drafts]=await Promise.all([
+   reviews.length?tx.select().from(generations).where(and(tenantWhere(generations,scope),inArray(generations.id,reviews.map(r=>r.generationId)))):[],
+   reviews.length?tx.select().from(readingReviewDrafts).where(and(tenantWhere(readingReviewDrafts,scope),inArray(readingReviewDrafts.reviewId,reviews.map(r=>r.id)))):[],
+  ]);
+  const result=new Map<string,string>();
+  const latestByUnit=new Map(latest.map(g=>[g.unitId,g])),reviewByUnit=new Map(reviews.map(r=>[r.unitId,r])),generationById=new Map(retained.map(g=>[g.id,g])),draftByReview=new Map(drafts.map(d=>[d.reviewId,d]));
+  for(const row of rows){try{
+   const review=reviewByUnit.get(row.unit.id),current=latestByUnit.get(row.unit.id);
+   const data=validatedCandidate(row.unit,row.line,row.order,row.queue??undefined,current,review,review?generationById.get(review.generationId):current);
+   // Existing historical reviews remain accessible through their own route, but Order operations
+   // never advertise them as a current result after customer information or generation changes.
+   if(data.generation.customerRevision!==row.unit.revision||data.generation.id!==current?.id)continue;
+   const base=validateCanonical(JSON.stringify(data.generation.result),data.generation.context);
+   if(review?.state==="APPROVED"){approvedReviewContent(review,base);approvedMediaForReview(review,data.generation);result.set(row.unit.id,"Approved");}
+   else {const draft=review?draftByReview.get(review.id):undefined;try{if(draft)validateReviewDraft(draft.content,base);}catch{throw new ReviewUnavailable();}result.set(row.unit.id,"Ready for review");}
+  }catch(error){if(!(error instanceof ReviewUnavailable)){
+   // Draft validation errors fail closed just as readingReviewStatus does.
+   if(!(error instanceof ReviewDraftError))throw error;
+  }}}
+  return result;
+ },{isolationLevel:"repeatable read"});
 }
 
 /** Local repeatable-read boundary; no admission, editing, approval or provider side effect. */
