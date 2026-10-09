@@ -118,3 +118,17 @@ Owner/manual acceptance should verify the authenticated application at 1440, 102
 6. Real product republication, private artifact storage, eligible Reading creation, generation, review approval and customer PDF rendering still require their established setup/authorization. The Studio authorizes none of those operations.
 
 Functional Store configuration is available, with the unsupported features and browser acceptance limits above. This does not close real Etsy E2E, input or cardinality debts, and does not establish production storage durability.
+
+## Browser acceptance chunk-loading correction
+
+Starting HEAD: `27d0acca73fbea8a759a1f14a57147b225360255`.
+
+The development server's Next.js cross-origin dev-resource guard returned the chunk 403, not the preview route or Store authorization. Direct localhost reproduction against the same JavaScript chunk: no Origin returned 200; the current configured tunnel Origin returned 403 with `Unauthorized`; the previous allowlisted tunnel Origin returned 200. `READING_OS_DEV_ORIGINS` still contained the previous Quick Tunnel hostname while `APP_URL` and `AUTH_URL` contained the current hostname. Next.js's installed `block-cross-site-dev` implementation establishes the response source. Blocked client code prevents hydration and therefore the preview effect from dispatching its POST; actual browser console/POST observation remains unverified.
+
+`next.config.ts` now includes the hostname from the explicitly configured server-side `APP_URL` in development-only allowed origins. It retains validated explicit host entries, rejects wildcards/invalid hosts, ignores malformed or credential-bearing app URLs, and deduplicates hosts. No request headers determine this allowlist; production receives no development-origin configuration. No environment variables, auth checks, Store records, design revisions, renderer code or preview endpoint changed.
+
+After automatic development-server configuration reload, the current Origin and current cross-site Referer probes returned 200 JavaScript; an unrelated Origin still returned 403. Tunnel probing received HTTP 200 headers but timed out before complete body transfer, so full public chunk loading is not established.
+
+Validation: 47 focused tests across six files passed (four new development-origin regressions plus Studio preview/rendering, UI, actions and authenticated download tests). Typecheck, production build and diff check passed. Preview route tests preserve anonymous/cross-tenant rejection, proxy Host validation, strict inputs and recoverable rendering errors. Synthetic renderer tests exercise actual PDF output; they do not establish authenticated browser acceptance.
+
+Browser acceptance: **PARTIAL / NOT VERIFIED**. Chrome automation repeatedly failed with “Unable to load browser request-header policy.” No authenticated hydration, live preview POST, visible PDF, page navigation or control-update acceptance is claimed. Owner remaining check: reload the current authenticated Studio, verify all three formerly failing chunks load, change a control, inspect a successful `application/pdf` preview POST, review the displayed PDF/pages and retry behavior. Do not save or assign a real design merely for this check. Generated Next.js files remain excluded from the fix commit.
