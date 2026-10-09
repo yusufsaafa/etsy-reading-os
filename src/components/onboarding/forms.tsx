@@ -1,4 +1,5 @@
 "use client";
+import { InformationPopover } from "@/components/information-popover";
 import Image from "next/image";
 import {safeListingThumbnail} from "@/modules/etsy/listing-thumbnail";
 import {productPage,selectProductPage,PRODUCTS_PER_PAGE,type PickerProduct} from "./product-picker-model";
@@ -51,7 +52,7 @@ export function ProductPicker({ products, initialSelection }: { products: Picker
     <div className={styles.selectionToolbar}><span aria-live="polite">{selected.size} selected</span><div><button type="button" className="button ghost" onClick={()=>setSelected(old=>selectProductPage(old,visible,true))}>Select page</button><button type="button" className="button ghost" onClick={()=>setSelected(old=>selectProductPage(old,visible,false))} disabled={!visible.some(p=>selected.has(p.externalId))}>Deselect page</button></div></div>
     <div className={styles.list}>
       {visible.map(product => <article className={styles.productRow} key={product.externalId}><ListingThumbnail key={product.thumbnailUrl??"placeholder"} url={product.thumbnailUrl}/><span className={styles.productInfo}><label htmlFor={"choose-"+product.externalId}><strong>{product.title}</strong></label><span className={styles.etsyStatus}><span aria-hidden="true" className={product.state==="active"?styles.activeDot:styles.inactiveDot}/>{product.state.replaceAll("_"," ").replace(/^./,c=>c.toUpperCase())} on Etsy</span></span>
-      {product.configured?<span className={styles.setupReady}>Ready</span>:selected.has(product.externalId)?<details className={styles.setupHelp}><summary aria-label="Setup required. This listing is selected for Reading OS, but its product setup must be completed before orders can be prepared.">Setup required <span aria-hidden="true">ⓘ</span></summary><p>This listing is selected for Reading OS, but its product setup must be completed before orders can be prepared.</p></details>:<span className={styles.notSelected}>Not selected</span>}
+      {product.configured?<span className={styles.setupReady}>Ready</span>:selected.has(product.externalId)?<InformationPopover label="Setup required"><p>This listing is selected for Reading OS, but its product setup must be completed before orders can be prepared.</p></InformationPopover>:<span className={styles.notSelected}>Not selected</span>}
       <input id={"choose-"+product.externalId} type="checkbox" checked={selected.has(product.externalId)} disabled={!selected.has(product.externalId) && (product.state !== "active" || selected.size >= 1000)} onChange={() => toggle(product.externalId)} aria-label={`Select ${product.title}`}/></article>)}
       {!visible.length && <div className={styles.empty}><h2>No matching products</h2><p>Try another product name.</p></div>}
     </div>

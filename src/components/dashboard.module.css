@@ -10,8 +10,8 @@
 .warning { color:var(--warning); }
 .metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); margin:0; gap:12px; }
 .metric { padding:18px 20px; min-height:122px; border:1px solid var(--border); background:var(--surface); border-radius:10px; min-width:0; }
-.metric dt { font-size:13px; font-weight:550; color:var(--text-secondary); }
-.metric dd { overflow-wrap:anywhere; margin:8px 0 0; font-size:38px; line-height:1.2; font-weight:700; letter-spacing:-.8px; font-variant-numeric:tabular-nums; }
+.metric dt { display:flex; align-items:center; justify-content:space-between; gap:4px; font-size:13px; font-weight:550; color:var(--text-secondary); }
+.metric dd { overflow-wrap:anywhere; margin:2px 0 0; font-size:38px; line-height:1.2; font-weight:700; letter-spacing:-.8px; font-variant-numeric:tabular-nums; }
 .metric dd span { display:block; margin-top:8px; font-size:11px; font-weight:400; letter-spacing:normal; color:var(--text-secondary); }
 .grid { display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1fr); gap:16px; align-items:stretch; }
 .panel { min-width:0; padding:20px; border:1px solid var(--border); border-radius:10px; background:var(--surface); box-shadow:0 1px 2px rgb(24 32 30 / 3%); }
@@ -25,13 +25,6 @@
 .bar { fill:var(--accent); }
 .gridline { stroke:var(--border); stroke-width:1; }
 .chartLabel { fill:var(--text-secondary); font-size:14px; }
-.disclosure { color:var(--text-secondary); font-size:12px; }
-.disclosure summary { cursor:pointer; min-height:44px; display:list-item; align-content:center; }
-.disclosure summary span { float:right; font-size:11px; }
-.definitions { margin:4px 0; display:grid; gap:12px; }
-.definitions dt { color:var(--text-primary); font-weight:600; }
-.definitions dd { margin:4px 0 0; line-height:1.6; }
-.disclosure p { line-height:1.6; }
 .dataScroll { max-height:240px; overflow:auto; border:1px solid var(--border); border-radius:8px; }
 .dataScroll table { width:100%; text-align:left; border-collapse:collapse; font-size:12px; }
 .dataScroll caption { text-align:left; padding:10px; }
@@ -62,8 +55,6 @@
 .empty { display:flex; align-items:center; gap:12px; padding:20px 0 8px; min-height:76px; }
 .emptyIcon { display:grid; place-items:center; width:36px; height:36px; flex:none; border:1px solid var(--border); border-radius:8px; background:var(--surface-subtle); color:var(--text-secondary); }
 .empty p { margin:0; font-size:13px; }
-.connectionDetails summary { cursor:pointer; min-height:44px; align-content:center; }
-.connectionDetails p { margin:0; padding:0 0 8px; max-width:60ch; line-height:1.5; }
 .integration > a { margin-left:auto; }
 
 .production { display:flex; flex-wrap:wrap; gap:12px 20px; align-items:center; padding:14px 18px; border:1px solid var(--border); border-radius:8px; background:var(--surface); font-size:12px; color:var(--text-secondary); }

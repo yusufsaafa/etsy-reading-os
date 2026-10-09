@@ -22,7 +22,7 @@ it("uses UTC calendar days across daylight saving and local offsets",()=>{expect
 it("renders exactly four compact KPIs, range links and accessible definitions",()=>{
   const markup=html(business),overview=markup.match(/<section aria-label="Operational overview">([\s\S]*?)<\/section>/)![1];
   expect(overview.match(/<dt>/g)).toHaveLength(4);for(const label of ["Orders","Generated Orders","Issues","Avg AI Execution"])expect(overview).toContain(label);
-  expect(overview).toContain("8.4s");expect(overview).not.toContain("<p>");expect(markup).toContain("<summary>Metric definitions</summary>");expect(markup).toContain("2 eligible samples");
+  expect(overview).toContain("8.4s");expect(markup).not.toContain("<details");for(const label of ["Orders","Generated Orders","Issues","Avg AI Execution"])expect(overview).toContain(`aria-label="${label} definition"`);expect(markup).toContain("2 eligible samples");
   expect(markup).toContain('aria-label="Dashboard date range"');for(const range of [7,30,90])expect(markup).toContain(`href="/?range=${range}"`);
   expect(markup).toMatch(/<a[^>]*aria-current="page"[^>]*href="\/\?range=7"|<a[^>]*href="\/\?range=7"[^>]*aria-current="page"/);
 });
@@ -34,7 +34,7 @@ it("zero orders retain all core sections with compact empty states and one guida
   expect(markup).not.toContain('viewBox="0 0 600 170"');expect(markup).not.toContain("<ol");expect(markup).not.toContain("0.0s");
 });
 it("business overview shows real chart values, ranking and lifetime order links",()=>{
-  const markup=html(business);expect(markup).toContain('data-layout="unified"');expect(markup).toContain("Order Activity");expect(markup).toContain('viewBox="0 0 600 170"');expect(markup).toContain("<summary>Daily values");expect(markup).toContain("2026-10-03");expect(markup).toContain("Today is partial");expect(markup).toContain("Love Reading");expect(markup).toContain('href="/orders/order-id"');expect(markup).toContain('href="/orders"');expect(markup).toContain("All clear");expect(markup).not.toContain("Production Overview");
+  const markup=html(business);expect(markup).toContain('data-layout="unified"');expect(markup).toContain("Order Activity");expect(markup).toContain('viewBox="0 0 600 170"');expect(markup).toContain('aria-label="Daily values · Today is partial"');expect(markup).toContain("2026-10-03");expect(markup).toContain("Today is partial");expect(markup).toContain("Love Reading");expect(markup).toContain('href="/orders/order-id"');expect(markup).toContain('href="/orders"');expect(markup).toContain("All clear");expect(markup).not.toContain("Production Overview");
 });
 it("attention remains prominent in its fixed position independent of range activity",()=>{
   const markup=html({...business,metrics:{...business.metrics,attention:1},attention:[row],analytics:{...empty.analytics}});
@@ -94,6 +94,6 @@ it("renders five recent purchases, ranked listings and attention using isolated 
   expect(markup).toContain('aria-label="Review order 2001"');expect(markup).toContain('width:60%');expect(markup).toContain("Order Activity</h2>");
 });
 it("keeps integration guidance in a keyboard and touch-accessible compact disclosure",()=>{
-  const markup=html(empty);expect(markup).toContain("<summary>Connection details</summary>");expect(markup).toContain("Live updates are not enabled");
+  const markup=html(empty);expect(markup).toContain('aria-label="Connection details"');expect(markup).not.toContain("<summary");expect(markup).toContain("Live updates are not enabled");
   const css=readFileSync("src/components/dashboard.module.css","utf8");expect(css).toContain("align-items:stretch");expect(css).toContain("min-height:122px");expect(css).not.toContain("!important");
 });

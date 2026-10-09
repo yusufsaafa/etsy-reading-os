@@ -1,0 +1,12 @@
+.trigger,.iconTrigger { font:inherit; font-size:12px; color:var(--accent-hover); border:0; border-radius:8px; background:transparent; cursor:pointer; min-height:44px; padding:8px; }
+.iconTrigger { min-width:44px; padding:0; font-size:16px; vertical-align:middle; }
+.trigger:hover,.iconTrigger:hover { background:var(--accent-subtle); }
+.panel,.modal { color:var(--text-primary); background:var(--surface); border:1px solid var(--border); border-radius:10px; box-shadow:0 8px 28px rgb(24 32 30 / 12%); padding:16px; font-size:13px; line-height:1.6; overflow:auto; overflow-wrap:anywhere; }
+.panel { position:fixed; inset:auto; margin:0; width:320px; max-width:calc(100vw - 24px); max-height:calc(100dvh - 24px); }
+.modal { width:680px; max-width:calc(100vw - 32px); max-height:calc(100dvh - 32px); }
+.modal::backdrop { background:rgb(24 32 30 / 35%); }
+.heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.heading button { min-width:44px; min-height:44px; border:0; border-radius:8px; background:var(--surface-subtle); color:var(--text-primary); cursor:pointer; font-size:22px; }
+.panel p,.modal p { margin:8px 0; }
+.trigger:focus-visible,.iconTrigger:focus-visible,.panel:focus-visible,.heading button:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+@media(prefers-reduced-motion:reduce) { .panel,.modal { animation:none; transition:none; } }
