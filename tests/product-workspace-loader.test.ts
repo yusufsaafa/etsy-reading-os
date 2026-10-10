@@ -1,0 +1,25 @@
+import {beforeEach,it,expect,vi} from "vitest";
+import {createElement,type ReactElement} from "react";
+import {ProductConfiguration} from "../src/components/products/configuration";
+import {configurationHref} from "../src/modules/products/workspace-navigation";
+import {productsFixture} from "./fixtures/products-list";
+const m=vi.hoisted(()=>({data:vi.fn(),owner:vi.fn(),listing:vi.fn(),catalog:vi.fn(),pdf:vi.fn(),designs:vi.fn()}));
+vi.mock("@/db/client",()=>({database:()=>({})}));
+vi.mock("@/modules/products/workspace",()=>({productWorkspaceData:m.data}));
+vi.mock("@/modules/identity/service",()=>({authorizeStore:m.owner,AccessDenied:class extends Error{}}));
+vi.mock("@/modules/catalog/detail",()=>({readListingDetail:m.listing}));
+vi.mock("@/modules/catalog/read",()=>({savedSetupCatalog:m.catalog}));
+vi.mock("@/modules/documents/service",()=>({resolveDocumentDesignForProduct:m.pdf,listDocumentDesigns:m.designs}));
+vi.mock("@/components/products/configuration-workspace",()=>({ProductWorkspace:()=>createElement('div')}));
+vi.mock("@/components/products/configuration-pdf",()=>({ProductPdfAppearance:()=>createElement('div')}));
+import {AccessDenied} from "../src/modules/identity/service";
+import type {Scope} from "../src/modules/intake/contracts";
+const scope={userId:'owner',storeId:'store',organizationId:'org'} as Scope,id='11111111-1111-4111-8111-111111111111';
+beforeEach(()=>{vi.clearAllMocks();const data=productsFixture();data.items[0].configuration.choices[0].productId=id;m.listing.mockResolvedValue({item:data.items[0],status:data.status});m.catalog.mockResolvedValue(undefined);m.pdf.mockResolvedValue({status:'SETUP_REQUIRED'});m.designs.mockResolvedValue([]);m.owner.mockResolvedValue(scope);m.data.mockResolvedValue({product:{id,name:'Love'},draft:{id:'draft',versionNumber:2,revision:1,configuration:{inputs:[],sections:[],output:null,workflow:'ASSISTED',etsyFulfillment:{contractVersion:'etsy-product-policy/v1',listingId:'123',fulfillment:'READING',purchaseSelections:[{propertyId:'100',valueIds:['200']}],inputMappings:[]}}},active:null,bindings:[{listingExternalId:'123',variantKey:'etsy-selection/1:100=201'},{listingExternalId:'123',variantKey:'etsy-selection/1:100=200'}],associationsLimited:false});});
+async function props(query={}){return (await ProductConfiguration({scope,productId:id,query}) as ReactElement<Record<string,unknown>>).props;}
+it('uses an owned exact policy by default rather than the first same-listing mapping',async()=>{const p=await props();expect(p.bindingKey).toBe('etsy-selection/1:100=200');expect(p.listingTitle).toContain('Love');expect(m.owner).toHaveBeenCalledWith({},scope.userId,scope.storeId,true);expect(m.listing).toHaveBeenCalledOnce();});
+it('specific owned choice context survives while forged context cannot select another listing',async()=>{expect((await props({listing:'123',choice:'etsy-selection/1:100=201',returnTo:'/products?page=3&section=7'})).bindingKey).toBe('etsy-selection/1:100=201');const p=await props({listing:'999',choice:'other',returnTo:'https://evil.test'});expect(p.bindingKey).toBe('etsy-selection/1:100=200');expect(p.returnHref).toBe('/products');expect(m.listing).not.toHaveBeenCalledWith(expect.anything(),scope,'999');});
+it('stale/partial choice evidence is not presented as verified context',async()=>{const d=await m.listing();d.item.configuration.state='PARTIAL';m.listing.mockResolvedValue(d);expect((await props()).choice).toBeUndefined();d.item.configuration.state='VERIFIED';d.item.configuration.choices[0].productId='other';expect((await props()).choice).toBeUndefined();});
+it('operator can read configuration without assignment-library or publication permissions',async()=>{m.owner.mockRejectedValue(new AccessDenied());expect((await props()).canEdit).toBe(false);expect(m.designs).not.toHaveBeenCalled();});
+it('owned reads deny foreign Products and unexpected storage failures are not swallowed',async()=>{m.data.mockRejectedValue(new AccessDenied());await expect(props()).rejects.toThrow(AccessDenied);m.data.mockRejectedValue(new Error('database unavailable'));await expect(props()).rejects.toThrow('database unavailable');});
+it('invalid explicit PDF resolution remains an issue instead of inherited fallback',async()=>{m.pdf.mockRejectedValue(new Error('DOCUMENT_DESIGN_UNAVAILABLE'));const p=await props();expect(p.pdfLabel).toBe('Needs attention');expect((p.pdfContent as ReactElement<{resolution:{status:string}}>).props.resolution.status).toBe('INVALID');expect(configurationHref(id,{tab:'pdf'})).toContain('tab=pdf');});

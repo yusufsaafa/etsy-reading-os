@@ -106,3 +106,18 @@
 .exitDialog p { font-size:14px; line-height:1.6; }
 @media(max-width:1100px) { .mappingDiagram { grid-template-columns:minmax(0,1fr); } .mappingArrow { transform:none; font-size:0; } .mappingArrow:before { content:"↓"; font-size:20px; } }
 @media(max-width:600px) { .sectionHeading { flex-direction:column; gap:4px; } }
+
+/* Product workspace: one mounted draft, compact aligned editor. */
+.configurationEditor { max-width:920px; min-width:0; }
+.configurationEditor [hidden] { display:none!important; }
+.editorGroup { display:grid; gap:16px; min-width:0; }
+.configurationEditor .editor,.configurationEditor .editorFields,.configurationEditor .setupMain { gap:16px; }
+.configurationEditor .editor section { padding:20px; }
+.configurationEditor .publish { background:var(--surface-subtle); }
+.configurationEditor .editorGroup>label { padding:20px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md); }
+.configurationEditor .caption { line-height:1.5; margin-bottom:8px; }
+.configurationEditor .definition { margin:12px 0; }
+.configurationEditor .choice { padding:12px; }
+@media(max-width:600px) { .configurationEditor .editor section,.configurationEditor .editorGroup>label { padding:16px; } }
+
+.appearanceLink { display:inline-flex; align-items:center; gap:6px; margin-top:8px; }

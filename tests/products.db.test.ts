@@ -150,3 +150,15 @@ it("explicit legacy v3 republication pins title without changing exact eligibili
  await expect(db.update(schema.productVersions).set({configuration:{...configuration,productMetadata:{contractVersion:"product-metadata/v1",title:"rewrite"}}}).where(eq(schema.productVersions.id,v3.id))).rejects.toThrow();
  for(const table of [schema.orders,schema.units,schema.generations])expect(await db.select().from(table)).toHaveLength(0);
 });
+
+it("workspace reads only the owned current versions and preserves one shared revision across setup/generation edits",async()=>{
+ const {productWorkspaceData}=await import("../src/modules/products/workspace");const d=await publish();const version=await editProduct(db,a,d.id);
+ let data=await productWorkspaceData(db,a,d.id);expect(data.active?.id).toBe(d.version.id);expect(data.draft?.id).toBe(version);
+ const first=await saveProductDraft(db,a,d.id,version,0,{name:"Updated inputs",configuration:{...data.draft!.configuration,inputs:valid().inputs.map(f=>({...f,helpText:"Updated setup note"}))}});
+ const second=await saveProductDraft(db,a,d.id,version,first.revision,{name:"Updated inputs",configuration:{...first.configuration,workflow:"MANUAL",output:"PDF",fulfillment:{priorityClass:"EXPRESS",targetCompletionMinutes:60}}});
+ data=await productWorkspaceData(db,a,d.id);expect(data.draft?.revision).toBe(2);expect(data.draft?.configuration.inputs.every(f=>f.helpText==="Updated setup note")).toBe(true);expect(data.draft?.configuration).toMatchObject({workflow:"MANUAL",output:"PDF",fulfillment:{targetCompletionMinutes:60}});
+ expect(data.active?.configuration.workflow).toBe("ASSISTED");await expect(saveProductDraft(db,a,d.id,version,0,{name:"Stale",configuration:valid()})).rejects.toThrow("STALE_PRODUCT_DRAFT");
+ await expect(productWorkspaceData(db,b,d.id)).rejects.toThrow();await expect(productWorkspaceData(db,{...a,userId:b.userId},d.id)).rejects.toThrow();
+ await activateProduct(db,a,d.id,version,second.revision);expect((await productWorkspaceData(db,a,d.id)).draft).toBeUndefined();expect((await productWorkspaceData(db,a,d.id)).active?.id).toBe(version);
+ for(const table of [schema.orders,schema.units,schema.generations])expect(await db.select().from(table)).toHaveLength(0);
+});

@@ -17,6 +17,7 @@ import { Heading, Badge } from "../ui";
 import { ProductEditor } from "./editor";
 import { createProductEdit } from "./actions";
 export async function ProductSetup({scope,productId,onboarding=false}:{scope:Scope;productId:string;onboarding?:boolean}) {
+ if(!onboarding){const {ProductConfiguration}=await import("./configuration");return ProductConfiguration({scope,productId,query:{tab:"setup"}});}
  const data=await productData(database(),scope,productId),catalog=await catalogData(database(),scope);
  const policy=data.draft?.configuration.etsyFulfillment??data.active?.configuration.etsyFulfillment;
  const setupCatalog=policy?await getSavedEtsySetupCatalog(database(),scope,policy.listingId).catch(()=>undefined):undefined;

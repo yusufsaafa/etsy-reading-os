@@ -80,3 +80,7 @@ Products now uses the bounded cached catalog for Shop Sections, global search/se
 ## Listing Detail — Milestone 5.3
 
 Products List now opens a listing-level workspace with exact current purchase options, evidence-aware configuration/Product/PDF counts, per-option setup navigation and safe return context. Unknown inventory remains separate from previously configured mappings. See [Listing Detail behavior and acceptance](docs/LISTING_DETAIL_MILESTONE5_3.md).
+
+### Product Configuration workspace — Milestone 5.4
+
+Products now leads from compact Listing Detail purchase options into a Product-scoped configuration workspace with Overview, Product Setup, Generation Settings, PDF Appearance and existing validation evidence. Setup and Generation share one revision-checked draft; PDF assignment remains separate. See [implementation and local acceptance](docs/PRODUCT_CONFIGURATION_MILESTONE5_4.md).

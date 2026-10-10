@@ -87,3 +87,7 @@ Source-aware activation approves one exact listing/property/value combination. L
 ## Approved title snapshot — Generation/PDF Integration Part 1
 
 Publication now pins bounded `productMetadata` (`product-metadata/v1`) into the existing immutable configuration. Its title is always derived server-side from the owner-approved Product name, overriding caller-supplied metadata. Later draft renames cannot change that published title. Legacy versions are not backfilled: they resolve explicitly to “Personalized reading” with LEGACY_FALLBACK provenance until an owner explicitly republishes. Existing purchased line titles are retained on replay; documents no longer depend on those titles. See GENERATION_PDF_INTEGRATION_PART1.md.
+
+## Operational workspace (Milestone 5.4)
+
+`/products/<Product UUID>/configuration` is the canonical five-tab workspace. Legacy Setup and operational PDF Appearance deep links redirect here. Product Setup and Generation Settings retain one mounted ProductVersion draft, expected revision and explicit publication command. PDF design assignment stays separate. Member reads and owner writes preserve existing persisted authorization. Listing and exact-choice navigation context cannot replace owned mapping evidence. See [workspace behavior, limits and acceptance](PRODUCT_CONFIGURATION_MILESTONE5_4.md).

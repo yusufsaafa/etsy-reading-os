@@ -67,3 +67,7 @@ Product Configuration redesign, Readiness workspace, automatic catalog refresh, 
 - `tests/fixtures/products-list.ts`
 - `tests/products-list.test.ts`
 - `tests/listing-detail.test.ts`
+
+## Milestone 5.4 refinement
+
+Purchase Options now uses compact dimension/value rows, concise setup badges with adjacent InformationPopover disclosures and consistent Product Configuration actions. Existing inventory verification, exact matching and PDF evidence semantics are unchanged. At 1440px, six ordinary two-dimension fixture rows measured 69–70px; tablet/mobile use stacked operational records. See [5.4 acceptance and screenshots](PRODUCT_CONFIGURATION_MILESTONE5_4.md).
