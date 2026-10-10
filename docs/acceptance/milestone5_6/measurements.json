@@ -1,0 +1,494 @@
+[
+  {
+    "screen": "detail",
+    "state": "ready",
+    "size": "desktop",
+    "rows": [
+      69.6953125,
+      69.6953125,
+      69.6953125,
+      69.6953125,
+      69.6953125,
+      69.1953125
+    ],
+    "scroll": 1440,
+    "width": 1440
+  },
+  {
+    "screen": "detail",
+    "state": "mixed",
+    "size": "desktop",
+    "rows": [
+      69.6953125,
+      69.6953125,
+      69.6953125,
+      69,
+      69,
+      69.1953125
+    ],
+    "scroll": 1440,
+    "width": 1440
+  },
+  {
+    "screen": "detail",
+    "state": "unconnected",
+    "size": "desktop",
+    "rows": [
+      69,
+      69,
+      69,
+      69,
+      69,
+      68.5
+    ],
+    "scroll": 1440,
+    "width": 1440
+  },
+  {
+    "screen": "detail",
+    "state": "unknown",
+    "size": "desktop",
+    "rows": [],
+    "scroll": 1440,
+    "width": 1440
+  },
+  {
+    "screen": "detail",
+    "state": "draft",
+    "size": "desktop",
+    "rows": [
+      69.6953125,
+      69.6953125,
+      69.6953125,
+      69.6953125,
+      69.6953125,
+      69.1953125
+    ],
+    "scroll": 1440,
+    "width": 1440
+  },
+  {
+    "screen": "detail",
+    "state": "paused",
+    "size": "desktop",
+    "rows": [
+      69.6953125,
+      69.6953125,
+      69.6953125,
+      69.6953125,
+      69.6953125,
+      69.1953125
+    ],
+    "scroll": 1440,
+    "width": 1440
+  },
+  {
+    "screen": "detail",
+    "state": "ready",
+    "size": "tablet",
+    "rows": [
+      210.796875,
+      210.796875,
+      210.796875,
+      210.796875,
+      210.796875,
+      210.796875
+    ],
+    "scroll": 768,
+    "width": 768
+  },
+  {
+    "screen": "detail",
+    "state": "mixed",
+    "size": "tablet",
+    "rows": [
+      210.796875,
+      210.796875,
+      210.796875,
+      228,
+      228,
+      228
+    ],
+    "scroll": 768,
+    "width": 768
+  },
+  {
+    "screen": "detail",
+    "state": "unconnected",
+    "size": "tablet",
+    "rows": [
+      228,
+      228,
+      228,
+      228,
+      228,
+      228
+    ],
+    "scroll": 768,
+    "width": 768
+  },
+  {
+    "screen": "detail",
+    "state": "unknown",
+    "size": "tablet",
+    "rows": [],
+    "scroll": 768,
+    "width": 768
+  },
+  {
+    "screen": "detail",
+    "state": "draft",
+    "size": "tablet",
+    "rows": [
+      228,
+      228,
+      228,
+      228,
+      228,
+      228
+    ],
+    "scroll": 768,
+    "width": 768
+  },
+  {
+    "screen": "detail",
+    "state": "paused",
+    "size": "tablet",
+    "rows": [
+      210.796875,
+      210.796875,
+      210.796875,
+      210.796875,
+      210.796875,
+      210.796875
+    ],
+    "scroll": 768,
+    "width": 768
+  },
+  {
+    "screen": "detail",
+    "state": "ready",
+    "size": "mobile",
+    "rows": [
+      224.796875,
+      224.796875,
+      224.796875,
+      224.796875,
+      224.796875,
+      224.796875
+    ],
+    "scroll": 390,
+    "width": 390
+  },
+  {
+    "screen": "detail",
+    "state": "mixed",
+    "size": "mobile",
+    "rows": [
+      224.796875,
+      224.796875,
+      224.796875,
+      228,
+      228,
+      228
+    ],
+    "scroll": 390,
+    "width": 390
+  },
+  {
+    "screen": "detail",
+    "state": "unconnected",
+    "size": "mobile",
+    "rows": [
+      228,
+      228,
+      228,
+      228,
+      228,
+      228
+    ],
+    "scroll": 390,
+    "width": 390
+  },
+  {
+    "screen": "detail",
+    "state": "unknown",
+    "size": "mobile",
+    "rows": [],
+    "scroll": 390,
+    "width": 390
+  },
+  {
+    "screen": "detail",
+    "state": "draft",
+    "size": "mobile",
+    "rows": [
+      228,
+      228,
+      228,
+      228,
+      228,
+      228
+    ],
+    "scroll": 390,
+    "width": 390
+  },
+  {
+    "screen": "detail",
+    "state": "paused",
+    "size": "mobile",
+    "rows": [
+      224.796875,
+      224.796875,
+      224.796875,
+      224.796875,
+      224.796875,
+      224.796875
+    ],
+    "scroll": 390,
+    "width": 390
+  },
+  {
+    "screen": "list",
+    "state": "ready",
+    "size": "desktop",
+    "scroll": 1440,
+    "width": 1440
+  },
+  {
+    "screen": "list",
+    "state": "mixed",
+    "size": "desktop",
+    "scroll": 1440,
+    "width": 1440
+  },
+  {
+    "screen": "list",
+    "state": "unconnected",
+    "size": "desktop",
+    "scroll": 1440,
+    "width": 1440
+  },
+  {
+    "screen": "list",
+    "state": "unknown",
+    "size": "desktop",
+    "scroll": 1440,
+    "width": 1440
+  },
+  {
+    "screen": "list",
+    "state": "draft",
+    "size": "desktop",
+    "scroll": 1440,
+    "width": 1440
+  },
+  {
+    "screen": "list",
+    "state": "paused",
+    "size": "desktop",
+    "scroll": 1440,
+    "width": 1440
+  },
+  {
+    "screen": "list",
+    "state": "ready",
+    "size": "tablet",
+    "scroll": 768,
+    "width": 768
+  },
+  {
+    "screen": "list",
+    "state": "mixed",
+    "size": "tablet",
+    "scroll": 768,
+    "width": 768
+  },
+  {
+    "screen": "list",
+    "state": "unconnected",
+    "size": "tablet",
+    "scroll": 768,
+    "width": 768
+  },
+  {
+    "screen": "list",
+    "state": "unknown",
+    "size": "tablet",
+    "scroll": 768,
+    "width": 768
+  },
+  {
+    "screen": "list",
+    "state": "draft",
+    "size": "tablet",
+    "scroll": 768,
+    "width": 768
+  },
+  {
+    "screen": "list",
+    "state": "paused",
+    "size": "tablet",
+    "scroll": 768,
+    "width": 768
+  },
+  {
+    "screen": "list",
+    "state": "ready",
+    "size": "mobile",
+    "scroll": 390,
+    "width": 390
+  },
+  {
+    "screen": "list",
+    "state": "mixed",
+    "size": "mobile",
+    "scroll": 390,
+    "width": 390
+  },
+  {
+    "screen": "list",
+    "state": "unconnected",
+    "size": "mobile",
+    "scroll": 390,
+    "width": 390
+  },
+  {
+    "screen": "list",
+    "state": "unknown",
+    "size": "mobile",
+    "scroll": 390,
+    "width": 390
+  },
+  {
+    "screen": "list",
+    "state": "draft",
+    "size": "mobile",
+    "scroll": 390,
+    "width": 390
+  },
+  {
+    "screen": "list",
+    "state": "paused",
+    "size": "mobile",
+    "scroll": 390,
+    "width": 390
+  },
+  {
+    "screen": "workspace",
+    "state": "ready",
+    "size": "desktop",
+    "handoff": "Configuration readyPublished configuration checks pass. Runtime availability and future orders are not guaranteed.Go to Orders",
+    "scroll": 1440,
+    "width": 1440
+  },
+  {
+    "screen": "workspace",
+    "state": "unknown",
+    "size": "desktop",
+    "handoff": "Configuration evidence not verifiedA valid draft alone does not complete published setup.Readiness",
+    "scroll": 1440,
+    "width": 1440
+  },
+  {
+    "screen": "workspace",
+    "state": "draft",
+    "size": "desktop",
+    "handoff": "Configuration needs attentionA valid draft alone does not complete published setup.Readiness",
+    "scroll": 1440,
+    "width": 1440
+  },
+  {
+    "screen": "workspace",
+    "state": "paused",
+    "size": "desktop",
+    "handoff": "Configuration ready · Paused mappingPublished configuration checks pass. Paused mappings remain on hold. Runtime availability and future orders are not guaranteed.Go to Orders",
+    "scroll": 1440,
+    "width": 1440
+  },
+  {
+    "screen": "workspace",
+    "state": "ready",
+    "size": "tablet",
+    "handoff": "Configuration readyPublished configuration checks pass. Runtime availability and future orders are not guaranteed.Go to Orders",
+    "scroll": 768,
+    "width": 768
+  },
+  {
+    "screen": "workspace",
+    "state": "unknown",
+    "size": "tablet",
+    "handoff": "Configuration evidence not verifiedA valid draft alone does not complete published setup.Readiness",
+    "scroll": 768,
+    "width": 768
+  },
+  {
+    "screen": "workspace",
+    "state": "draft",
+    "size": "tablet",
+    "handoff": "Configuration needs attentionA valid draft alone does not complete published setup.Readiness",
+    "scroll": 768,
+    "width": 768
+  },
+  {
+    "screen": "workspace",
+    "state": "paused",
+    "size": "tablet",
+    "handoff": "Configuration ready · Paused mappingPublished configuration checks pass. Paused mappings remain on hold. Runtime availability and future orders are not guaranteed.Go to Orders",
+    "scroll": 768,
+    "width": 768
+  },
+  {
+    "screen": "workspace",
+    "state": "ready",
+    "size": "mobile",
+    "handoff": "Configuration readyPublished configuration checks pass. Runtime availability and future orders are not guaranteed.Go to Orders",
+    "scroll": 390,
+    "width": 390
+  },
+  {
+    "screen": "workspace",
+    "state": "unknown",
+    "size": "mobile",
+    "handoff": "Configuration evidence not verifiedA valid draft alone does not complete published setup.Readiness",
+    "scroll": 390,
+    "width": 390
+  },
+  {
+    "screen": "workspace",
+    "state": "draft",
+    "size": "mobile",
+    "handoff": "Configuration needs attentionA valid draft alone does not complete published setup.Readiness",
+    "scroll": 390,
+    "width": 390
+  },
+  {
+    "screen": "workspace",
+    "state": "paused",
+    "size": "mobile",
+    "handoff": "Configuration ready · Paused mappingPublished configuration checks pass. Paused mappings remain on hold. Runtime availability and future orders are not guaranteed.Go to Orders",
+    "scroll": 390,
+    "width": 390
+  },
+  {
+    "screen": "detail",
+    "state": "long",
+    "size": "desktop",
+    "scroll": 1440,
+    "width": 1440
+  },
+  {
+    "screen": "detail",
+    "state": "long",
+    "size": "tablet",
+    "scroll": 768,
+    "width": 768
+  },
+  {
+    "screen": "detail",
+    "state": "long",
+    "size": "mobile",
+    "scroll": 390,
+    "width": 390
+  }
+]

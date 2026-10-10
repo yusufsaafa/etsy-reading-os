@@ -90,3 +90,7 @@ Milestone 5.4.1 repairs unconnected choice navigation with an operational, owner
 ### Product Readiness — Milestone 5.5
 
 The existing configuration Readiness tab now independently assesses saved ACTIVE and DRAFT configurations, exact revision-matched Etsy associations and PDF design resolution using existing authoritative validators. Runtime execution remains unverified. See [contract, boundaries and acceptance evidence](docs/PRODUCT_READINESS_MILESTONE5_5.md).
+
+### Product setup completion — Milestone 5.6
+
+Products now shows bounded published-readiness progress alongside the existing configuration-coverage filters. Listing Detail offers exact-choice corrective navigation, and ready published configuration provides an Orders handoff with runtime limitations. See [projection, semantics and acceptance](docs/PRODUCT_SETUP_COMPLETION_MILESTONE5_6.md).
