@@ -48,3 +48,6 @@
 .table :global(.button) { font-size:12px; padding:8px 10px; min-height:40px; }
 .table .subtext { font-size:11px; margin-top:4px; }
 .table th:first-child { width:27%; }.table th:nth-child(2) { width:19%; }.table th:nth-child(3) { width:18%; }.table th:nth-child(4) { width:16%; }.table th:last-child { width:20%; }
+
+/* Real inventory labels remain complete; disclosure controls never wrap away from their subject. */
+.choiceCell { display:flex; align-items:center; gap:4px; flex-wrap:nowrap; min-width:0; }.choiceCell>button { flex-shrink:0; }.choiceTitle>div { display:block; line-height:1.45; }.choiceTitle strong { font-size:13px; font-weight:550; }.choiceTitle { gap:2px; }.table th:first-child { width:29%; }.table th:nth-child(2) { width:18%; }.table th:nth-child(3) { width:19%; }.table th:nth-child(4) { width:14%; }.table th:last-child { width:20%; }

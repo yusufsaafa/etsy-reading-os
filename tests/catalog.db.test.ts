@@ -88,7 +88,7 @@ it("single default and multi-property choices retain existing exact identity, ne
 });
 it("shared Product mappings deduplicate PDF summary without treating an inexact policy as configured",async()=>{
  await sync();const p=await configured();await db.insert(s.mappings).values({organizationId:a.organizationId,storeId:a.storeId,listingExternalId:"101",variantKey:baseCatalog.configurations[1].key,label:"Second choice",required:[],paused:false,productId:p});
- let view=await readCatalog(db,a);expect(view.items[0].configuration).toMatchObject({total:2,configured:1});expect(view.items[0].pdfAppearance).toMatchObject({state:"UNAVAILABLE"});expect(view.items[0].pdfAppearance.products).toHaveLength(1);expect(view.items[0].configuration.choices.every(c=>c.productId===p&&c.setupHref===`/products/${p}/setup`)).toBe(true);
+ let view=await readCatalog(db,a);expect(view.items[0].configuration).toMatchObject({total:2,configured:1});expect(view.items[0].pdfAppearance).toMatchObject({state:"UNAVAILABLE"});expect(view.items[0].pdfAppearance.products).toHaveLength(1);expect(view.items[0].configuration.choices.every(c=>c.productId===p&&c.setupHref.startsWith(`/products/${p}/configuration?tab=setup`)&&new URL(c.setupHref,"https://test").searchParams.get("choice")===c.key)).toBe(true);
  const d=await createDocumentDesign(db,a,{name:"Classic",configuration:studioPreset("classic")});await setDefaultDocumentDesign(db,a,d.id);view=await readCatalog(db,a);expect(view.items[0].pdfAppearance).toMatchObject({state:"RESOLVED",usesStoreDefault:true});
 });
 it("database ownership constraints reject cross-store sections and catalog references",async()=>{
@@ -157,4 +157,26 @@ it("Listing Detail stays within a constant query budget for 100 exact current ch
 });
 it("Listing Detail preserves an invalid explicit PDF assignment instead of inheriting the valid store default",async()=>{
  await sync();const p=await configured();const fallback=await createDocumentDesign(db,a,{name:"Store Classic",configuration:studioPreset("classic")});await setDefaultDocumentDesign(db,a,fallback.id);const override=await createDocumentDesign(db,a,{name:"Invalid Override",configuration:studioPreset("minimal")});await assignDocumentDesignToProduct(db,a,p,override.id);await db.update(s.documentDesigns).set({revision:1,configuration:{contractVersion:"document-design/v1"} as typeof override.configuration}).where(eq(s.documentDesigns.id,override.id));const detail=await readListingDetail(db,a,"101");expect(detail?.item.pdfAppearance.products[0]).toMatchObject({productId:p,state:"INVALID",source:"PRODUCT",name:null,designId:null});
+});
+
+it("explicit operational choice creation preserves exact identity, is idempotent and denies members/foreign/stale evidence",async()=>{
+ const {beginCatalogChoiceDraft}=await import('../src/modules/products/catalog-setup');
+ await db.update(s.stores).set({onboardingStage:'complete'}).where(eq(s.stores.id,a.storeId));await sync();
+ const before=await db.select().from(s.products);await readListingDetail(db,a,'101');expect(await db.select().from(s.products)).toEqual(before);
+ const choice=baseCatalog.configurations[0];const id=await beginCatalogChoiceDraft(db,a,{listingId:'101',choice:choice.key});
+ expect(await beginCatalogChoiceDraft(db,a,{listingId:'101',choice:choice.key})).toBe(id);expect(await db.select().from(s.products)).toHaveLength(1);
+ const version=(await db.select().from(s.productVersions))[0];expect(version.status).toBe('DRAFT');expect(version.configuration.etsyFulfillment?.purchaseSelections).toEqual(choice.purchaseSelections);
+ const bindings=await db.select().from(s.mappings);expect(bindings).toHaveLength(1);expect(bindings[0].variantKey).toBe(choice.key);
+ await db.insert(s.memberships).values({organizationId:a.organizationId,userId:'member',role:'operator'});
+ await expect(beginCatalogChoiceDraft(db,{...a,userId:'member'},{listingId:'101',choice:baseCatalog.configurations[1].key})).rejects.toThrow();
+ await expect(beginCatalogChoiceDraft(db,b,{listingId:'101',choice:choice.key})).rejects.toThrow();
+ await expect(beginCatalogChoiceDraft(db,a,{listingId:'101',choice:'etsy-selection/1:999=999'})).rejects.toThrow('CHOICE_NOT_VERIFIED');
+ await db.update(s.listingCatalog).set({choicesError:'REFRESH_FAILED'});await expect(beginCatalogChoiceDraft(db,a,{listingId:'101',choice:choice.key})).rejects.toThrow('CHOICE_NOT_VERIFIED');
+ expect(await db.select().from(s.products)).toHaveLength(1);for(const table of [s.orders,s.units,s.generations])expect(await db.select().from(table)).toHaveLength(0);
+});
+it('identically labelled current choices create distinct exact associations and existing drafts are reused',async()=>{
+ const {beginCatalogChoiceDraft}=await import('../src/modules/products/catalog-setup');const {saveProductDraft,productData}=await import('../src/modules/products/service');
+ await db.update(s.stores).set({onboardingStage:'complete'}).where(eq(s.stores.id,a.storeId));const r=reader();r.choices=async()=>({...baseCatalog,configurations:baseCatalog.configurations.map(c=>({...c,displaySelections:c.displaySelections.map(d=>({...d,values:d.values.map(v=>({...v,label:'Same label'}))}))}))});await sync(r);
+ const ids=[];for(const c of baseCatalog.configurations)ids.push(await beginCatalogChoiceDraft(db,a,{listingId:'101',choice:c.key}));expect(new Set(ids).size).toBe(2);
+ const d=await productData(db,a,ids[0]);await saveProductDraft(db,a,ids[0],d.draft!.id,0,{name:'Saved draft',configuration:d.draft!.configuration});expect(await beginCatalogChoiceDraft(db,a,{listingId:'101',choice:baseCatalog.configurations[0].key})).toBe(ids[0]);expect((await productData(db,a,ids[0])).draft?.revision).toBe(1);expect(await db.select().from(s.products)).toHaveLength(2);
 });

@@ -84,3 +84,5 @@ Products List now opens a listing-level workspace with exact current purchase op
 ### Product Configuration workspace — Milestone 5.4
 
 Products now leads from compact Listing Detail purchase options into a Product-scoped configuration workspace with Overview, Product Setup, Generation Settings, PDF Appearance and existing validation evidence. Setup and Generation share one revision-checked draft; PDF assignment remains separate. See [implementation and local acceptance](docs/PRODUCT_CONFIGURATION_MILESTONE5_4.md).
+
+Milestone 5.4.1 repairs unconnected choice navigation with an operational, owner-authorized explicit draft entry and preserves exact purchase-choice and return context. Real-shaped purchase-option rows are compact across desktop, tablet and mobile. See [navigation correction and acceptance](docs/PRODUCT_CONFIGURATION_MILESTONE5_4_1.md).

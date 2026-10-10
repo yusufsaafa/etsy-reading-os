@@ -16,3 +16,10 @@ export function configurationReturnHref(value:unknown,productId:string){
  try{const url=new URL(value,"https://reading-os.invalid");if(url.origin!=="https://reading-os.invalid"||url.pathname!==`/products/${productId}/configuration`||!value.startsWith("/products/")||url.hash)return null;
  return configurationHref(productId,{listingId:url.searchParams.get("listing")??undefined,choice:url.searchParams.get("choice")??undefined,returnTo:url.searchParams.get("returnTo")??undefined,tab:"pdf"});}catch{return null;}
 }
+
+/** Listing-scoped entry before a Product identity exists. Creation is an explicit POST. */
+export function choiceSetupHref(listingId:string,choice?:string,returnTo?:string){
+ const p=new URLSearchParams();if(choice&&choice.length<=2000&&choice.startsWith("etsy-selection/1:"))p.set("choice",choice);
+ const back=productsReturnHref(returnTo);if(back!=="/products")p.set("returnTo",back);
+ return `/products/${encodeURIComponent(listingId)}/configure${p.size?"?"+p.toString():""}`;
+}
