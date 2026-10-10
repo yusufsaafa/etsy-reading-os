@@ -1,0 +1,64 @@
+{
+  "fixtureOnly": true,
+  "nestedEscape": {
+    "parentStayedExpanded": true,
+    "focusReturnedToProposedFieldsTrigger": true
+  },
+  "readOnlyGuidanceAccessible": true,
+  "measurements": [
+    {
+      "name": "copy-success-mobile",
+      "dialogs": [
+        {
+          "clientWidth": 356,
+          "scrollWidth": 356,
+          "width": 358
+        }
+      ],
+      "scrollWidth": 390,
+      "width": 390
+    },
+    {
+      "name": "readiness-mobile",
+      "dialogs": [],
+      "scrollWidth": 390,
+      "width": 390
+    },
+    {
+      "name": "setup-populated-mobile",
+      "dialogs": [],
+      "scrollWidth": 390,
+      "width": 390
+    },
+    {
+      "name": "generation-mobile",
+      "dialogs": [],
+      "scrollWidth": 390,
+      "width": 390
+    },
+    {
+      "name": "pdf-mobile",
+      "dialogs": [],
+      "scrollWidth": 390,
+      "width": 390
+    },
+    {
+      "name": "read-only-mobile",
+      "dialogs": [],
+      "scrollWidth": 390,
+      "width": 390
+    },
+    {
+      "name": "read-only-guidance-mobile",
+      "dialogs": [
+        {
+          "clientWidth": 356,
+          "scrollWidth": 356,
+          "width": 358
+        }
+      ],
+      "scrollWidth": 390,
+      "width": 390
+    }
+  ]
+}

@@ -94,3 +94,7 @@ The existing configuration Readiness tab now independently assesses saved ACTIVE
 ### Product setup completion — Milestone 5.6
 
 Products now shows bounded published-readiness progress alongside the existing configuration-coverage filters. Listing Detail offers exact-choice corrective navigation, and ready published configuration provides an Orders handoff with runtime limitations. See [projection, semantics and acceptance](docs/PRODUCT_SETUP_COMPLETION_MILESTONE5_6.md).
+
+### Guided Product Setup — Milestone 5.7
+
+Configuration now includes contextual guidance and same-Store configuration reuse with explicit ACTIVE/DRAFT selection, read-only preview and confirmed Apply to Draft. Exact Etsy policy, PDF assignment and published versions remain unchanged. See [allowlist, concurrency and acceptance](docs/GUIDED_PRODUCT_SETUP_MILESTONE5_7.md).

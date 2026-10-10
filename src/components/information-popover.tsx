@@ -13,7 +13,7 @@ export function informationPosition(trigger: {left:number;top:number;bottom:numb
 
 /** Native top-layer popover: light-dismiss, Escape and keyboard activation.
  * Long reference content uses a modal dialog instead of a cramped popover. */
-export function InformationPopover({label,children,dialog=false,iconOnly=false,triggerContent,hover=false,title}:{label:string;children:ReactNode;dialog?:boolean;iconOnly?:boolean;triggerContent?:ReactNode;hover?:boolean;title?:string}) {
+export function InformationPopover({label,children,dialog=false,iconOnly=false,triggerContent,hover=false,title,onOpen}:{label:string;children:ReactNode;dialog?:boolean;iconOnly?:boolean;triggerContent?:ReactNode;hover?:boolean;title?:string;onOpen?:()=>void}) {
   const id=useId(),trigger=useRef<HTMLButtonElement>(null),panel=useRef<HTMLDivElement>(null),modal=useRef<HTMLDialogElement>(null);
   const [open,setOpen]=useState(false),hoverOpened=useRef(false),dismissTimer=useRef<ReturnType<typeof setTimeout>|null>(null),suppressFocus=useRef(false);
   function focusTrigger(){suppressFocus.current=true;trigger.current?.focus();suppressFocus.current=false;}
@@ -32,7 +32,7 @@ export function InformationPopover({label,children,dialog=false,iconOnly=false,t
     panel.current.style.left=`${point.left+(bounds?.offsetLeft??0)}px`;
     panel.current.style.top=`${point.top+(bounds?.offsetTop??0)}px`;
   }
-  function restore(){setOpen(false);focusTrigger();}
+  function restore(event?:{stopPropagation:()=>void}){event?.stopPropagation();if(dialog&&modal.current?.open)return;setOpen(false);focusTrigger();}
   useEffect(()=>{
     if(!open||dialog)return;
     window.addEventListener("resize",position);window.addEventListener("scroll",position,true);
@@ -41,7 +41,7 @@ export function InformationPopover({label,children,dialog=false,iconOnly=false,t
   },[open,dialog]);
   return <>
     <button ref={trigger} type="button" className={iconOnly?styles.iconTrigger:styles.trigger} aria-label={label} aria-haspopup="dialog" aria-expanded={open} aria-controls={id} onMouseEnter={reveal} onMouseLeave={deferDismiss} onFocus={reveal} onBlur={deferDismiss}
-      {...(dialog?{onClick:()=>{modal.current?.showModal();setOpen(true);}}:hover?{popoverTarget:id,onClick:(event)=>{event.preventDefault();cancelDismiss();if(panel.current?.matches(":popover-open")&&!hoverOpened.current){panel.current.hidePopover();}else{hoverOpened.current=false;panel.current?.showPopover();position();panel.current?.focus({preventScroll:true});}}}:{popoverTarget:id})}>
+      {...(dialog?{onClick:()=>{modal.current?.showModal();setOpen(true);onOpen?.();}}:hover?{popoverTarget:id,onClick:(event)=>{event.preventDefault();cancelDismiss();if(panel.current?.matches(":popover-open")&&!hoverOpened.current){panel.current.hidePopover();}else{hoverOpened.current=false;panel.current?.showPopover();position();panel.current?.focus({preventScroll:true});}}}:{popoverTarget:id})}>
       {triggerContent??(iconOnly?<Icon name="attention"/>:label)}
     </button>
     {dialog?<dialog ref={modal} id={id} className={styles.modal} aria-label={label} onClose={restore} onClick={event=>{if(event.target===event.currentTarget){const r=event.currentTarget.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)event.currentTarget.close();}}}>

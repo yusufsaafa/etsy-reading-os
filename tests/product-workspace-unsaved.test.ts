@@ -9,3 +9,6 @@ function guard(){const tree=ProductWorkspace(props);return (tree.props.children 
 afterEach(()=>{vi.unstubAllGlobals();state.dirty=true;});
 it('canceling PDF assignment preserves the unsaved shared Product draft',()=>{const confirm=vi.fn(()=>false),preventDefault=vi.fn();vi.stubGlobal('window',{confirm});guard()({preventDefault});expect(confirm).toHaveBeenCalledOnce();expect(preventDefault).toHaveBeenCalledOnce();});
 it('explicit continuation or a saved draft permits the separate PDF assignment',()=>{const confirm=vi.fn(()=>true),preventDefault=vi.fn();vi.stubGlobal('window',{confirm});guard()({preventDefault});expect(preventDefault).not.toHaveBeenCalled();state.dirty=false;confirm.mockClear();guard()({preventDefault});expect(confirm).not.toHaveBeenCalled();});
+
+vi.mock("next/navigation",()=>({useRouter:()=>({refresh:vi.fn()})}));
+vi.mock("@/components/products/reuse-actions",()=>({findConfigurationSources:vi.fn(),previewConfigurationCopy:vi.fn(),applyConfigurationCopy:vi.fn()}));

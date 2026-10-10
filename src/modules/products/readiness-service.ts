@@ -12,7 +12,7 @@ import {selectionKey} from "../etsy/source-contract";
 import {resolveDocumentDesignForProductInTransaction} from "../documents/service";
 import {assessProductReadiness,type ReadinessSnapshot} from "./readiness";
 /** Constant query count, bounded cached evidence, consistent authorized snapshot; zero mutation. */
-export async function readProductConfigurationAssessment(db:Database,scope:Scope,productId:string){return db.transaction(async tx=>{
+export async function readProductConfigurationAssessment(db:Database,scope:Scope,productId:string,assessPdf=false){return db.transaction(async tx=>{
  const data=await productWorkspaceData(tx,scope,productId);
  const [store]=await tx.select({shopId:stores.externalShopId,source:stores.source}).from(stores).where(and(eq(stores.id,scope.storeId),eq(stores.organizationId,scope.organizationId)));
  const policies=[data.active,data.draft].flatMap(v=>{const p=configurationSchema.safeParse(v?.configuration);return p.success&&p.data.etsyFulfillment?[p.data.etsyFulfillment]:[];});
@@ -21,8 +21,8 @@ export async function readProductConfigurationAssessment(db:Database,scope:Scope
  const expected=[...data.bindings.map(b=>({listingId:b.listingExternalId,key:b.variantKey,label:b.label,paused:b.paused,mapped:true})),...policies.filter(p=>!data.bindings.some(b=>b.listingExternalId===p.listingId&&b.variantKey===selectionKey(p.purchaseSelections))).map(p=>({listingId:p.listingId,key:selectionKey(p.purchaseSelections),label:"Policy choice · no association",paused:false,mapped:false}))];
  const choices=savedChoiceEvidence(rows,expected,store.shopId,store.source==="etsy");
  let pdf:ReadinessSnapshot["pdf"]={status:"UNKNOWN"};
- if([data.active,data.draft].some(v=>configurationSchema.safeParse(v?.configuration).data?.output==="PDF"))try{const result=await resolveDocumentDesignForProductInTransaction(tx,scope,productId);pdf=result.status==="RESOLVED"?{status:"RESOLVED",name:result.design.name,source:result.design.source}:{status:"MISSING"};}catch(error){if(error instanceof ZodError||error instanceof AccessDenied||error instanceof Error&&error.message==="DOCUMENT_DESIGN_UNAVAILABLE")pdf={status:"INVALID"};else throw error;}
- return {workspace:data,assessment:assessProductReadiness({productId,storeId:scope.storeId,name:data.product.name,active:data.active??null,draft:data.draft??null,bindings:data.bindings,choices,limited:data.associationsLimited,pdf})};
+ if(assessPdf||[data.active,data.draft].some(v=>configurationSchema.safeParse(v?.configuration).data?.output==="PDF"))try{const result=await resolveDocumentDesignForProductInTransaction(tx,scope,productId);pdf=result.status==="RESOLVED"?{status:"RESOLVED",name:result.design.name,source:result.design.source}:{status:"MISSING"};}catch(error){if(error instanceof ZodError||error instanceof AccessDenied||error instanceof Error&&error.message==="DOCUMENT_DESIGN_UNAVAILABLE")pdf={status:"INVALID"};else throw error;}
+ return {workspace:data,snapshot:{productId,storeId:scope.storeId,name:data.product.name,active:data.active??null,draft:data.draft??null,bindings:data.bindings,choices,limited:data.associationsLimited,pdf} satisfies ReadinessSnapshot,assessment:assessProductReadiness({productId,storeId:scope.storeId,name:data.product.name,active:data.active??null,draft:data.draft??null,bindings:data.bindings,choices,limited:data.associationsLimited,pdf})};
  },{isolationLevel:"repeatable read"});}
 
 export async function readProductReadiness(db:Database,scope:Scope,productId:string){return (await readProductConfigurationAssessment(db,scope,productId)).assessment;}
