@@ -72,3 +72,7 @@ Style Intelligence Part 4 completes the optional Settings workflow: Previous wor
 ## Etsy catalog foundation — Milestone 5.1
 
 Store-owned sections, current listing metadata/thumbnails, manual resumable catalog batches and a bounded search/filter/coverage/PDF read contract are implemented. Page navigation reads cached evidence; no scheduled catalog sync is installed. See [catalog contract, operator guide and limitations](docs/ETSY_CATALOG_MILESTONE5_1.md). No live Etsy import or production migration is part of this milestone.
+
+## Products List — Milestone 5.2
+
+Products now uses the bounded cached catalog for Shop Sections, global search/setup/status filters, operational coverage/PDF summaries and explicit manual sync. Existing configuration, draft and pause/resume workflows remain available. See [Products List behavior, authorization and acceptance](docs/PRODUCTS_LIST_MILESTONE5_2.md).

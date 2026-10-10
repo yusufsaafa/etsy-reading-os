@@ -125,3 +125,7 @@ No live Etsy or native PostgreSQL acceptance; PGlite migration/constraint tests 
 - `tests/product-pdf-navigation.test.ts`
 - `tests/product-picker.test.ts`
 - `tests/product-setup-route.test.ts`
+
+## Products List continuation — Milestone 5.2
+
+The operational Products page now consumes `readCatalog` directly. The additive v1 contract includes global `setup` filtering before pagination, saved-catalog section aggregates, bounded existing-operation summaries and a safe live-claim boolean for manual sync controls. Legacy `catalogPageData` remains available to its existing consumers but no longer powers `/products`. See [Products List behavior and acceptance](PRODUCTS_LIST_MILESTONE5_2.md).

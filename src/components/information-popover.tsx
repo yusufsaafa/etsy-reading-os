@@ -13,9 +13,14 @@ export function informationPosition(trigger: {left:number;top:number;bottom:numb
 
 /** Native top-layer popover: light-dismiss, Escape and keyboard activation.
  * Long reference content uses a modal dialog instead of a cramped popover. */
-export function InformationPopover({label,children,dialog=false,iconOnly=false,triggerContent}:{label:string;children:ReactNode;dialog?:boolean;iconOnly?:boolean;triggerContent?:ReactNode}) {
+export function InformationPopover({label,children,dialog=false,iconOnly=false,triggerContent,hover=false,title}:{label:string;children:ReactNode;dialog?:boolean;iconOnly?:boolean;triggerContent?:ReactNode;hover?:boolean;title?:string}) {
   const id=useId(),trigger=useRef<HTMLButtonElement>(null),panel=useRef<HTMLDivElement>(null),modal=useRef<HTMLDialogElement>(null);
-  const [open,setOpen]=useState(false);
+  const [open,setOpen]=useState(false),hoverOpened=useRef(false),dismissTimer=useRef<ReturnType<typeof setTimeout>|null>(null),suppressFocus=useRef(false);
+  function focusTrigger(){suppressFocus.current=true;trigger.current?.focus();suppressFocus.current=false;}
+  function cancelDismiss(){if(dismissTimer.current)clearTimeout(dismissTimer.current);}
+  function reveal(){if(!hover||dialog||suppressFocus.current)return;cancelDismiss();if(!panel.current?.matches(":popover-open")){hoverOpened.current=true;panel.current?.showPopover();}}
+  function deferDismiss(){if(!hover||!hoverOpened.current)return;cancelDismiss();dismissTimer.current=setTimeout(()=>{if(!panel.current?.contains(document.activeElement)&&document.activeElement!==trigger.current)panel.current?.hidePopover();},200);}
+  useEffect(()=>()=>cancelDismiss(),[]);
   function position(){
     if(!panel.current||!trigger.current)return;
     const bounds=window.visualViewport;
@@ -27,7 +32,7 @@ export function InformationPopover({label,children,dialog=false,iconOnly=false,t
     panel.current.style.left=`${point.left+(bounds?.offsetLeft??0)}px`;
     panel.current.style.top=`${point.top+(bounds?.offsetTop??0)}px`;
   }
-  function restore(){setOpen(false);trigger.current?.focus();}
+  function restore(){setOpen(false);focusTrigger();}
   useEffect(()=>{
     if(!open||dialog)return;
     window.addEventListener("resize",position);window.addEventListener("scroll",position,true);
@@ -35,15 +40,15 @@ export function InformationPopover({label,children,dialog=false,iconOnly=false,t
     return ()=>{window.removeEventListener("resize",position);window.removeEventListener("scroll",position,true);window.visualViewport?.removeEventListener("resize",position);window.visualViewport?.removeEventListener("scroll",position);};
   },[open,dialog]);
   return <>
-    <button ref={trigger} type="button" className={iconOnly?styles.iconTrigger:styles.trigger} aria-label={label} aria-haspopup="dialog" aria-expanded={open} aria-controls={id}
-      {...(dialog?{onClick:()=>{modal.current?.showModal();setOpen(true);}}:{popoverTarget:id})}>
-      {triggerContent??(iconOnly?<span aria-hidden="true">ⓘ</span>:label)}
+    <button ref={trigger} type="button" className={iconOnly?styles.iconTrigger:styles.trigger} aria-label={label} aria-haspopup="dialog" aria-expanded={open} aria-controls={id} onMouseEnter={reveal} onMouseLeave={deferDismiss} onFocus={reveal} onBlur={deferDismiss}
+      {...(dialog?{onClick:()=>{modal.current?.showModal();setOpen(true);}}:hover?{popoverTarget:id,onClick:(event)=>{event.preventDefault();cancelDismiss();if(panel.current?.matches(":popover-open")&&!hoverOpened.current){panel.current.hidePopover();}else{hoverOpened.current=false;panel.current?.showPopover();position();panel.current?.focus({preventScroll:true});}}}:{popoverTarget:id})}>
+      {triggerContent??(iconOnly?<Icon name="attention"/>:label)}
     </button>
     {dialog?<dialog ref={modal} id={id} className={styles.modal} aria-label={label} onClose={restore} onClick={event=>{if(event.target===event.currentTarget){const r=event.currentTarget.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)event.currentTarget.close();}}}>
-      <div className={styles.heading}><strong>{label}</strong><button type="button" autoFocus onClick={()=>modal.current?.close()} aria-label={`Close ${label}`}><Icon name="close"/></button></div>{children}
-    </dialog>:<div ref={panel} id={id} popover="auto" role="dialog" aria-label={label} tabIndex={-1} className={styles.panel} onKeyDown={event=>{if(event.key==="Escape"){event.preventDefault();panel.current?.hidePopover();trigger.current?.focus();}}}
-      onToggle={event=>{const opened=event.newState==="open";setOpen(opened);if(opened){position();panel.current?.focus({preventScroll:true});}else if(document.activeElement===panel.current||panel.current?.contains(document.activeElement))trigger.current?.focus();}}>
-      <div className={styles.heading}><strong>{label}</strong><button type="button" popoverTarget={id} popoverTargetAction="hide" onClick={()=>trigger.current?.focus()} aria-label={`Close ${label}`}><Icon name="close"/></button></div>{children}
+      <div className={styles.heading}><strong>{title??label}</strong><button type="button" autoFocus onClick={()=>modal.current?.close()} aria-label={`Close ${label}`}><Icon name="close"/></button></div>{children}
+    </dialog>:<div ref={panel} id={id} popover="auto" role="dialog" aria-label={label} tabIndex={-1} className={styles.panel} onMouseEnter={cancelDismiss} onMouseLeave={deferDismiss} onFocus={()=>{hoverOpened.current=false;cancelDismiss();}} onBlur={deferDismiss} onKeyDown={event=>{if(event.key==="Escape"){event.preventDefault();panel.current?.hidePopover();focusTrigger();}}}
+      onBeforeToggle={event=>{suppressFocus.current=event.newState==="closed";}} onToggle={event=>{const opened=event.newState==="open";setOpen(opened);if(opened){position();if(!hoverOpened.current)panel.current?.focus({preventScroll:true});}else {hoverOpened.current=false;if(document.activeElement===panel.current||panel.current?.contains(document.activeElement))focusTrigger();suppressFocus.current=false;}}}>
+      <div className={styles.heading}><strong>{title??label}</strong><button type="button" popoverTarget={id} popoverTargetAction="hide" onClick={focusTrigger} aria-label={`Close ${label}`}><Icon name="close"/></button></div>{children}
     </div>}
   </>;
 }

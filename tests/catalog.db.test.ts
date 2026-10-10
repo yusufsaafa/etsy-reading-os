@@ -104,3 +104,31 @@ it("inventory rate limit retains last-good evidence but exposes failed current c
 it("expired claims stop before further external reads, not only before publishing",async()=>{
  const r=reader();const result=await syncCatalog(db,a,{},async()=>{await db.update(s.catalogSync).set({claimUntil:new Date(Date.now()-1)}).where(eq(s.catalogSync.storeId,a.storeId));return r;});expect(result.status).toBe("FAILED");expect(r.sections).not.toHaveBeenCalled();expect(r.listings).not.toHaveBeenCalled();expect(r.choices).not.toHaveBeenCalled();
 });
+it("global coverage filtering precedes pagination/counts and preserves paused, draft-only and exact policy semantics",async()=>{
+ await sync();let view=await readCatalog(db,a,{setup:"none",pageSize:1});expect(view.pagination.total).toBe(1);expect(view.items[0].configuration.configured).toBe(0);
+ const p=await configured();expect((await readCatalog(db,a,{setup:"partial"})).pagination.total).toBe(1);expect((await readCatalog(db,a,{setup:"full"})).pagination.total).toBe(0);
+ await db.update(s.mappings).set({paused:true}).where(eq(s.mappings.productId,p));expect((await readCatalog(db,a,{setup:"partial"})).items[0].configuration.choices[0].paused).toBe(true);
+ const choice=baseCatalog.configurations[1];await beginEtsyProductDraft(db,a,{contractVersion:"etsy-product-policy/v1",fulfillment:"READING",listingId:"101",purchaseSelections:choice.purchaseSelections,inputMappings:[]});expect((await readCatalog(db,a,{setup:"partial"})).items[0].configuration.choices[1].state).toBe("DRAFT");
+ await configured(1);view=await readCatalog(db,a,{setup:"full",section:"7",state:"active",search:"Fictional",sort:"updated_desc",pageSize:1});expect(view.pagination.total).toBe(1);expect(view.items[0].configuration).toMatchObject({configured:2,total:2});
+ expect((await readCatalog(db,b,{setup:"full"})).pagination.total).toBe(0);
+ await db.update(s.listingCatalog).set({choicesError:"RATE_LIMIT"}).where(eq(s.listingCatalog.storeId,a.storeId));expect((await readCatalog(db,a,{setup:"review"})).pagination.total).toBe(1);expect((await readCatalog(db,a,{setup:"full"})).pagination.total).toBe(0);
+});
+it("coverage filters count all matching listings rather than filtering the current page; navigation counts describe saved catalog",async()=>{
+ rows=[listing("101"),listing("102",{shop_section_id:null}),listing("103",{shop_section_id:undefined}),listing("104",{shop_section_id:"99"}),listing("105")];await sync();
+ const view=await readCatalog(db,a,{setup:"none",pageSize:2,page:2});expect(view.items).toHaveLength(2);expect(view.pagination.total).toBe(5);expect(view.sectionCounts).toEqual({all:5,uncategorized:1,unknown:1,missing:1});expect(view.sections.find(s=>s.id==="7")!.catalogCount).toBe(2);
+ await db.update(s.listingCatalog).set({choicesSourceUpdatedAt:99}).where(eq(s.listingCatalog.listingExternalId,"101"));expect((await readCatalog(db,a,{setup:"review",pageSize:1})).pagination.total).toBe(1);expect((await readCatalog(db,a,{setup:"none",pageSize:1,page:2})).pagination.total).toBe(4);
+ expect((await readCatalog(db,a,{setup:"none",section:"uncategorized",state:"active"})).pagination.total).toBe(1);
+});
+it("canonical SQL coverage matches unsorted multi-property published identity; legacy defaults never count",async()=>{
+ const choice={key:"etsy-selection/1:100=200,201;300=400",purchaseSelections:[{propertyId:"300",valueIds:["400"]},{propertyId:"100",valueIds:["201","200"]}],displaySelections:[]};
+ const r=reader();r.choices=async()=>({...baseCatalog,configurations:[choice]});await sync(r);
+ const p=await beginEtsyProductDraft(db,a,{contractVersion:"etsy-product-policy/v1",fulfillment:"READING",listingId:"101",purchaseSelections:choice.purchaseSelections,inputMappings:[]}),[draft]=await db.select().from(s.productVersions).where(eq(s.productVersions.productId,p));
+ await activateProduct(db,a,p,draft.id,0,{name:"Exact",configuration:{...draft.configuration,sections:[{id:"one",title:"Reading",instruction:"Synthetic",sortOrder:0}],output:"TEXT",workflow:"MANUAL"}});
+ expect((await readCatalog(db,a,{setup:"full"})).items[0].configuration).toMatchObject({configured:1,total:1});
+ await db.insert(s.mappings).values({organizationId:a.organizationId,storeId:a.storeId,listingExternalId:"101",variantKey:"default",label:"Historical",required:[],productId:p});
+ await db.update(s.mappings).set({productId:null}).where(eq(s.mappings.variantKey,choice.key));expect((await readCatalog(db,a,{setup:"none"})).pagination.total).toBe(1);
+ r.choices=async()=>({...baseCatalog,configurations:[{key:"etsy-selection/1:",purchaseSelections:[],displaySelections:[]}]});await sync(r);
+ const defaultProduct=await beginEtsyProductDraft(db,a,{contractVersion:"etsy-product-policy/v1",fulfillment:"READING",listingId:"101",purchaseSelections:[],inputMappings:[]}),[defaultDraft]=await db.select().from(s.productVersions).where(eq(s.productVersions.productId,defaultProduct));
+ await activateProduct(db,a,defaultProduct,defaultDraft.id,0,{name:"Default reading",configuration:{...defaultDraft.configuration,sections:[{id:"one",title:"Reading",instruction:"Synthetic",sortOrder:0}],output:"TEXT",workflow:"MANUAL"}});
+ expect((await readCatalog(db,a,{setup:"full"})).items[0].configuration).toMatchObject({configured:1,total:1});
+});

@@ -1,0 +1,68 @@
+import Link from "next/link";
+import type {CatalogData} from "@/modules/catalog/read";
+import {productsHref,type ProductsQuery} from "@/modules/catalog/query";
+import {InformationPopover} from "../information-popover";
+import {Icon} from "../icon";
+import {Badge} from "../ui";
+import {ActionForm} from "../submit";
+import {saveMapping} from "@/app/actions";
+import {startProductSetup} from "./actions";
+import {CatalogSync} from "./catalog-sync";
+import {CatalogThumbnail} from "./catalog-thumbnail";
+import styles from "./catalog-list.module.css";
+type Item=CatalogData["items"][number];
+export function coverageLabel(c:Item["configuration"]){return c.state!=="VERIFIED"?c.state==="PARTIAL"?"Needs review":"Unknown":c.configured===0?"Not configured":`${c.configured}/${c.total} Configured`;}
+export function pdfLabel(pdf:Item["pdfAppearance"]){return pdf.state==="MULTIPLE"?"Multiple designs":pdf.state==="UNKNOWN"?"Unknown":pdf.state==="UNAVAILABLE"?pdf.products.some(p=>p.state==="INVALID")?"Unavailable":"Not assigned":pdf.products[0]?.name??"Unknown";}
+function SetupWarning({item,canConfigure}:{item:Item;canConfigure:boolean}){
+ const c=item.configuration,complete=c.state==="VERIFIED"&&c.configured===c.total;
+ if(complete)return <Badge tone="good">{coverageLabel(c)}</Badge>;
+ return <InformationPopover label={`Complete product setup: ${item.title}`} title="Complete product setup" hover triggerContent={<span className={styles.warning}><Icon name="attention" width={16} height={16}/>{coverageLabel(c)}</span>}>
+  <p>To get the most out of Reading OS, configure all purchase options. Incomplete setup may prevent affected orders from being prepared when new orders arrive.</p>
+  {c.state==="VERIFIED"?<><p><strong>{c.configured} of {c.total} purchase options configured.</strong></p><ul className={styles.choiceList}>{c.choices.map(choice=><li key={choice.key}><span>{choice.label}</span><span className="muted">{choice.state==="CONFIGURED"?choice.paused?"Configured · Paused":"Configured":choice.state==="DRAFT"?"Draft · Setup required":"Setup required"}</span>{canConfigure&&choice.state!=="CONFIGURED"&&<Link href={choice.setupHref} className={styles.choiceLink}>Configure {choice.label}<Icon name="arrow" width={16} height={16}/></Link>}</li>)}</ul></>:<p>Configuration coverage could not be fully verified. The catalog may need to be refreshed. Known options are not a complete current inventory.</p>}
+  {canConfigure&&c.state!=="VERIFIED"&&<Link className="button secondary" href={`/onboarding/products/setup?listing=${item.listingId}`}>Review product setup</Link>}
+ </InformationPopover>;
+}
+function Operations({item,canConfigure}:{item:Item;canConfigure:boolean}){
+ if(!canConfigure)return <span className="small muted">Read only</span>;
+ const products=[...new Map(item.operations.filter(o=>o.productId).map(o=>[o.productId,o])).values()];
+ return <div className={styles.rowActions}>
+ {products.length===1?<Link className="button secondary" href={`/products/${products[0].productId}/setup`}>Open<Icon name="chevron" width={14} height={14}/></Link>:<form action={startProductSetup}><input type="hidden" name="listingId" value={item.listingId}/><input type="hidden" name="variantKey" value="default"/><button className="button secondary">Configure<Icon name="chevron" width={14} height={14}/></button></form>}
+ <InformationPopover label={`Manage configurations: ${item.title}`} dialog triggerContent={<><Icon name="settings"/><span className="sr-only">Manage configurations</span></>}>
+  <p>Manage existing Reading OS Products and purchase-option controls. These mappings do not establish complete current inventory coverage.</p>
+  <Link className="button secondary" href={`/onboarding/products/setup?listing=${item.listingId}`}>Purchase options</Link>
+  {products.map(product=><section className={styles.management} key={product.productId}><h3>{product.name}</h3><p className="small muted">{product.hasPublished?"Published configuration":"Setup required"}{product.hasDraft?" · Draft changes":""}</p><div className={styles.managementLinks}><Link className="button secondary" href={`/products/${product.productId}/setup`}>{product.hasDraft?"Continue draft":"Open setup"}</Link><Link className="button secondary" href={`/products/${product.productId}/document-design`}>PDF appearance</Link></div></section>)}
+  {item.operations.map(binding=><section key={binding.key} className={styles.management}><h3>{binding.label}</h3><p className="small muted">{binding.paused?"Paused":"Not paused"}</p><ActionForm action={saveMapping} label={binding.paused?"Resume product":"Pause product"} secondary><input type="hidden" name="listingId" value={item.listingId}/><input type="hidden" name="variantKey" value={binding.key}/><input type="hidden" name="paused" value={binding.paused?"false":"true"}/></ActionForm></section>)}
+  {item.operationsLimited&&<p>Configuration summaries are limited for this page. Open the relevant product setup to inspect its existing configuration.</p>}
+ </InformationPopover></div>;
+}
+export function ProductsList({data,query,canConfigure,canSync}:{data:CatalogData;query:ProductsQuery;canConfigure:boolean;canSync:boolean}){
+ const counts=data.sectionCounts,sections=data.sections.filter(s=>s.present&&s.title!==null),visible=sections.slice(0,4),pages=Math.max(1,Math.ceil(data.pagination.total/query.pageSize));
+ function sectionLink(key:string,label:string,count:number){return <Link key={key} href={productsHref(query,{section:key,page:1})} aria-current={query.section===key?"page":undefined}><span>{label}</span><span className={styles.count}>{count}</span></Link>;}
+ const empty=counts.all===0?"No Etsy products are available in the catalog yet.":query.search?"No products match your current search.":query.state!=="all"||query.setup!=="all"?"No products match the selected filters.":"No products match this Shop Section.";
+ return <div className={styles.page}>
+ <header className={styles.header}><div><h1>Products</h1><p className="muted">Manage your Etsy listings and reading configurations.</p></div>{canSync&&<CatalogSync state={data.status.state} hasMore={data.status.hasMore} isRunning={data.status.isRunning}/>}</header>
+ <nav className={styles.sections} aria-label="Etsy Shop Sections">{sectionLink("all","All Products",counts.all)}<span className={styles.sectionHeading}>Shop Sections</span>{visible.map(s=>sectionLink(s.id,s.title!,s.catalogCount))}
+ <InformationPopover label="More Shop Sections" triggerContent={<span className={styles.moreLabel}>{sections.find(s=>s.id===query.section)?.title??({uncategorized:"Uncategorized",unknown:"Unknown section",missing:"Missing section"} as Record<string,string>)[query.section]??"More Sections"}<Icon name="chevron" width={14} height={14}/></span>}><nav className={styles.sectionMenu} aria-label="Additional Shop Sections">{sections.map((s,index)=><div key={s.id} className={index<4?styles.mobileSection:undefined}>{sectionLink(s.id,s.title!,s.catalogCount)}</div>)}{sectionLink("uncategorized","Uncategorized",counts.uncategorized)}{sectionLink("unknown","Unknown section",counts.unknown)}{sectionLink("missing","Missing section",counts.missing)}</nav></InformationPopover>
+ <InformationPopover label="Catalog count information" iconOnly><p>Counts represent listings currently saved in this Reading OS catalog, across all statuses. They do not represent complete Etsy shop counts. Partial sync may leave the catalog incomplete.</p><p>Etsy-reported active section counts are separate source information, not these navigation counts.</p></InformationPopover>
+ </nav>
+ <form key={productsHref(query)} action="/products" method="get" role="search" className={styles.toolbar}>
+  <input name="section" type="hidden" value={query.section}/><input name="pageSize" type="hidden" value={query.pageSize}/>
+  <div className={styles.search}><Icon name="search"/><label className="sr-only" htmlFor="product-search">Search products</label><input id="product-search" name="search" type="search" defaultValue={query.search} maxLength={200} placeholder="Search products..."/>{query.search&&<Link aria-label="Clear product search" href={productsHref(query,{search:"",page:1})}><Icon name="close"/></Link>}</div>
+  <label>Etsy status<select name="state" defaultValue={query.state}><option value="all">All Products</option><option value="active">Active</option><option value="draft">Draft</option><option value="inactive">Inactive</option><option value="sold_out">Sold Out</option><option value="expired">Expired</option></select></label>
+  <label>Setup coverage<select name="setup" defaultValue={query.setup}><option value="all">All setup states</option><option value="full">Fully configured</option><option value="partial">Partially configured</option><option value="none">Not configured</option><option value="review">Unknown / Needs review</option></select></label>
+  <label>Sort<select name="sort" defaultValue={query.sort}><option value="updated_desc">Recently Updated</option><option value="title_asc">Title A–Z</option><option value="title_desc">Title Z–A</option></select></label><button className="button secondary" type="submit">Apply</button>
+ </form>
+ <section className={styles.surface} aria-label="Products catalog">
+ {data.items.length?<table className={styles.table}><caption className="sr-only">Etsy listings and Reading OS configuration coverage</caption><thead><tr><th scope="col">Product</th><th scope="col">Etsy status</th><th scope="col">Setup coverage</th><th scope="col">PDF appearance</th><th scope="col">Action</th></tr></thead><tbody>{data.items.map(item=><tr key={item.id}>
+ <td className={styles.identity}><div><CatalogThumbnail src={item.thumbnail}/><div className={styles.title}><h2>{item.title}</h2><span className="small muted">Listing #{item.listingId}{item.configuration.state==="VERIFIED"?` · ${item.configuration.total} purchase ${item.configuration.total===1?"option":"options"}`:""}</span>{item.freshness.present===false&&<span className="small muted">Not observed in last completed sync</span>}</div></div></td>
+ <td data-label="Etsy status"><Badge tone={item.state==="active"?"good":"neutral"}>{({active:"Active",inactive:"Inactive",draft:"Draft",sold_out:"Sold Out",expired:"Expired"} as Record<string,string>)[item.state]??"Unknown"}</Badge></td>
+ <td data-label="Setup coverage"><SetupWarning item={item} canConfigure={canConfigure}/></td>
+ <td data-label="PDF appearance"><span className={styles.pdf}><Icon name="document" width={16} height={16}/>{pdfLabel(item.pdfAppearance)}</span>{item.pdfAppearance.state==="RESOLVED"&&item.pdfAppearance.usesStoreDefault&&<span className={styles.inherited}>Store default</span>}{item.pdfAppearance.state==="UNKNOWN"&&<span className={styles.inherited}>Association coverage unverified</span>}</td>
+ <td data-label="Action"><Operations item={item} canConfigure={canConfigure}/></td>
+ </tr>)}</tbody></table>:<div className={styles.empty}><Icon name="products" width={28} height={28}/><h2>{counts.all===0?"No catalog products yet":"No matching products"}</h2><p className="muted">{empty}</p>{counts.all!==0&&<Link href="/products" className="button secondary">Clear filters</Link>}{counts.all===0&&<p className="small muted">{canSync?"Use Sync Etsy Catalog to retrieve a bounded batch when you are ready.":"The store owner can synchronize the Etsy catalog."}</p>}</div>}
+ </section>
+ <footer className={styles.pagination}><span>{data.pagination.total?`${Math.min((query.page-1)*query.pageSize+1,data.pagination.total)}–${Math.min(query.page*query.pageSize,data.pagination.total)} of ${data.pagination.total} matching products`:"0 matching products"}</span><nav aria-label="Products pagination">{query.page>1?<Link className="button secondary" href={productsHref(query,{page:query.page-1})} rel="prev">Previous</Link>:<button className="button secondary" disabled>Previous</button>}<span>Page {query.page} of {pages}</span>{query.page<pages?<Link className="button secondary" href={productsHref(query,{page:query.page+1})} rel="next">Next</Link>:<button className="button secondary" disabled>Next</button>}</nav></footer>
+ <div className={styles.freshness}><Icon name="history" width={16} height={16}/><span>{({NOT_SYNCED:"Never synced",IN_PROGRESS:"Sync in progress",SUCCEEDED:"Catalog synced",PARTIAL:"Partially synced",FAILED:"Sync failed"} as Record<string,string>)[data.status.state]}</span>{data.status.lastSuccessAt&&<span>Last successful sync: <time dateTime={data.status.lastSuccessAt.toISOString()}>{data.status.lastSuccessAt.toLocaleString("en-US",{dateStyle:"medium",timeStyle:"short",timeZone:"UTC"})} UTC</time></span>}{data.status.lastSuccessAt&&Date.now()-data.status.lastSuccessAt.getTime()>86400000&&<span>Catalog may be outdated</span>}
+ <InformationPopover label="Catalog freshness and sync details"><p>Saved catalog data is not live Etsy availability. Synchronization runs only after an explicit owner action; navigation does not refresh Etsy.</p>{data.status.lastAttemptAt&&<p>Last attempt: {data.status.lastAttemptAt.toISOString()}</p>}{data.status.hasMore&&<p>More data remains. Continue Sync starts the next bounded batch; it does not run automatically.</p>}{data.status.issueDescriptions.map(issue=><p key={issue.code}>{issue.message}</p>)}<p>Unknown and Needs review coverage have not been fully verified. A paused mapping can still be configured.</p><p>Product-specific PDF assignment takes precedence over the store default. An invalid explicit assignment does not fall back.</p></InformationPopover>
+ </div></div>;
+}

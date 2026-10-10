@@ -31,3 +31,10 @@ it("Summary dialog backdrop closes only outside its bounds and supports the nati
  dialog.props.onClick({target:surface,currentTarget:surface,clientX:5,clientY:200});expect(surface.close).toHaveBeenCalledOnce();
  expect(dialog.props.onCancel).toBeUndefined();dialog.props.onClose();expect(invoker.focus).toHaveBeenCalledOnce();
 });
+it("setup hover/focus disclosure does not steal focus; tap promotes it to an actionable keyboard panel",()=>{
+ const tree=nodes(InformationPopover({label:"Complete product setup",children:"Missing VIP",hover:true})),trigger=tree.find(n=>n.type==="button")!,panel=tree.find(n=>n.props.popover==="auto")!;
+ const invoker={focus:vi.fn(),getBoundingClientRect:()=>({left:350,top:200,bottom:244})},surface={style:{},focus:vi.fn(),matches:vi.fn(()=>false),showPopover:vi.fn(),hidePopover:vi.fn(),getBoundingClientRect:()=>({width:320,height:220})};
+ trigger.props.ref.current=invoker;panel.props.ref.current=surface;vi.stubGlobal("window",{innerWidth:390,innerHeight:844});
+ trigger.props.onMouseEnter();expect(surface.showPopover).toHaveBeenCalledOnce();panel.props.onToggle({newState:"open"});expect(surface.focus).not.toHaveBeenCalled();
+ trigger.props.onClick({preventDefault:vi.fn()});expect(surface.focus).toHaveBeenCalledWith({preventScroll:true});const preventDefault=vi.fn();panel.props.onKeyDown({key:"Escape",preventDefault});expect(surface.hidePopover).toHaveBeenCalledOnce();expect(invoker.focus).toHaveBeenCalledOnce();
+});
