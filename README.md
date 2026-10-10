@@ -76,3 +76,7 @@ Store-owned sections, current listing metadata/thumbnails, manual resumable cata
 ## Products List — Milestone 5.2
 
 Products now uses the bounded cached catalog for Shop Sections, global search/setup/status filters, operational coverage/PDF summaries and explicit manual sync. Existing configuration, draft and pause/resume workflows remain available. See [Products List behavior, authorization and acceptance](docs/PRODUCTS_LIST_MILESTONE5_2.md).
+
+## Listing Detail — Milestone 5.3
+
+Products List now opens a listing-level workspace with exact current purchase options, evidence-aware configuration/Product/PDF counts, per-option setup navigation and safe return context. Unknown inventory remains separate from previously configured mappings. See [Listing Detail behavior and acceptance](docs/LISTING_DETAIL_MILESTONE5_3.md).

@@ -1,12 +1,11 @@
 import Link from "next/link";
 import type {CatalogData} from "@/modules/catalog/read";
-import {productsHref,type ProductsQuery} from "@/modules/catalog/query";
+import {productsHref,listingHref,type ProductsQuery} from "@/modules/catalog/query";
 import {InformationPopover} from "../information-popover";
 import {Icon} from "../icon";
 import {Badge} from "../ui";
 import {ActionForm} from "../submit";
 import {saveMapping} from "@/app/actions";
-import {startProductSetup} from "./actions";
 import {CatalogSync} from "./catalog-sync";
 import {CatalogThumbnail} from "./catalog-thumbnail";
 import styles from "./catalog-list.module.css";
@@ -22,11 +21,11 @@ function SetupWarning({item,canConfigure}:{item:Item;canConfigure:boolean}){
   {canConfigure&&c.state!=="VERIFIED"&&<Link className="button secondary" href={`/onboarding/products/setup?listing=${item.listingId}`}>Review product setup</Link>}
  </InformationPopover>;
 }
-function Operations({item,canConfigure}:{item:Item;canConfigure:boolean}){
- if(!canConfigure)return <span className="small muted">Read only</span>;
+function Operations({item,canConfigure,query}:{item:Item;canConfigure:boolean;query:ProductsQuery}){
+ if(!canConfigure)return <div className={styles.rowActions}><Link className="button secondary" href={listingHref(item.listingId,query)}>Open<Icon name="chevron" width={14} height={14}/></Link><span className="small muted">Read only</span></div>;
  const products=[...new Map(item.operations.filter(o=>o.productId).map(o=>[o.productId,o])).values()];
  return <div className={styles.rowActions}>
- {products.length===1?<Link className="button secondary" href={`/products/${products[0].productId}/setup`}>Open<Icon name="chevron" width={14} height={14}/></Link>:<form action={startProductSetup}><input type="hidden" name="listingId" value={item.listingId}/><input type="hidden" name="variantKey" value="default"/><button className="button secondary">Configure<Icon name="chevron" width={14} height={14}/></button></form>}
+ <Link className="button secondary" href={listingHref(item.listingId,query)}>Open<Icon name="chevron" width={14} height={14}/></Link>
  <InformationPopover label={`Manage configurations: ${item.title}`} dialog triggerContent={<><Icon name="settings"/><span className="sr-only">Manage configurations</span></>}>
   <p>Manage existing Reading OS Products and purchase-option controls. These mappings do not establish complete current inventory coverage.</p>
   <Link className="button secondary" href={`/onboarding/products/setup?listing=${item.listingId}`}>Purchase options</Link>
@@ -54,11 +53,11 @@ export function ProductsList({data,query,canConfigure,canSync}:{data:CatalogData
  </form>
  <section className={styles.surface} aria-label="Products catalog">
  {data.items.length?<table className={styles.table}><caption className="sr-only">Etsy listings and Reading OS configuration coverage</caption><thead><tr><th scope="col">Product</th><th scope="col">Etsy status</th><th scope="col">Setup coverage</th><th scope="col">PDF appearance</th><th scope="col">Action</th></tr></thead><tbody>{data.items.map(item=><tr key={item.id}>
- <td className={styles.identity}><div><CatalogThumbnail src={item.thumbnail}/><div className={styles.title}><h2>{item.title}</h2><span className="small muted">Listing #{item.listingId}{item.configuration.state==="VERIFIED"?` · ${item.configuration.total} purchase ${item.configuration.total===1?"option":"options"}`:""}</span>{item.freshness.present===false&&<span className="small muted">Not observed in last completed sync</span>}</div></div></td>
+ <td className={styles.identity}><div><CatalogThumbnail src={item.thumbnail}/><div className={styles.title}><h2><Link href={listingHref(item.listingId,query)}>{item.title}</Link></h2><span className="small muted">Listing #{item.listingId}{item.configuration.state==="VERIFIED"?` · ${item.configuration.total} purchase ${item.configuration.total===1?"option":"options"}`:""}</span>{item.freshness.present===false&&<span className="small muted">Not observed in last completed sync</span>}</div></div></td>
  <td data-label="Etsy status"><Badge tone={item.state==="active"?"good":"neutral"}>{({active:"Active",inactive:"Inactive",draft:"Draft",sold_out:"Sold Out",expired:"Expired"} as Record<string,string>)[item.state]??"Unknown"}</Badge></td>
  <td data-label="Setup coverage"><SetupWarning item={item} canConfigure={canConfigure}/></td>
  <td data-label="PDF appearance"><span className={styles.pdf}><Icon name="document" width={16} height={16}/>{pdfLabel(item.pdfAppearance)}</span>{item.pdfAppearance.state==="RESOLVED"&&item.pdfAppearance.usesStoreDefault&&<span className={styles.inherited}>Store default</span>}{item.pdfAppearance.state==="UNKNOWN"&&<span className={styles.inherited}>Association coverage unverified</span>}</td>
- <td data-label="Action"><Operations item={item} canConfigure={canConfigure}/></td>
+ <td data-label="Action"><Operations item={item} canConfigure={canConfigure} query={query}/></td>
  </tr>)}</tbody></table>:<div className={styles.empty}><Icon name="products" width={28} height={28}/><h2>{counts.all===0?"No catalog products yet":"No matching products"}</h2><p className="muted">{empty}</p>{counts.all!==0&&<Link href="/products" className="button secondary">Clear filters</Link>}{counts.all===0&&<p className="small muted">{canSync?"Use Sync Etsy Catalog to retrieve a bounded batch when you are ready.":"The store owner can synchronize the Etsy catalog."}</p>}</div>}
  </section>
  <footer className={styles.pagination}><span>{data.pagination.total?`${Math.min((query.page-1)*query.pageSize+1,data.pagination.total)}–${Math.min(query.page*query.pageSize,data.pagination.total)} of ${data.pagination.total} matching products`:"0 matching products"}</span><nav aria-label="Products pagination">{query.page>1?<Link className="button secondary" href={productsHref(query,{page:query.page-1})} rel="prev">Previous</Link>:<button className="button secondary" disabled>Previous</button>}<span>Page {query.page} of {pages}</span>{query.page<pages?<Link className="button secondary" href={productsHref(query,{page:query.page+1})} rel="next">Next</Link>:<button className="button secondary" disabled>Next</button>}</nav></footer>

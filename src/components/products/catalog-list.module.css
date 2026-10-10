@@ -66,3 +66,6 @@
 
 .table :global(.badge) { white-space:nowrap; }
 @media(max-width:700px) { .toolbar select { font-size:16px; } }
+
+.title h2 a { color:var(--text-primary); text-decoration:none; }
+.title h2 a:hover { color:var(--accent); text-decoration:underline; }

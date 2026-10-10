@@ -8,6 +8,7 @@ import * as s from "../src/db/schema";
 import {authorizeStore,createWorkspace} from "../src/modules/identity/service";
 import type {Scope} from "../src/modules/intake/contracts";
 import {syncCatalog} from "../src/modules/catalog/sync";
+import {readListingDetail} from "../src/modules/catalog/detail";
 import {readCatalog,savedSetupCatalog} from "../src/modules/catalog/read";
 import {ingestOrder} from "../src/modules/intake/service";
 import {fixtureOrders} from "../src/modules/etsy/fixtures";
@@ -87,7 +88,7 @@ it("single default and multi-property choices retain existing exact identity, ne
 });
 it("shared Product mappings deduplicate PDF summary without treating an inexact policy as configured",async()=>{
  await sync();const p=await configured();await db.insert(s.mappings).values({organizationId:a.organizationId,storeId:a.storeId,listingExternalId:"101",variantKey:baseCatalog.configurations[1].key,label:"Second choice",required:[],paused:false,productId:p});
- let view=await readCatalog(db,a);expect(view.items[0].configuration).toMatchObject({total:2,configured:1});expect(view.items[0].pdfAppearance).toMatchObject({state:"UNAVAILABLE"});expect(view.items[0].pdfAppearance.products).toHaveLength(1);
+ let view=await readCatalog(db,a);expect(view.items[0].configuration).toMatchObject({total:2,configured:1});expect(view.items[0].pdfAppearance).toMatchObject({state:"UNAVAILABLE"});expect(view.items[0].pdfAppearance.products).toHaveLength(1);expect(view.items[0].configuration.choices.every(c=>c.productId===p&&c.setupHref===`/products/${p}/setup`)).toBe(true);
  const d=await createDocumentDesign(db,a,{name:"Classic",configuration:studioPreset("classic")});await setDefaultDocumentDesign(db,a,d.id);view=await readCatalog(db,a);expect(view.items[0].pdfAppearance).toMatchObject({state:"RESOLVED",usesStoreDefault:true});
 });
 it("database ownership constraints reject cross-store sections and catalog references",async()=>{
@@ -131,4 +132,29 @@ it("canonical SQL coverage matches unsorted multi-property published identity; l
  const defaultProduct=await beginEtsyProductDraft(db,a,{contractVersion:"etsy-product-policy/v1",fulfillment:"READING",listingId:"101",purchaseSelections:[],inputMappings:[]}),[defaultDraft]=await db.select().from(s.productVersions).where(eq(s.productVersions.productId,defaultProduct));
  await activateProduct(db,a,defaultProduct,defaultDraft.id,0,{name:"Default reading",configuration:{...defaultDraft.configuration,sections:[{id:"one",title:"Reading",instruction:"Synthetic",sortOrder:0}],output:"TEXT",workflow:"MANUAL"}});
  expect((await readCatalog(db,a,{setup:"full"})).items[0].configuration).toMatchObject({configured:1,total:1});
+});
+
+it("Listing Detail resolves owned inactive/draft listings and rejects missing or cross-store identities",async()=>{
+ await sync();expect((await readListingDetail(db,a,"101"))?.item.listingId).toBe("101");expect(await readListingDetail(db,a,"999")).toBeNull();expect(await readListingDetail(db,b,"101")).toBeNull();expect(await readListingDetail(db,a,"../101")).toBeNull();await expect(readListingDetail(db,{...a,userId:"b"},"101")).rejects.toThrow();
+ for(const state of ["inactive","draft"] as const){await db.update(s.listings).set({state}).where(eq(s.listings.externalId,"101"));expect((await readListingDetail(db,a,"101"))?.item.state).toBe(state);}
+});
+it("Listing Detail preserves exact multidimensional/default/Unicode identities, owned product names and per-product PDF",async()=>{
+ await sync();const p=await configured();const d=await createDocumentDesign(db,a,{name:"Classic",configuration:studioPreset("classic")});await setDefaultDocumentDesign(db,a,d.id);let detail=await readListingDetail(db,a,"101");expect(detail?.item.configuration.choices[0]).toMatchObject({productId:p,productName:"Fictional product",association:"OWNED",state:"CONFIGURED",hasPublished:true});expect(detail?.item.pdfAppearance.products[0]).toMatchObject({name:"Classic",source:"STORE_DEFAULT"});
+ const choice={key:"etsy-selection/1:100=200;300=400",purchaseSelections:[{propertyId:"100",valueIds:["200"]},{propertyId:"300",valueIds:["400"]}],displaySelections:[{propertyId:"100",label:"詳細",values:[{valueId:"200",label:"同じ名前"}]},{propertyId:"300",label:"Delivery",values:[{valueId:"400",label:"Same Hour"}]}]};const r=reader();r.choices=async()=>({...baseCatalog,configurations:[choice,{...choice,key:"etsy-selection/1:100=201;300=400",purchaseSelections:[{propertyId:"100",valueIds:["201"]},{propertyId:"300",valueIds:["400"]}]}]});await sync(r);detail=await readListingDetail(db,a,"101");expect(detail?.item.configuration.choices).toHaveLength(2);expect(detail?.item.configuration.choices[0].displaySelections).toEqual(choice.displaySelections);expect(detail?.item.configuration.choices[0].key).not.toBe(detail?.item.configuration.choices[1].key);
+});
+it("Listing Detail readers cannot cause mutations/network calls and lookup queries are bounded and batched",async()=>{
+ await sync();await configured();await db.insert(s.memberships).values({organizationId:a.organizationId,userId:"member",role:"operator"});const before=await Promise.all([db.select().from(s.products),db.select().from(s.productVersions),db.select().from(s.mappings),db.select().from(s.catalogSync)]);const queries:string[]=[];const observed=drizzle(pg,{schema:s,logger:{logQuery(q){queries.push(q);}}}) as unknown as Database;const network=vi.spyOn(globalThis,"fetch").mockImplementation(()=>{throw Error("NO_NETWORK");});try{const detail=await readListingDetail(observed,{...a,userId:"member"},"101");expect(detail?.item.configuration.total).toBe(2);expect(network).not.toHaveBeenCalled();expect(queries.some(q=>/orders|order_line_items|fulfillment_units/.test(q))).toBe(false);expect(queries.some(q=>q.includes('"listings"')&&q.includes('limit')&&q.includes('"external_id"'))).toBe(true);expect(queries.length).toBeLessThan(18);expect(await Promise.all([db.select().from(s.products),db.select().from(s.productVersions),db.select().from(s.mappings),db.select().from(s.catalogSync)])).toEqual(before);}finally{network.mockRestore();}
+});
+it("Listing Detail cannot render mismatched cached listing evidence or unsafe external URLs",async()=>{
+ await sync();await db.update(s.listingCatalog).set({listingUrl:"https://evil.test/listing/101",thumbnailUrl:"https://evil.test/image.jpg",setupCatalog:{...baseCatalog,listing:{...baseCatalog.listing,id:"999"}}}).where(eq(s.listingCatalog.storeId,a.storeId));const detail=await readListingDetail(db,a,"101");expect(detail?.item.configuration.state).toBe("UNKNOWN");expect(detail?.item.configuration.choices).toEqual([]);expect(detail?.item.etsyUrl).toBeNull();expect(detail?.item.thumbnail).toBeNull();
+});
+it("Listing Detail stays within a constant query budget for 100 exact current choices",async()=>{
+ await sync();await configured();const queries:string[]=[];const observed=drizzle(pg,{schema:s,logger:{logQuery(q){queries.push(q);}}}) as unknown as Database;
+ await readListingDetail(observed,a,"101");const small=queries.length;queries.length=0;
+ const configurations=[baseCatalog.configurations[0],...Array.from({length:99},(_,i)=>({key:`etsy-selection/1:100=${200+i}`,purchaseSelections:[{propertyId:"100",valueIds:[String(200+i)]}],displaySelections:[{propertyId:"100",label:"Detail",values:[{valueId:String(200+i),label:`Choice ${i}`}]}]}))];
+ await db.update(s.listingCatalog).set({setupCatalog:{...baseCatalog,configurations}}).where(eq(s.listingCatalog.storeId,a.storeId));queries.length=0;
+ const detail=await readListingDetail(observed,a,"101");expect(detail?.item.configuration).toMatchObject({state:"VERIFIED",total:100,configured:1});expect(detail?.item.configuration.choices).toHaveLength(100);expect(queries.length).toBe(small);
+});
+it("Listing Detail preserves an invalid explicit PDF assignment instead of inheriting the valid store default",async()=>{
+ await sync();const p=await configured();const fallback=await createDocumentDesign(db,a,{name:"Store Classic",configuration:studioPreset("classic")});await setDefaultDocumentDesign(db,a,fallback.id);const override=await createDocumentDesign(db,a,{name:"Invalid Override",configuration:studioPreset("minimal")});await assignDocumentDesignToProduct(db,a,p,override.id);await db.update(s.documentDesigns).set({revision:1,configuration:{contractVersion:"document-design/v1"} as typeof override.configuration}).where(eq(s.documentDesigns.id,override.id));const detail=await readListingDetail(db,a,"101");expect(detail?.item.pdfAppearance.products[0]).toMatchObject({productId:p,state:"INVALID",source:"PRODUCT",name:null,designId:null});
 });

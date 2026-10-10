@@ -7,6 +7,8 @@ import {configurationSchema,activationErrors} from "../products/contracts";
 import {documentDesignSchema} from "../documents/contracts";
 import {selectionKey} from "../etsy/source-contract";
 import {validateCatalogEvidence} from "./evidence";
+import {safeListingUrl} from "./transport";
+import {safeListingThumbnail} from "../etsy/listing-thumbnail";
 import {coverageFilter} from "./coverage-filter";
 import type {SetupCatalog} from "../etsy/setup-catalog";
 import {catalogQuery} from "./query";
@@ -47,7 +49,7 @@ export async function readCatalog(db:DbExecutor,scope:Scope,raw:unknown={}){
  ]);
  const sync=syncRows[0],storeDefault=designs.find(d=>d.isDefault),productMap=new Map(productRows.map(p=>[p.id,p])),versionMap=new Map(versionRows.map(v=>[v.id,v]));
  const items=rows.map(({listing:l,metadata:m})=>{
-  let catalog:SetupCatalog|null=null;try{if(m?.setupCatalog)catalog=validateCatalogEvidence(m.setupCatalog);}catch{}
+  let catalog:SetupCatalog|null=null;try{if(m?.setupCatalog)catalog=validateCatalogEvidence(m.setupCatalog);if(catalog&&catalog.listing.id!==l.externalId)catalog=null;}catch{}
   const coverage=currentCoverage(catalog,l.sourceUpdatedAt,m?.choicesSourceUpdatedAt??null,m?.choicesError??null);
   const bounded=truncated?{state:"UNKNOWN" as const,total:null,reason:"CONFIGURATION_SUMMARY_LIMIT"}:coverage;
   const listingBindings=bindings.filter(b=>b.listingExternalId===l.externalId),bindingMap=new Map(listingBindings.map(b=>[b.variantKey,b]));
@@ -56,7 +58,7 @@ export async function readCatalog(db:DbExecutor,scope:Scope,raw:unknown={}){
    const parsed=configurationSchema.safeParse(active?.configuration),policy=parsed.success?parsed.data.etsyFulfillment:undefined;
    const configured=!!(product&&active?.status==="ACTIVE"&&active.productId===product.id&&parsed.success&&!activationErrors(parsed.data.productMetadata?.title??product.name,parsed.data).length&&policy?.listingId===l.externalId&&selectionKey(policy.purchaseSelections)===choice.key);
    const draft=product&&versionRows.some(v=>v.productId===product.id&&v.status==="DRAFT"&&v.configuration.etsyFulfillment?.listingId===l.externalId&&selectionKey(v.configuration.etsyFulfillment.purchaseSelections)===choice.key);
-   return {key:choice.key,label:choice.displaySelections.flatMap(p=>p.values.map(v=>v.label)).join(" / ")||"Standard purchase",state:configured?"CONFIGURED" as const:draft?"DRAFT" as const:"UNCONFIGURED" as const,productId:product?.id??null,paused:binding?.paused??false,reason:configured?null:!binding?"MISSING_MAPPING":draft?"DRAFT_ONLY":"NO_EXACT_PUBLISHED_CONFIGURATION",setupHref:product?`/products/${product.id}/setup`:`/onboarding/products/setup?listing=${l.externalId}`};
+   return {purchaseSelections:choice.purchaseSelections,displaySelections:choice.displaySelections,productName:product?.name??null,association:!binding?"MISSING_MAPPING" as const:!binding.productId?"NOT_CONNECTED" as const:!product?"INVALID" as const:"OWNED" as const,hasPublished:!!active,hasDraft:!!draft,key:choice.key,label:choice.displaySelections.flatMap(p=>p.values.map(v=>v.label)).join(" / ")||"Standard purchase",state:configured?"CONFIGURED" as const:draft?"DRAFT" as const:"UNCONFIGURED" as const,productId:product?.id??null,paused:binding?.paused??false,reason:configured?null:!binding?"MISSING_MAPPING":draft?"DRAFT_ONLY":"NO_EXACT_PUBLISHED_CONFIGURATION",setupHref:product?`/products/${product.id}/setup`:`/onboarding/products/setup?listing=${l.externalId}`};
   });
   const pdfProducts=[...new Set(choices.flatMap(c=>c.productId?[c.productId]:[]))];
   const pdf=pdfProducts.map(productId=>{
@@ -65,7 +67,7 @@ export async function readCatalog(db:DbExecutor,scope:Scope,raw:unknown={}){
    return {productId,state:valid?"RESOLVED" as const:design||assignment?"INVALID" as const:"NOT_ASSIGNED" as const,designId:valid?design.id:null,name:valid?design.name:null,source:assignment?"PRODUCT" as const:"STORE_DEFAULT" as const};
   });
   const designIds=new Set(pdf.filter(p=>p.state==="RESOLVED").map(p=>p.designId)),pdfUnknown=bounded.state!=="VERIFIED"||choices.some(c=>!c.productId),pdfState=pdfUnknown?"UNKNOWN":pdf.some(p=>p.state!=="RESOLVED")?"UNAVAILABLE":designIds.size>1?"MULTIPLE":"RESOLVED";
-  return {id:l.id,listingId:l.externalId,title:l.title,state:l.state,sourceUpdatedAt:l.sourceUpdatedAt,thumbnail:m?.thumbnailUrl??null,etsyUrl:m?.listingUrl??null,sourceCreatedAt:m?.sourceCreatedAt??null,
+  return {id:l.id,listingId:l.externalId,title:l.title,state:l.state,sourceUpdatedAt:l.sourceUpdatedAt,thumbnail:safeListingThumbnail(m?.thumbnailUrl),etsyUrl:safeListingUrl(m?.listingUrl,l.externalId),sourceCreatedAt:m?.sourceCreatedAt??null,
    section:{id:m?.sectionId??null,title:sections.find(s=>s.id===m?.sectionId)?.title??null,state:m?.sectionState??"UNKNOWN",verifiedAt:m?.sectionVerifiedAt??null},
    configuration:{...bounded,configured:bounded.state==="VERIFIED"?choices.filter(c=>c.state==="CONFIGURED").length:null,choices,missingChoices:choices.filter(c=>c.state!=="CONFIGURED"),verifiedAt:m?.choicesVerifiedAt??null,lastAttemptAt:m?.choicesAttemptedAt??null},
    pdfAppearance:{state:pdfState,products:pdf,multipleDesigns:designIds.size>1,usesStoreDefault:pdf.some(p=>p.state==="RESOLVED"&&p.source==="STORE_DEFAULT")},

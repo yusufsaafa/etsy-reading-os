@@ -85,3 +85,7 @@ Known limits: live Etsy/current app authorization, native PostgreSQL performance
 - `tests/information-popover-interaction.test.ts`
 - `tests/product-pdf-navigation.test.ts`
 - `tests/products-list.test.ts`
+
+## Listing Detail continuation — Milestone 5.3
+
+The listing title and primary Open action now navigate to the implemented listing workspace and preserve validated list URL context. The existing management dialog and direct setup/draft/PDF/pause/resume workflows remain available. Read-only members can open listing evidence without receiving owner-only configuration controls. See [Listing Detail](LISTING_DETAIL_MILESTONE5_3.md).

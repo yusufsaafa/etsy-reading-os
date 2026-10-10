@@ -19,3 +19,12 @@ export function productsHref(query:ProductsQuery,change:Partial<ProductsQuery>={
  }
  return "/products"+(params.size?"?"+params.toString():"");
 }
+
+/** Only a canonical Products List URL can become a return destination. */
+export function productsReturnHref(value:unknown):string {
+ if(typeof value!=="string"||value.length>3000)return "/products";
+ try {const url=new URL(value,"https://reading-os.invalid");if(url.origin!=="https://reading-os.invalid"||url.pathname!=="/products"||!value.startsWith("/products")||url.hash)return "/products";
+ const params:ProductsParams={};for(const key of url.searchParams.keys()){const values=url.searchParams.getAll(key);params[key]=values.length===1?values[0]:values;}
+ return productsHref(productsQuery(params));}catch{return "/products";}
+}
+export function listingHref(listingId:string,query:ProductsQuery){return `/products/${encodeURIComponent(listingId)}?returnTo=${encodeURIComponent(productsHref(query))}`;}
