@@ -1,3 +1,4 @@
+import {selectionKey} from "../etsy/source-contract";
 import type {Configuration} from "./contracts";
 /** Shared seller readiness checks, browser-safe; server still validates the full runtime schema. */
 export function configurationIssues(name:string,c:Configuration):string[] {
@@ -16,4 +17,12 @@ export function configurationIssues(name:string,c:Configuration):string[] {
   if(c.etsyFulfillment && c.etsyFulfillment.inputMappings.some(m=>!c.inputs.some(i=>i.key===m.inputKey)))
     errors.push("Etsy question mappings must reference configured customer field keys.");
   return errors;
+}
+/** Same publication binding rules, shared by assessment; no mutation or provider calls. */
+export function configurationBindingErrors(c:Configuration,bindings:readonly {listingExternalId:string;variantKey:string}[]):string[]{
+ if(!bindings.length)return ["A valid Etsy product connection is required."];
+ const policy=c.etsyFulfillment;
+ if(policy&&!bindings.some(b=>b.listingExternalId===policy.listingId&&b.variantKey===selectionKey(policy.purchaseSelections)))return ["ETSY_SOURCE_BINDING_MISMATCH"];
+ if(bindings.some(b=>b.variantKey.startsWith("etsy-selection/1:"))&&(!policy||bindings.some(b=>b.listingExternalId!==policy.listingId||b.variantKey!==selectionKey(policy.purchaseSelections))))return ["ETSY_SOURCE_BINDING_MISMATCH"];
+ return [];
 }

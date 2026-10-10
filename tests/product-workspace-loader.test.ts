@@ -1,3 +1,4 @@
+vi.mock("@/modules/products/readiness-service",()=>({readProductConfigurationAssessment:vi.fn(async()=>({workspace:await m.data(),assessment:{contractVersion:"product-readiness/v1"}}))}));
 import {beforeEach,it,expect,vi} from "vitest";
 import {createElement,type ReactElement} from "react";
 import {ProductConfiguration} from "../src/components/products/configuration";

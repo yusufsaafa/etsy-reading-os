@@ -1,3 +1,4 @@
+import {configurationBindingErrors} from "./validation";
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Database, DbExecutor } from "../../db/client";
@@ -101,12 +102,7 @@ export async function activateProduct(db: Database,scope: Scope,productId:string
     const candidateConfiguration=payload?.configuration??version.configuration, name=payload?.name??data.product.name;
     const errors=activationErrors(name,candidateConfiguration); if(errors.length) throw new Error(errors.join(" "));
     const configuration=publishProductMetadata(name,candidateConfiguration);
-    if(!data.bindings.length) throw new Error("A valid Etsy product connection is required.");
-    if(configuration.etsyFulfillment && !data.bindings.some(b=>b.listingExternalId===configuration.etsyFulfillment!.listingId && b.variantKey===selectionKey(configuration.etsyFulfillment!.purchaseSelections)))
-      throw new Error("ETSY_SOURCE_BINDING_MISMATCH");
-    // A canonical source binding cannot silently become a different combination on edit.
-    if(data.bindings.some(b=>b.variantKey.startsWith("etsy-selection/1:")) && (!configuration.etsyFulfillment || data.bindings.some(b=>b.listingExternalId!==configuration.etsyFulfillment!.listingId||b.variantKey!==selectionKey(configuration.etsyFulfillment!.purchaseSelections))))
-      throw new Error("ETSY_SOURCE_BINDING_MISMATCH");
+    const bindingErrors=configurationBindingErrors(configuration,data.bindings);if(bindingErrors.length)throw new Error(bindingErrors[0]);
     for(const binding of data.bindings){
       const [listing]=await tx.select({state:listings.state}).from(listings).where(and(tenantWhere(listings,scope),eq(listings.externalId,binding.listingExternalId)));
       if(listing?.state!=="active") throw new Error("The Etsy listing is no longer active.");

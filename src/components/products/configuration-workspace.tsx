@@ -1,4 +1,6 @@
 "use client";
+import type {ProductReadiness} from "@/modules/products/readiness";
+import {ReadinessWorkspace} from "./readiness";
 import Link from "next/link";
 import {useEffect,useState,type ReactNode} from "react";
 import type {Configuration} from "@/modules/products/contracts";
@@ -6,7 +8,6 @@ import type {SetupCatalog} from "@/modules/etsy/setup-catalog";
 import type {CatalogItem} from "@/modules/catalog/detail";
 import {choiceDimensions} from "@/modules/catalog/detail-model";
 import {productTab,type ProductTab,productTabs} from "@/modules/products/workspace-navigation";
-import {setupReadiness} from "./setup-model";
 import {ProductEditor} from "./editor";
 import {createProductEdit} from "./actions";
 import {InformationPopover} from "../information-popover";
@@ -14,12 +15,12 @@ import {Icon} from "../icon";
 import {Badge} from "../ui";
 import styles from "./configuration-workspace.module.css";
 const tabNames={overview:"Overview",setup:"Product Setup",generation:"Generation Settings",pdf:"PDF Appearance",readiness:"Readiness"};
-export type WorkspaceProps={productId:string;name:string;initial:Configuration;draft:{id:string;revision:number;versionNumber:number}|null;active:{versionNumber:number;activatedAt:Date|null}|null;catalog?:SetupCatalog;canEdit:boolean;initialTab:ProductTab;baseHref:string;returnHref:string;listingHref:string|null;listingTitle:string;choice?:CatalogItem["configuration"]["choices"][number];bindingKey?:string;associations:number;associationsLimited:boolean;pdfLabel:string;pdfContent:ReactNode};
+export type WorkspaceProps={productId:string;name:string;initial:Configuration;draft:{id:string;revision:number;versionNumber:number}|null;active:{versionNumber:number;activatedAt:Date|null}|null;catalog?:SetupCatalog;canEdit:boolean;initialTab:ProductTab;baseHref:string;returnHref:string;listingHref:string|null;listingTitle:string;choice?:CatalogItem["configuration"]["choices"][number];bindingKey?:string;associations:number;associationsLimited:boolean;pdfLabel:string;pdfContent:ReactNode;readiness?:ProductReadiness};
 export function ProductWorkspace(p:WorkspaceProps){
  const [tab,setTab]=useState(p.initialTab),[live,setLive]=useState<{name:string;configuration:Configuration;dirty:boolean;pending:boolean;published:boolean;error?:string}>({name:p.name,configuration:p.initial,dirty:false,pending:false,published:false,error:undefined as string|undefined});
  function select(next:ProductTab){if(next===tab)return;setTab(next);const url=new URL(p.baseHref,window.location.origin);if(next!=="overview")url.searchParams.set("tab",next);window.history.pushState(null,"",url.pathname+url.search);}
  useEffect(()=>{const back=()=>setTab(productTab(new URLSearchParams(window.location.search).get("tab")));window.addEventListener("popstate",back);return()=>window.removeEventListener("popstate",back);},[]);
- const c=live.configuration,issues=setupReadiness(live.name,c,p.catalog),draft=!!p.draft&&!live.published;
+ const c=live.configuration,draft=!!p.draft&&!live.published;
  const go=(next:ProductTab)=><button type="button" className="button secondary" onClick={()=>select(next)}>{tabNames[next]}<Icon name="chevron" width={14} height={14}/></button>;
  return <div className={styles.page}>
  <nav className={styles.breadcrumb} aria-label="Breadcrumb"><Link href={p.returnHref}>Products</Link><Icon name="chevron" width={14} height={14}/>{p.listingHref?<Link href={p.listingHref}>Etsy Listing</Link>:<span>Etsy Listing unavailable</span>}<Icon name="chevron" width={14} height={14}/><span aria-current="page">Reading OS Product</span></nav>
@@ -34,7 +35,7 @@ export function ProductWorkspace(p:WorkspaceProps){
  {!draft&&p.canEdit&&<p className="small muted">Use Edit configuration to create a draft. Published versions remain immutable.</p>}
  </div>
  <div hidden={tab!=="pdf"} onSubmitCapture={event=>{if(live.dirty&&!window.confirm("Your Product draft has unsaved changes. Save it before changing PDF assignment, or continue without saving the draft?"))event.preventDefault();}}>{p.pdfContent}</div>
- <section hidden={tab!=="readiness"} className={styles.card}><h2>Configuration validation</h2><p className="muted">Publication checks only. Comprehensive runtime readiness is not available in this workspace.</p>{!p.active&&!live.published&&<p className="notice">No active published configuration. Save and publish a valid draft to enable its exact policy.</p>}{issues.length?<ul className={styles.issues}>{issues.map(issue=><li key={issue}><Icon name="attention" width={16}/><span>{issue}</span></li>)}</ul>:<p className="notice">Current fields pass the existing setup checks. Server publication still verifies authorization, exact mappings and current Etsy evidence.</p>}{c.etsyFulfillment&&!p.catalog&&<p className="notice">Current Etsy purchase options have not been verified. Review the catalog from Products before publication.</p>}{p.choice&&p.choice.state!=="CONFIGURED"&&p.active&&<p className="notice">The current published configuration does not match this exact purchase choice.</p>}{p.pdfLabel==="Needs attention"||p.pdfLabel==="Not assigned"?<p className="notice">PDF appearance: {p.pdfLabel}. This is separate from ProductVersion publication.</p>:null}<div className={styles.headerActions}>{go("setup")}{go("generation")}{go("pdf")}</div></section>
+ <div hidden={tab!=="readiness"}>{p.readiness?<ReadinessWorkspace data={p.readiness} baseHref={p.baseHref} returnHref={p.returnHref} unsaved={live.dirty||live.published}/>:<section className={styles.card}><h2>Configuration readiness</h2><p>Saved assessment unavailable. Reload this workspace to inspect current evidence.</p></section>}</div>
  <footer className={styles.footer}>{p.listingHref&&<Link href={p.listingHref}>Back to Listing Detail</Link>}<Link href={p.returnHref}>Back to Products</Link><span>Existing readings retain their pinned configuration and document snapshots.</span></footer>
  </div>;
 }

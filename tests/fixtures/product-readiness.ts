@@ -1,0 +1,7 @@
+import type {ReadinessSnapshot} from "../../src/modules/products/readiness";
+import type {Configuration} from "../../src/modules/products/contracts";
+const key="etsy-selection/1:100=200",policy={contractVersion:"etsy-product-policy/v1" as const,fulfillment:"READING" as const,listingId:"123",purchaseSelections:[{propertyId:"100",valueIds:["200"]}],inputMappings:[]};
+export function readinessFixture():ReadinessSnapshot{
+ const configuration:Configuration={inputs:[],sections:[{id:"intro",title:"Reading",instruction:"",sortOrder:0}],output:"TEXT",workflow:"ASSISTED",etsyFulfillment:policy,productMetadata:{contractVersion:"product-metadata/v1",title:"Fictional Love Reading"}};
+ return {productId:"11111111-1111-4111-8111-111111111111",storeId:"fixture-store",name:"Fictional Love Reading",active:{id:"active",versionNumber:1,revision:0,configuration},draft:null,bindings:[{listingExternalId:"123",variantKey:key}],choices:[{listingId:"123",key,label:"Standard Detailed",paused:false,mapped:true,state:"PASS",explanation:"Verified against the saved listing revision.",verifiedAt:"2026-10-10T10:00:00.000Z",catalog:{contractVersion:"etsy-setup-catalog/v1",observedAt:1791626400000,listing:{id:"123",title:"Fictional Love Reading",state:"active",thumbnailUrl:null,updatedAt:100},questions:[],configurations:[{key,purchaseSelections:policy.purchaseSelections,displaySelections:[{propertyId:"100",label:"Reading Detail",values:[{valueId:"200",label:"Standard Detailed"}]}]}],state:"READY",reasons:[]}}],limited:false,pdf:{status:"MISSING"}};
+}
