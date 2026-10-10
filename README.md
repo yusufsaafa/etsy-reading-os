@@ -68,3 +68,7 @@ Style Intelligence Part 2 now executes explicitly bounded previous-work analysis
 Style Intelligence Part 3 now pins the latest usable owned READY analysis into each new Generation context. Explicit seller style settings take precedence; retries and historical contexts retain their original snapshot/hash. Historical source text and manifests never enter customer generation. At the Part 3 boundary seller workflow/UI remained deferred; Part 4 below completes it. See [Style Intelligence](docs/STYLE_INTELLIGENCE.md).
 
 Style Intelligence Part 4 completes the optional Settings workflow: Previous work → Learn/Update writing style → compact status and preview. New commands are blocked while analysis execution/accounting is unresolved; current READY style remains usable after failed updates. No automatic analysis or navigation/onboarding requirement is added. The synthetic one-shot acceptance harness is offline by default; live style acceptance remains unexecuted. See [Style Intelligence](docs/STYLE_INTELLIGENCE.md).
+
+## Etsy catalog foundation — Milestone 5.1
+
+Store-owned sections, current listing metadata/thumbnails, manual resumable catalog batches and a bounded search/filter/coverage/PDF read contract are implemented. Page navigation reads cached evidence; no scheduled catalog sync is installed. See [catalog contract, operator guide and limitations](docs/ETSY_CATALOG_MILESTONE5_1.md). No live Etsy import or production migration is part of this milestone.

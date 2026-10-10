@@ -6,7 +6,7 @@ vi.mock("@/app/(public)/auth-actions",()=>({logout:vi.fn()}));
 vi.mock("@/app/onboarding/actions",()=>({createStoreAction:vi.fn(),selectProductsAction:vi.fn()}));
 vi.mock("@/db/client",()=>({database:()=>({})}));
 vi.mock("@/modules/products/service",()=>({productData:mocks.product,catalogData:mocks.catalog}));
-vi.mock("@/modules/products/etsy-setup",()=>({getEtsySetupCatalog:mocks.source}));
+vi.mock("@/modules/products/etsy-setup",()=>({getSavedEtsySetupCatalog:mocks.source}));
 vi.mock("@/infrastructure/secrets",()=>({vault:()=>({})}));
 vi.mock("@/modules/identity/session",()=>({currentStoreScope:async()=>({}),currentDestination:async()=>({kind:"PRODUCT_SETUP"})}));
 vi.mock("@/components/products/actions",()=>({saveConfiguration:vi.fn(),startProductSetupState:vi.fn(),finishProductOnboarding:vi.fn(),createProductEdit:vi.fn()}));

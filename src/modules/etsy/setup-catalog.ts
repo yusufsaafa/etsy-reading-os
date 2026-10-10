@@ -20,15 +20,15 @@ const questionSchema=z.object({question_id:id.nullish(),question_type:z.string()
 const personalizationSchema=z.object({personalization_questions:z.array(questionSchema).max(5)}).strict();
 export type SetupQuestion={questionId:string|null;sourceType:string;label:string;required:boolean;instructions?:string|null;maxCharacters?:number|null;support:"TEXT"|"UNSUPPORTED"};
 export type SetupConfiguration={key:string;purchaseSelections:SelectionIdentity[];displaySelections:{propertyId:string;label:string|null;values:{valueId:string;label:string}[]}[]};
-export type SetupCatalog={contractVersion:"etsy-setup-catalog/v1";observedAt:number;listing:{id:string;title:string;state:string;thumbnailUrl:string|null};
+export type SetupCatalog={contractVersion:"etsy-setup-catalog/v1";observedAt:number;listing:{id:string;title:string;state:string;updatedAt?:number;thumbnailUrl:string|null};
  questions:SetupQuestion[];configurations:SetupConfiguration[];state:"READY"|"BLOCKED";reasons:("INVALID_STRUCTURE"|"INCOMPLETE_IDENTITIES"|"UNSUPPORTED_SCALE"|"UNSUPPORTED_QUESTION"|"NO_AVAILABLE_CONFIGURATION"|"LISTING_UNAVAILABLE")[]};
-export class SetupCatalogError extends Error {constructor(){super("ETSY_SETUP_UNAVAILABLE");}}
+export class SetupCatalogError extends Error {constructor(readonly httpStatus?:number,readonly retryAfterSeconds?:number){super("ETSY_SETUP_UNAVAILABLE");}}
 
 /** Current setup evidence only. Never purchased/history evidence or semantic label parsing. */
 export function deriveSetupCatalog(rawListing:unknown,rawInventory:unknown,rawQuestions:unknown,expected:{shopId:string;listingId:string},observedAt=Date.now()):SetupCatalog {
  const listing=listingSchema.parse(rawListing);
  if(listing.shop_id!==expected.shopId||listing.listing_id!==expected.listingId)throw new SetupCatalogError();
- const base={contractVersion:"etsy-setup-catalog/v1" as const,observedAt,listing:{id:listing.listing_id,title:listing.title,state:listing.state,
+ const base={contractVersion:"etsy-setup-catalog/v1" as const,observedAt,listing:{id:listing.listing_id,title:listing.title,state:listing.state,updatedAt:listing.updated_timestamp,
  thumbnailUrl:safeListingThumbnail([...(listing.images??[])].sort((a,b)=>a.rank-b.rank)[0]?.url_75x75)}};
  const blocked=(reason:SetupCatalog["reasons"][number],questions:SetupQuestion[]=[]):SetupCatalog=>({...base,questions,configurations:[],state:"BLOCKED",reasons:[reason]});
  try{
@@ -63,7 +63,8 @@ export function deriveSetupCatalog(rawListing:unknown,rawInventory:unknown,rawQu
  }catch(error){if(error instanceof SetupCatalogError)throw error;return blocked("INVALID_STRUCTURE");}
 }
 async function readJson(response:Response){
- if(!response.ok||!response.headers.get("content-type")?.includes("application/json"))throw new SetupCatalogError();
+ if(!response.ok){const raw=response.headers.get("retry-after");throw new SetupCatalogError(response.status,raw&&/^\d{1,9}$/.test(raw)?Math.max(1,Number(raw)):undefined);}
+ if(!response.headers.get("content-type")?.includes("application/json"))throw new SetupCatalogError();
  const reader=response.body?.getReader();if(!reader)throw new SetupCatalogError();let size=0;const chunks:Uint8Array[]=[];
  try{for(;;){const {value,done}=await reader.read();if(done)break;size+=value.length;if(size>1048576)throw new SetupCatalogError();chunks.push(value);}}finally{await reader.cancel();}
  return parseEtsyJson(Buffer.concat(chunks).toString("utf8"));
@@ -77,5 +78,5 @@ export async function fetchSetupCatalog(shopId:string,listingId:string,accessTok
   if(listing.shop_id!==shopId||listing.listing_id!==listingId)throw new SetupCatalogError();
   const inventory=await get("/inventory?includes=Listing&show_deleted=false"),questions=await get("/personalization");
   return deriveSetupCatalog(listing,inventory,questions,{shopId,listingId});
- }catch{throw new SetupCatalogError();}
+ }catch(error){if(error instanceof SetupCatalogError)throw error;throw new SetupCatalogError();}
 }

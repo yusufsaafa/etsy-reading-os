@@ -1,19 +1,25 @@
 import Link from "next/link";
+import {ActionForm as CatalogActionForm} from "@/components/onboarding/forms";
+import {syncCatalogAction} from "@/modules/catalog/actions";
+import {authorizeStore} from "@/modules/identity/service";
+import {stores} from "@/db/schema";
+import {eq} from "drizzle-orm";
 import { database } from "@/db/client";
 import { currentScope } from "@/modules/identity/session";
-import { catalogData } from "@/modules/products/service";
+import { catalogPageData } from "@/modules/products/service";
 import { Heading, Badge, EmptyState } from "@/components/ui";
 import { ActionForm } from "@/components/submit";
 import { Icon } from "@/components/icon";
 import { saveMapping } from "@/app/actions";
 import { startProductSetup } from "@/components/products/actions";
-export default async function ProductsPage() {
- const data=await catalogData(database(),await currentScope());
- return <><Heading title="Products" description="Configure customer information and content for your Etsy products."/><div className="product-list">{data.listings.map(listing=>{
+export default async function ProductsPage({searchParams}:{searchParams:Promise<{page?:string}>}) {
+ const scope=await currentScope(),db=database(),query=await searchParams,page=/^[1-9]\d{0,3}$/.test(query.page??"")?Number(query.page):1,data=await catalogPageData(db,scope,{page});
+ let canSync=false;try{await authorizeStore(db,scope.userId,scope.storeId,true);const [store]=await db.select().from(stores).where(eq(stores.id,scope.storeId));canSync=store.source==="etsy";}catch{}
+ return <><Heading title="Products" description="Configure customer information and content for your Etsy products."/>{canSync&&<CatalogActionForm action={syncCatalogAction} label="Sync Etsy catalog" pendingText="Synchronizing catalog…" secondary/>}<div className="product-list">{data.listings.map(listing=>{
  const variants=[...new Set(["default",...data.lines.filter(l=>l.listingExternalId===listing.externalId).map(l=>l.variantKey)])];
  function state(variant:string){const mapping=data.mappings.find(m=>m.listingExternalId===listing.externalId&&m.variantKey===variant),product=data.products.find(p=>p.id===mapping?.productId),draft=data.versions.find(v=>v.productId===product?.id&&v.status==="DRAFT");return {mapping,product,draft,label:mapping?.paused?"Paused":product?.activeVersionId?"Active":draft?"Draft":"Setup required"};}
  function action(variant:string){const s=state(variant);return <form action={startProductSetup}><input type="hidden" name="listingId" value={listing.externalId}/><input type="hidden" name="variantKey" value={variant}/><button className="button secondary" disabled={listing.state!=="active"}>{s.product?.activeVersionId?"Edit product":s.draft?"Continue setup":"Set up product"}</button></form>;}
  const standard=state("default"),active=data.versions.find(v=>v.id===standard.product?.activeVersionId);
  return <article className="product-record" key={listing.id} id={`product-${listing.externalId}`}><div className="product-summary configured-summary"><div className="product-thumbnail"><Icon name="image" width="24" height="24"/></div><div className="product-title"><h2>{standard.product?.name||listing.title}</h2><span className="muted small">Etsy · {listing.state}{active?" · v"+active.versionNumber:""}{active&&standard.draft?" · Draft changes":""}</span></div><Badge tone={standard.label==="Active"?"good":"warning"}>{standard.label}</Badge>{action("default")}</div><div className="product-pdf-links">{[...new Set(data.mappings.filter(m=>m.listingExternalId===listing.externalId&&m.productId).map(m=>m.productId!))].map(productId=><Link key={productId} className="button secondary" href={`/products/${productId}/document-design`}>PDF appearance</Link>)}</div><details className="advanced-details"><summary>Variant settings & advanced details</summary><p className="small muted">Each purchased option is configured separately. SKU is a reference, not a fallback. Etsy listing #{listing.externalId}.</p>{variants.map(variant=>{const s=state(variant),line=data.lines.find(l=>l.listingExternalId===listing.externalId&&l.variantKey===variant);return <div className="mapping-row" key={variant}><div><strong>{variant==="default"?"Standard purchase":line?.snapshot.variations.map(v=>`${v.label}: ${v.value}`).join(" · ")||"Purchased option"}</strong><p className="small muted">{s.label}</p>{s.mapping&&!s.mapping.productId&&<p className="small muted">Earlier customer checks are retained. A versioned product has not been configured.</p>}</div>{variant!=="default"&&action(variant)}{s.mapping&&<ActionForm action={saveMapping} label={s.mapping.paused?"Resume product":"Pause product"} secondary><input type="hidden" name="listingId" value={listing.externalId}/><input type="hidden" name="variantKey" value={variant}/><input type="hidden" name="paused" value={s.mapping.paused?"false":"true"}/></ActionForm>}</div>;})}</details></article>;
- })}</div>{!data.listings.length&&<EmptyState title="No products yet" href="/settings" action="Open settings">Connect your Etsy shop to import your products.</EmptyState>}</>;
+ })}</div>{!data.listings.length&&<EmptyState title="No products yet" href="/settings" action="Open settings">Connect your Etsy shop to import your products.</EmptyState>}{data.pagination&&data.pagination.total>data.pagination.pageSize&&<nav aria-label="Products pagination" className="section-heading">{page>1?<Link className="button secondary" href={"/products?page="+(page-1)}>Previous</Link>:<span/>}<span className="small muted">Page {page} of {Math.ceil(data.pagination.total/data.pagination.pageSize)}</span>{page*data.pagination.pageSize<data.pagination.total?<Link className="button secondary" href={"/products?page="+(page+1)}>Next</Link>:<span/>}</nav>}</>;
 }

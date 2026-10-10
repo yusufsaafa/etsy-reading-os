@@ -12,7 +12,7 @@ it("empty selection disables continue and unavailable listings cannot be newly s
  const html=renderToStaticMarkup(createElement(ProductPicker,{products:[{externalId:"101",title:"Inactive product",state:"inactive"}],initialSelection:[]}));expect(html).toContain("disabled");expect(html).toContain("Not selected");expect(html).toContain("Listing status");
 });
 it("Step 2 and selection actions retain navigation to discovery and existing setup surface",()=>{
- const actions=readFileSync("src/app/onboarding/actions.ts","utf8");expect(actions).toContain('redirect("/onboarding/products")');expect(actions).toContain('redirect("/onboarding/products/setup")');expect(actions).toContain('saveProductSelection(database(), scope, form.getAll("listing"))');const page=readFileSync("src/app/onboarding/products/page.tsx","utf8");expect(page).toContain("discoverProducts(database(),scope,vault())");expect(page).not.toContain("ImportRefresh");
+ const actions=readFileSync("src/app/onboarding/actions.ts","utf8");expect(actions).toContain('redirect("/onboarding/products")');expect(actions).toContain('redirect("/onboarding/products/setup")');expect(actions).toContain('saveProductSelection(database(), scope, form.getAll("listing"))');const page=readFileSync("src/app/onboarding/products/page.tsx","utf8");expect(page).toContain("readSavedProducts(database(),scope)");expect(page).not.toContain("discoverProducts(");expect(page).not.toContain("vault()");expect(page).not.toContain("ImportRefresh");
 });
 
 import {productPage,selectProductPage} from "../src/components/onboarding/product-picker-model";

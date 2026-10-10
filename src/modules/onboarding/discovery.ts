@@ -1,6 +1,6 @@
-import {and,eq} from "drizzle-orm";
+import {and,eq,sql} from "drizzle-orm";
 import type {Database} from "../../db/client";
-import {stores,connections,listings,mappings,products,listingSelections} from "../../db/schema";
+import {stores,connections,listings,mappings,products,listingSelections,listingCatalog} from "../../db/schema";
 import {verifyScope,tenantWhere,ingestListing} from "../intake/service";
 import type {Scope} from "../intake/contracts";
 import type {SecretVault} from "../../infrastructure/secrets";
@@ -38,4 +38,18 @@ export async function discoverProducts(db:Database,scope:Scope,vault:SecretVault
  // Explicit development fixture Stores retain their existing imported catalog only.
  const rows=await db.select().from(listings).where(tenantWhere(listings,scope));const selected=await db.select().from(listingSelections).where(tenantWhere(listingSelections,scope));
  return {products:rows.map(row=>({externalId:row.externalId,title:row.title,state:row.state,configured:false})),selected:selected.map(s=>s.listingExternalId)};
+}
+
+// Navigation reads cached catalog only. Discovery remains an explicit legacy command.
+export async function readSavedProducts(db:Database,scope:Scope):Promise<{products:DiscoveredProduct[];selected:string[]}>{
+ await verifyScope(db,scope,true);
+ // Legacy picker already paginates locally. Retain its bounded 10,000-listing discovery ceiling,
+ // but read only lightweight listing fields: never versions, purchases or external resources.
+ const [rows,selected]=await Promise.all([
+ db.select({externalId:listings.externalId,title:listings.title,state:listings.state,thumbnailUrl:listingCatalog.thumbnailUrl,
+ configured:sql<boolean>`exists (select 1 from listing_mappings m join products p on p.id=m.product_id and p.organization_id=m.organization_id and p.store_id=m.store_id where m.organization_id=${scope.organizationId} and m.store_id=${scope.storeId} and m.listing_external_id=${listings.externalId} and p.active_version_id is not null)`})
+ .from(listings).leftJoin(listingCatalog,and(eq(listingCatalog.organizationId,listings.organizationId),eq(listingCatalog.storeId,listings.storeId),eq(listingCatalog.listingExternalId,listings.externalId)))
+ .where(tenantWhere(listings,scope)).orderBy(listings.title,listings.externalId).limit(10000),
+ db.select({id:listingSelections.listingExternalId}).from(listingSelections).where(tenantWhere(listingSelections,scope)).limit(10000)]);
+ return {products:rows,selected:selected.map(s=>s.id)};
 }

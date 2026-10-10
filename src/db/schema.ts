@@ -28,7 +28,41 @@ export const listings = pgTable("listings", {
   id: id(), organizationId: org(), storeId: store(), externalId: text("external_id").notNull(),
   title: text("title").notNull(), state: text("state").notNull(), sourceUpdatedAt: integer("source_updated_at").notNull(),
   snapshot: jsonb("snapshot").$type<ExternalListing>().notNull(),
-}, t => [unique().on(t.organizationId, t.storeId, t.externalId), foreignKey({ columns: [t.organizationId, t.storeId], foreignColumns: [stores.organizationId, stores.id] })]);
+}, t => [unique().on(t.organizationId, t.storeId, t.externalId), foreignKey({ columns: [t.organizationId, t.storeId], foreignColumns: [stores.organizationId, stores.id] }), index("listing_catalog_title").on(t.organizationId,t.storeId,t.title,t.externalId), index("listing_catalog_state").on(t.organizationId,t.storeId,t.state,t.title,t.externalId)]);
+// Current catalog evidence is separate from immutable purchased snapshots and configuration.
+export const catalogSections = pgTable("catalog_sections", {
+ id:id(), organizationId:org(), storeId:store(), shopId:text("shop_id").notNull(), externalId:text("external_id").notNull(),
+ title:text("title"), rank:integer("rank"), activeListingCount:integer("active_listing_count"),
+ present:boolean("present").notNull().default(true), verifiedAt:time("verified_at"),
+},t=>[unique("catalog_section_identity").on(t.organizationId,t.storeId,t.externalId),
+ foreignKey({columns:[t.organizationId,t.storeId],foreignColumns:[stores.organizationId,stores.id]}),
+ index("catalog_section_order").on(t.organizationId,t.storeId,t.present,t.rank,t.externalId),
+ check("catalog_section_bounds",sql`(${t.rank} is null or ${t.rank}>=0) and (${t.activeListingCount} is null or ${t.activeListingCount}>=0) and (${t.title} is null or length(${t.title}) between 1 and 500) and (not ${t.present} or (${t.title} is not null and ${t.rank} is not null and ${t.activeListingCount} is not null and ${t.verifiedAt} is not null))`)]);
+export const listingCatalog = pgTable("listing_catalog", {
+ organizationId:org(),storeId:store(),listingExternalId:text("listing_external_id").notNull(),shopId:text("shop_id").notNull(),
+ thumbnailUrl:text("thumbnail_url"),listingUrl:text("listing_url"),sourceCreatedAt:integer("source_created_at"),
+ sectionId:text("section_id"),sectionState:text("section_state").notNull().default("UNKNOWN"),sectionVerifiedAt:time("section_verified_at"),
+ verifiedAt:time("verified_at").notNull(),seenRun:uuid("seen_run").notNull(),present:boolean("present").notNull().default(true),
+ setupCatalog:jsonb("setup_catalog").$type<import("../modules/etsy/setup-catalog").SetupCatalog>(),
+ choicesSourceUpdatedAt:integer("choices_source_updated_at"),choicesVerifiedAt:time("choices_verified_at"),choicesAttemptedAt:time("choices_attempted_at"),choicesError:text("choices_error"),
+},t=>[unique("listing_catalog_identity").on(t.organizationId,t.storeId,t.listingExternalId),
+ foreignKey({columns:[t.organizationId,t.storeId,t.listingExternalId],foreignColumns:[listings.organizationId,listings.storeId,listings.externalId]}),
+ foreignKey({columns:[t.organizationId,t.storeId,t.sectionId],foreignColumns:[catalogSections.organizationId,catalogSections.storeId,catalogSections.externalId]}),
+ index("listing_catalog_section").on(t.organizationId,t.storeId,t.sectionState,t.sectionId),
+ index("listing_catalog_seen").on(t.organizationId,t.storeId,t.seenRun,t.listingExternalId),
+ check("catalog_relation_state",sql`${t.sectionState} in ('KNOWN','UNCATEGORIZED','UNKNOWN','MISSING') and ((${t.sectionState} in ('KNOWN','MISSING')) = (${t.sectionId} is not null))`),
+ check("catalog_snapshot_bound",sql`${t.setupCatalog} is null or octet_length(${t.setupCatalog}::text)<=262144`)]);
+export const catalogSync = pgTable("catalog_sync", {
+ organizationId:org(),storeId:store(),shopId:text("shop_id").notNull(),status:text("status").notNull().default("NOT_SYNCED"),
+ runId:uuid("run_id"),claim:uuid("claim"),claimUntil:time("claim_until"),epoch:integer("epoch"),
+ cursor:jsonb("cursor").$type<{phase:"LISTINGS"|"CHOICES";stateIndex:number;offset:number;after:string|null}>(),
+ lastAttemptAt:time("last_attempt_at"),lastSuccessAt:time("last_success_at"),sectionsVerifiedAt:time("sections_verified_at"),
+ processed:integer("processed").notNull().default(0),failures:integer("failures").notNull().default(0),issues:jsonb("issues").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+},t=>[unique("catalog_sync_store").on(t.organizationId,t.storeId),
+ foreignKey({columns:[t.organizationId,t.storeId],foreignColumns:[stores.organizationId,stores.id]}),
+ check("catalog_sync_status",sql`${t.status} in ('NOT_SYNCED','IN_PROGRESS','SUCCEEDED','PARTIAL','FAILED')`),
+ check("catalog_sync_claim",sql`(${t.claim} is null) = (${t.claimUntil} is null)`),
+ check("catalog_sync_bounds",sql`${t.processed}>=0 and ${t.failures}>=0 and jsonb_array_length(${t.issues})<=10`)]);
 // Selection expresses intent only; it never creates a production configuration.
 export const listingSelections = pgTable("listing_selections", {
   id: id(), organizationId: org(), storeId: store(), listingExternalId: text("listing_external_id").notNull(),

@@ -1,10 +1,11 @@
 "use server";
+import {syncCatalog} from "@/modules/catalog/sync";
 import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { database } from "@/db/client";
 import { requireUser, currentStoreScope } from "@/modules/identity/session";
-import { createOnboardingStore, saveProductSelection, startProductImport, onboardingData } from "@/modules/onboarding/service";
+import { createOnboardingStore, saveProductSelection, startProductImport, onboardingData, completeManualCatalogDiscovery } from "@/modules/onboarding/service";
 import { beginOAuth, connectFixtures, disconnect } from "@/modules/etsy/connection-service";
 import { PostgresSyncJobs } from "@/infrastructure/jobs";
 import { vault } from "@/infrastructure/secrets";
@@ -46,7 +47,7 @@ export async function selectProductsAction(_previous: FormState, form: FormData)
 }
 export async function retryImportAction(_previous: FormState): Promise<FormState> {
   const scope = await currentStoreScope();
-  try { const data=await onboardingData(database(),scope); if(data.store.source === "fixtures") await new PostgresSyncJobs(database()).enqueueSync(scope, `onboarding-retry-${randomUUID()}`); }
+  try { const data=await onboardingData(database(),scope); if(data.store.source === "fixtures") await new PostgresSyncJobs(database()).enqueueSync(scope, `onboarding-retry-${randomUUID()}`); else { const result=await syncCatalog(database(),scope); if(result.processed>0)await completeManualCatalogDiscovery(database(),scope); if(result.status==="FAILED"||result.issues.length)return {error:"Catalog synchronization is incomplete. Your saved selections are preserved. Try again."}; if(result.hasMore)return {error:"Catalog batch saved. Select Try again to continue synchronization."}; } }
   catch { return { error: "Products couldn't be loaded. Check your Etsy connection and try again." }; }
   revalidatePath("/onboarding/products");
   return {};

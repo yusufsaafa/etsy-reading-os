@@ -59,3 +59,10 @@ export function assertSetupPolicy(catalog:SetupCatalog,raw:unknown){
  const mappings=policy.data.inputMappings;
  if(catalog.questions.some(q=>q.support!=="TEXT"||!mappings.some(m=>m.questionId===q.questionId))||mappings.some(m=>!catalog.questions.some(q=>q.questionId===m.questionId&&q.support==="TEXT")))throw new SetupCatalogError();
 }
+
+/** Persisted current evidence for GET rendering; no OAuth refresh or Etsy request. */
+export async function getSavedEtsySetupCatalog(db:Database,scope:Scope,listingId:string):Promise<SetupCatalog>{
+ const {savedSetupCatalog}=await import("../catalog/read");
+ const catalog=await savedSetupCatalog(db,scope,listingId);
+ if(!catalog)throw new SetupCatalogError();return catalog;
+}

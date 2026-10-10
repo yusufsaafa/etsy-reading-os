@@ -183,6 +183,13 @@
       "when": 1791587073828,
       "tag": "0025_far_ironclad",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1791630926708,
+      "tag": "0026_red_joseph",
+      "breakpoints": true
     }
   ]
 }

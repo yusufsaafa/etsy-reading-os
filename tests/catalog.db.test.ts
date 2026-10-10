@@ -1,0 +1,106 @@
+import {beforeEach,afterEach,it,expect,vi} from "vitest";
+import {PGlite} from "@electric-sql/pglite";
+import {drizzle} from "drizzle-orm/pglite";
+import {readFileSync,readdirSync} from "node:fs";
+import {eq} from "drizzle-orm";
+import type {Database} from "../src/db/client";
+import * as s from "../src/db/schema";
+import {authorizeStore,createWorkspace} from "../src/modules/identity/service";
+import type {Scope} from "../src/modules/intake/contracts";
+import {syncCatalog} from "../src/modules/catalog/sync";
+import {readCatalog,savedSetupCatalog} from "../src/modules/catalog/read";
+import {ingestOrder} from "../src/modules/intake/service";
+import {fixtureOrders} from "../src/modules/etsy/fixtures";
+import {CatalogError,type CatalogReader,type CatalogListing,type CatalogSection} from "../src/modules/catalog/transport";
+import {deriveSetupCatalog} from "../src/modules/etsy/setup-catalog";
+import {setupListing,setupInventory,setupQuestions} from "./fixtures/etsy-setup";
+import {beginEtsyProductDraft,activateProduct,editProduct,catalogPageData} from "../src/modules/products/service";
+import {createDocumentDesign,setDefaultDocumentDesign,assignDocumentDesignToProduct} from "../src/modules/documents/service";
+import {studioPreset} from "../src/modules/documents/studio-templates";
+let pg:PGlite,db:Database,a:Scope,b:Scope,rows:CatalogListing[],sections:CatalogSection[];
+const baseCatalog=deriveSetupCatalog(setupListing,setupInventory,setupQuestions,{shopId:"123",listingId:"101"});
+const listing=(id="101",patch:Partial<CatalogListing>={}):CatalogListing=>({listing_id:id,shop_id:"123",title:"Fictional Reading "+id,state:"active",updated_timestamp:100,creation_timestamp:50,shop_section_id:"7",url:`https://www.etsy.com/listing/${id}/fictional`,images:[{rank:1,url_75x75:"https://i.etsystatic.com/test.jpg"}],...patch});
+const reader=():CatalogReader=>({shopId:"123",epoch:0,sections:vi.fn(async()=>sections),listings:vi.fn(async(state,offset)=>{const match=rows.filter(r=>r.state===state);return {count:match.length,results:match.slice(offset,offset+100)};}),choices:vi.fn(async(id)=>({...baseCatalog,listing:{...baseCatalog.listing,id,state:rows.find(r=>r.listing_id===id)!.state,updatedAt:100}}))});
+const sync=(r=reader(),options:unknown={pages:5,choices:20})=>syncCatalog(db,a,options,async()=>r);
+beforeEach(async()=>{
+ pg=new PGlite();for(const f of readdirSync("drizzle").filter(f=>f.endsWith(".sql")).sort())await pg.exec(readFileSync("drizzle/"+f,"utf8"));db=drizzle(pg,{schema:s}) as unknown as Database;
+ for(const id of ["a","b","member"])await db.insert(s.users).values({id,name:id});a=await authorizeStore(db,"a",await createWorkspace(db,"a","A","etsy"));b=await authorizeStore(db,"b",await createWorkspace(db,"b","B","etsy"));
+ for(const scope of [a,b]){await db.update(s.stores).set({externalShopId:scope===a?"123":"456"}).where(eq(s.stores.id,scope.storeId));await db.update(s.connections).set({status:"connected",scopes:["listings_r"]}).where(eq(s.connections.storeId,scope.storeId));}
+ rows=[listing()];sections=[{shop_section_id:"7",title:"Fictional section",rank:1,active_listing_count:1}];
+},20000);
+afterEach(async()=>{await pg.close();});
+it("first/repeated sync, rename/reorder/removal/empty sections and metadata remain tenant-scoped and idempotent",async()=>{
+ expect((await readCatalog(db,a)).status.state).toBe("NOT_SYNCED");expect((await sync()).status).toBe("SUCCEEDED");expect((await sync()).status).toBe("SUCCEEDED");expect(await db.select().from(s.listings)).toHaveLength(1);expect(await db.select().from(s.listingCatalog)).toHaveLength(1);
+ let view=await readCatalog(db,a);expect(view.items[0]).toMatchObject({thumbnail:"https://i.etsystatic.com/test.jpg",section:{state:"KNOWN",title:"Fictional section"},configuration:{state:"VERIFIED",configured:0,total:2}});expect((await readCatalog(db,b)).items).toEqual([]);
+ sections=[{...sections[0],title:"Renamed",rank:3}];rows=[listing("101",{title:"Changed",state:"inactive",images:[],updated_timestamp:101})];const r=reader();r.choices=async()=>({...baseCatalog,listing:{...baseCatalog.listing,state:"inactive",updatedAt:101}});await sync(r);view=await readCatalog(db,a);expect(view.items[0]).toMatchObject({title:"Changed",state:"inactive",thumbnail:null,section:{title:"Renamed"}});expect(view.sections[0].rank).toBe(3);
+ sections=[];await sync(r);expect((await readCatalog(db,a)).items[0].section.state).toBe("MISSING");expect((await readCatalog(db,a)).sections[0].present).toBe(false);
+ rows=[listing("101",{shop_section_id:null,updated_timestamp:102})];const noSection=reader();noSection.choices=async()=>({...baseCatalog,listing:{...baseCatalog.listing,updatedAt:102}});await sync(noSection);expect((await readCatalog(db,a,{section:"uncategorized"})).items).toHaveLength(1);expect((await readCatalog(db,a,{section:"unknown"})).items).toHaveLength(0);
+});
+it("unknown, verified no section, unavailable section and failed section refresh are distinct",async()=>{
+ rows=[listing("101",{shop_section_id:undefined}),listing("102",{shop_section_id:0}),listing("103",{shop_section_id:"99"})];await sync();const view=await readCatalog(db,a);expect(view.items.map(i=>i.section.state)).toEqual(["UNKNOWN","UNCATEGORIZED","MISSING"]);expect(view.sections.find(s=>s.id==="99")).toMatchObject({title:null,rank:null,activeListingCount:null,verifiedAt:null});
+ const r=reader();r.sections=async()=>{throw new Error("secret provider body");};rows=[listing("102",{shop_section_id:"7"})];expect((await sync(r)).status).toBe("PARTIAL");expect((await readCatalog(db,a)).items.find(i=>i.listingId==="102")!.section.state).toBe("UNCATEGORIZED");expect((await readCatalog(db,a)).status.issues).not.toContain("secret provider body");
+});
+it("partial pages resume, preserve previous data, retain draft/inactive and never scan order history",async()=>{
+ rows=Array.from({length:101},(_,i)=>listing(String(1000+i)));rows.push(listing("2000",{state:"draft"}),listing("2001",{state:"inactive"}));
+ expect(await sync(reader(),{pages:1,choices:1})).toMatchObject({status:"PARTIAL",hasMore:true,processed:100});expect((await readCatalog(db,a)).pagination.total).toBe(100);
+ expect(await sync(reader(),{pages:5,choices:1})).toMatchObject({status:"PARTIAL",hasMore:true,processed:103});const first=await readCatalog(db,a,{pageSize:10}),second=await readCatalog(db,a,{page:2,pageSize:10});expect(first.items).toHaveLength(10);expect(second.items).toHaveLength(10);expect(new Set([...first.items,...second.items].map(i=>i.listingId)).size).toBe(20);
+ expect((await readCatalog(db,a,{state:"draft"})).items[0].listingId).toBe("2000");expect((await readCatalog(db,a,{search:"2001"})).pagination.total).toBe(1);
+});
+it("rate limit, page failure and retry preserve previous catalog and do not auto-request on reads",async()=>{
+ await sync();const r=reader();r.listings=async()=>{throw new CatalogError("RATE_LIMIT",30);};expect(await sync(r)).toMatchObject({status:"PARTIAL",retryAfterSeconds:30});expect((await readCatalog(db,a)).items).toHaveLength(1);expect((await sync()).status).toBe("SUCCEEDED");
+ const get=vi.spyOn(globalThis,"fetch").mockImplementation(()=>{throw new Error("NO_NETWORK");});await readCatalog(db,a);await savedSetupCatalog(db,a,"101");expect(get).not.toHaveBeenCalled();get.mockRestore();
+ const failed=reader();failed.sections=async()=>{throw new CatalogError("AUTHORIZATION");};expect((await sync(failed)).status).toBe("FAILED");expect((await readCatalog(db,a)).items).toHaveLength(1);
+});
+it("prevents concurrent sync and fences disconnect before publishing received data",async()=>{
+ let release!:()=>void;const gate=new Promise<void>(r=>{release=r;}),r=reader();r.sections=async()=>{await gate;return sections;};const first=sync(r);await vi.waitFor(async()=>expect((await db.select().from(s.catalogSync))[0]?.claim).toBeTruthy());await expect(sync()).rejects.toThrow("BUSY");release();await first;
+ const changed=reader();changed.listings=async()=>{await db.update(s.connections).set({epoch:1}).where(eq(s.connections.storeId,a.storeId));return {count:1,results:[listing("102")]};};await sync(changed);expect((await readCatalog(db,a)).items.map(i=>i.listingId)).toEqual(["101"]);
+});
+it("denies forged scope, cross-store reader and operator writes before external work; operators can read",async()=>{
+ const factory=vi.fn(async()=>reader());for(const scope of [b,{...a,userId:"b"},{...a,organizationId:b.organizationId}]){if(scope===b){await expect(syncCatalog(db,scope,{},factory)).resolves.toMatchObject({status:"FAILED"});}else await expect(syncCatalog(db,scope,{},factory)).rejects.toThrow();}
+ await db.insert(s.memberships).values({organizationId:a.organizationId,userId:"member",role:"operator"});const member={...a,userId:"member"};expect((await readCatalog(db,member)).items).toEqual([]);const noCall=vi.fn();await expect(syncCatalog(db,member,{},noCall)).rejects.toThrow();expect(noCall).not.toHaveBeenCalled();await expect(readCatalog(db,{...a,storeId:b.storeId})).rejects.toThrow();
+});
+async function configured(index=0){
+ const choice=baseCatalog.configurations[index],policy={contractVersion:"etsy-product-policy/v1",fulfillment:"READING",listingId:"101",purchaseSelections:choice.purchaseSelections,inputMappings:[]};
+ const productId=await beginEtsyProductDraft(db,a,policy),[draft]=await db.select().from(s.productVersions).where(eq(s.productVersions.productId,productId));
+ const configuration={...draft.configuration,sections:[{id:"scope",title:"Reading",instruction:"Fictional instructions",sortOrder:0}],output:"PDF",workflow:"MANUAL"};
+ await activateProduct(db,a,productId,draft.id,0,{name:"Fictional product",configuration});return productId;
+}
+it("exact published configuration counts, draft-only and missing mappings; PDF store default and override",async()=>{
+ await sync();const p=await configured();let view=await readCatalog(db,a);expect(view.items[0].configuration).toMatchObject({total:2,configured:1});expect(view.items[0].configuration.missingChoices).toHaveLength(1);expect(view.items[0].pdfAppearance.state).toBe("UNKNOWN");
+ const secondChoice=baseCatalog.configurations[1],q=await beginEtsyProductDraft(db,a,{contractVersion:"etsy-product-policy/v1",fulfillment:"READING",listingId:"101",purchaseSelections:secondChoice.purchaseSelections,inputMappings:[]});view=await readCatalog(db,a);expect(view.items[0].configuration.choices[1].state).toBe("DRAFT");expect(view.items[0].configuration.configured).toBe(1);
+ const d=await createDocumentDesign(db,a,{name:"Shared Classic",configuration:studioPreset("classic")});await setDefaultDocumentDesign(db,a,d.id);view=await readCatalog(db,a);expect(view.items[0].pdfAppearance).toMatchObject({state:"RESOLVED",usesStoreDefault:true,multipleDesigns:false});
+ const override=await createDocumentDesign(db,a,{name:"Override",configuration:studioPreset("minimal")});await assignDocumentDesignToProduct(db,a,p,override.id);view=await readCatalog(db,a);expect(view.items[0].pdfAppearance).toMatchObject({state:"MULTIPLE",multipleDesigns:true});await assignDocumentDesignToProduct(db,a,q,override.id);expect((await readCatalog(db,a)).items[0].pdfAppearance.multipleDesigns).toBe(false);
+});
+it("sync never changes configuration, versions, mappings, reading identity or operational snapshots",async()=>{
+ await sync();const p=await configured();await editProduct(db,a,p);await ingestOrder(db,a,fixtureOrders[0],{suppressProductionAdmission:true});expect(await db.select().from(s.units)).not.toHaveLength(0);
+ const keys=["products","productVersions","mappings","units","orders","lineItems","generations","productionQueue","documentSnapshots","documentArtifacts","productDocumentDesigns"] as const;
+ const before=await Promise.all(keys.map(k=>db.select().from(s[k])));rows=[listing("101",{title:"New current title",updated_timestamp:101})];const r=reader();r.choices=async()=>({...baseCatalog,listing:{...baseCatalog.listing,updatedAt:101}});await sync(r);expect(await Promise.all(keys.map(k=>db.select().from(s[k])))).toEqual(before);
+});
+it("inventory failure, unsupported inventory and stale observations expose unknown/partial counts instead of 0/0",async()=>{
+ await sync();const r=reader();r.choices=async()=>{throw new Error();};await sync(r);let view=await readCatalog(db,a);expect(view.items[0].configuration).toMatchObject({state:"UNKNOWN",total:null,configured:null});expect((await db.select().from(s.listingCatalog))[0].setupCatalog).not.toBeNull();
+ r.choices=async()=>({...baseCatalog,state:"BLOCKED",configurations:[],reasons:["UNSUPPORTED_SCALE"]});await sync(r);view=await readCatalog(db,a);expect(view.items[0].configuration).toMatchObject({state:"PARTIAL",total:null});
+});
+it("single default and multi-property choices retain existing exact identity, never historical variants",async()=>{
+ const defaultChoice={key:"etsy-selection/1:",purchaseSelections:[],displaySelections:[]};const r=reader();r.choices=async()=>({...baseCatalog,configurations:[defaultChoice]});await sync(r);expect((await readCatalog(db,a)).items[0].configuration).toMatchObject({total:1,configured:0});
+ await db.insert(s.mappings).values({organizationId:a.organizationId,storeId:a.storeId,listingExternalId:"101",variantKey:"historical-only",label:"Historical",required:[],paused:false});
+ const choice={key:"etsy-selection/1:100=200;300=400",purchaseSelections:[{propertyId:"100",valueIds:["200"]},{propertyId:"300",valueIds:["400"]}],displaySelections:[{propertyId:"100",label:"Scope",values:[{valueId:"200",label:"Detailed"}]},{propertyId:"300",label:"Target",values:[{valueId:"400",label:"Same day"}]}]};r.choices=async()=>({...baseCatalog,configurations:[choice]});await sync(r);const view=await readCatalog(db,a);expect(view.items[0].configuration.total).toBe(1);expect(view.items[0].configuration.choices[0].label).toBe("Detailed / Same day");expect(view.items[0].configuration.choices.some(c=>c.key==="historical-only")).toBe(false);
+});
+it("shared Product mappings deduplicate PDF summary without treating an inexact policy as configured",async()=>{
+ await sync();const p=await configured();await db.insert(s.mappings).values({organizationId:a.organizationId,storeId:a.storeId,listingExternalId:"101",variantKey:baseCatalog.configurations[1].key,label:"Second choice",required:[],paused:false,productId:p});
+ let view=await readCatalog(db,a);expect(view.items[0].configuration).toMatchObject({total:2,configured:1});expect(view.items[0].pdfAppearance).toMatchObject({state:"UNAVAILABLE"});expect(view.items[0].pdfAppearance.products).toHaveLength(1);
+ const d=await createDocumentDesign(db,a,{name:"Classic",configuration:studioPreset("classic")});await setDefaultDocumentDesign(db,a,d.id);view=await readCatalog(db,a);expect(view.items[0].pdfAppearance).toMatchObject({state:"RESOLVED",usesStoreDefault:true});
+});
+it("database ownership constraints reject cross-store sections and catalog references",async()=>{
+ await sync();const [meta]=await db.select().from(s.listingCatalog);await expect(db.insert(s.listingCatalog).values({...meta,storeId:b.storeId})).rejects.toThrow();await expect(db.update(s.listingCatalog).set({sectionId:"999",sectionState:"KNOWN"}).where(eq(s.listingCatalog.storeId,a.storeId))).rejects.toThrow();
+});
+it("bounded query scales to 1,000 listings, keeps deterministic pagination and does not select history",async()=>{
+ await db.insert(s.listings).values(Array.from({length:1000},(_,i)=>({organizationId:a.organizationId,storeId:a.storeId,externalId:String(10000+i),title:"Equal title",state:i%2?"draft":"active",sourceUpdatedAt:1,snapshot:{externalId:String(10000+i),title:"Equal title",state:i%2?"draft":"active",updatedAt:1,personalization:[]}})));
+ const queries:string[]=[];const observed=drizzle(pg,{schema:s,logger:{logQuery(q){queries.push(q);}}}) as unknown as Database;
+ const first=await readCatalog(observed,a,{pageSize:50}),second=await readCatalog(observed,a,{pageSize:50,page:2});expect(first.pagination.total).toBe(1000);expect(first.items).toHaveLength(50);expect(new Set([...first.items,...second.items].map(i=>i.listingId)).size).toBe(100);expect(first.items.every(i=>i.configuration.total===null)).toBe(true);expect(queries.some(q=>/order_line_items|fulfillment_units|orders"|generations"/.test(q))).toBe(false);expect(queries.length).toBeLessThan(30);const legacy=await catalogPageData(observed,a,{page:2});expect(legacy.listings).toHaveLength(50);expect(legacy.pagination.total).toBe(1000);expect(queries.filter(q=>q.includes('"order_line_items"')).every(q=>/limit/.test(q)&&/listing_external_id/.test(q))).toBe(true);
+});
+it("inventory rate limit retains last-good evidence but exposes failed current coverage and resumes same choice",async()=>{
+ await sync();const r=reader();r.choices=async()=>{throw new CatalogError("RATE_LIMIT",45);};expect(await sync(r)).toMatchObject({status:"PARTIAL",hasMore:true,retryAfterSeconds:45});const view=await readCatalog(db,a);expect(view.items[0].configuration).toMatchObject({state:"UNKNOWN",total:null,configured:null});expect(view.items[0].configuration.lastAttemptAt).toBeInstanceOf(Date);expect((await sync()).status).toBe("SUCCEEDED");expect((await readCatalog(db,a)).items[0].configuration.state).toBe("VERIFIED");
+});
+it("expired claims stop before further external reads, not only before publishing",async()=>{
+ const r=reader();const result=await syncCatalog(db,a,{},async()=>{await db.update(s.catalogSync).set({claimUntil:new Date(Date.now()-1)}).where(eq(s.catalogSync.storeId,a.storeId));return r;});expect(result.status).toBe("FAILED");expect(r.sections).not.toHaveBeenCalled();expect(r.listings).not.toHaveBeenCalled();expect(r.choices).not.toHaveBeenCalled();
+});

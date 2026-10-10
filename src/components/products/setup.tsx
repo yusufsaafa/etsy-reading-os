@@ -6,10 +6,9 @@ import {SetupNavigation} from "./setup-navigation";
 import {configurationStatuses} from "./configuration-status";
 import Link from "next/link";
 import styles from "./setup.module.css";
-import {getEtsySetupCatalog} from "@/modules/products/etsy-setup";
+import {getSavedEtsySetupCatalog} from "@/modules/products/etsy-setup";
 import {SourceSummary} from "./source-summary";
 import {selectionKey} from "@/modules/etsy/source-contract";
-import {vault} from "@/infrastructure/secrets";
 import { database } from "@/db/client";
 import type { Scope } from "@/modules/intake/contracts";
 import { productData, catalogData } from "@/modules/products/service";
@@ -20,11 +19,12 @@ import { createProductEdit } from "./actions";
 export async function ProductSetup({scope,productId,onboarding=false}:{scope:Scope;productId:string;onboarding?:boolean}) {
  const data=await productData(database(),scope,productId),catalog=await catalogData(database(),scope);
  const policy=data.draft?.configuration.etsyFulfillment??data.active?.configuration.etsyFulfillment;
- const setupCatalog=policy?await getEtsySetupCatalog(database(),scope,policy.listingId,vault()):undefined;
+ const setupCatalog=policy?await getSavedEtsySetupCatalog(database(),scope,policy.listingId).catch(()=>undefined):undefined;
  if(setupCatalog&&(!data.bindings.some(b=>b.listingExternalId===policy!.listingId&&b.variantKey===selectionKey(policy!.purchaseSelections))||!setupCatalog.configurations.some(c=>c.key===selectionKey(policy!.purchaseSelections))))throw new Error("SETUP_SOURCE_CHANGED");
  if(!data.draft&&!data.active)return <div role="alert"><h1>Product setup is unavailable</h1><p>Your saved work has not changed.</p><Link href="/onboarding/products/setup">Back to products</Link></div>;
  const listing=catalog.listings.find(l=>l.externalId===data.bindings[0]?.listingExternalId);
  return <div className={styles.setupPage}><SetupNavigation current="Reading setup" href={onboarding?"/onboarding/products/setup":"/products"}/>{onboarding?<StepHeader step={4} title={data.product.name||"Product setup"} description={listing?"Etsy · "+listing.title:"Configure your personalized product."}/>:<Heading title={data.product.name||"Product setup"} description={listing?"Etsy · "+listing.title:"Configure your personalized product."}/>}
+ {policy&&!setupCatalog&&<p className="notice">Current Etsy purchase options have not been verified. Your saved configuration is available. <Link href="/products">Sync your Etsy catalog</Link> before reviewing current purchase options.</p>}
  {setupCatalog&&<SourceSummary listing={setupCatalog.listing}/>}
  <GenerationSetupStatus productId={productId} status={await productGenerationSetup(database(),scope,productId)} local={process.env.NODE_ENV==="development"}/>
  {data.active&&<p className="notice"><Badge tone="good">Configuration active</Badge> Only this exact Etsy purchase choice uses this setup. Other purchase choices need their own setup. Existing readings keep their original configuration.</p>}

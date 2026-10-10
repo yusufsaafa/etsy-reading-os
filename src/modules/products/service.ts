@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Database, DbExecutor } from "../../db/client";
 import { products, productVersions, mappings, listings, listingSelections, lineItems, stores, auditLogs, units, generations } from "../../db/schema";
@@ -130,4 +130,25 @@ export async function productIdentityForReading(db: DbExecutor, scope: Scope, re
     .where(and(tenantWhere(units,scope),eq(units.id,readingId)));
   if (!row) throw new AccessDenied();
   return row.productId;
+}
+
+/** Transitional existing-card projection. Bounded page and related evidence only;
+ * future Products UI uses catalog/read.ts instead. Historical options remain explicitly historical. */
+export async function catalogPageData(db:DbExecutor,scope:Scope,raw:unknown={}){
+ await verifyScope(db,scope);
+ const query=z.object({page:z.number().int().min(1).max(10000).default(1),pageSize:z.number().int().min(1).max(50).default(50)}).strict().parse(raw);
+ const [rows,total]=await Promise.all([
+ db.select().from(listings).where(tenantWhere(listings,scope)).orderBy(asc(listings.title),asc(listings.externalId)).limit(query.pageSize).offset((query.page-1)*query.pageSize),
+ db.select({total:sql<number>`count(*)::integer`}).from(listings).where(tenantWhere(listings,scope))]);
+ const ids=rows.map(r=>r.externalId);
+ if(!ids.length)return {listings:rows,mappings:[],products:[],versions:[],selections:[],lines:[],pagination:{...query,total:total[0].total}};
+ const [bindings,selections,lines]=await Promise.all([
+ db.select().from(mappings).where(and(tenantWhere(mappings,scope),inArray(mappings.listingExternalId,ids))).orderBy(mappings.listingExternalId,mappings.variantKey).limit(1000),
+ db.select().from(listingSelections).where(and(tenantWhere(listingSelections,scope),inArray(listingSelections.listingExternalId,ids))),
+ db.select().from(lineItems).where(and(tenantWhere(lineItems,scope),inArray(lineItems.listingExternalId,ids))).orderBy(lineItems.id).limit(1000)]);
+ const productIds=[...new Set(bindings.flatMap(b=>b.productId?[b.productId]:[]))];
+ const [ownedProducts,versions]=productIds.length?await Promise.all([
+ db.select().from(products).where(and(tenantWhere(products,scope),inArray(products.id,productIds))),
+ db.select().from(productVersions).where(and(tenantWhere(productVersions,scope),inArray(productVersions.productId,productIds),inArray(productVersions.status,["ACTIVE","DRAFT"])))]):[[],[]];
+ return {listings:rows,mappings:bindings,products:ownedProducts,versions,selections,lines,pagination:{...query,total:total[0].total}};
 }

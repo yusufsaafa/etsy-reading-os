@@ -84,3 +84,14 @@ export async function completeProductOnboarding(db: Database, scope: Scope) {
     await tx.insert(auditLogs).values({organizationId:scope.organizationId,storeId:scope.storeId,actorId:scope.userId,action:"product_onboarding_completed",resourceId:ready.id});
   });
 }
+
+// Explicit manual discovery may advance the existing selection step, without scheduling intake.
+export async function completeManualCatalogDiscovery(db:Database,scope:Scope){
+ await db.transaction(async tx=>{
+  await verifyScope(tx,scope,true);
+  await tx.select({id:stores.id}).from(stores).where(and(eq(stores.organizationId,scope.organizationId),eq(stores.id,scope.storeId))).for("update");
+  const [grant]=await tx.select({status:connections.status}).from(connections).where(tenantWhere(connections,scope));
+  if(grant?.status!=="connected")throw new Error("CONNECT_STORE_FIRST");
+  await tx.update(stores).set({onboardingStage:"products"}).where(and(eq(stores.organizationId,scope.organizationId),eq(stores.id,scope.storeId),eq(stores.onboardingStage,"etsy")));
+ });
+}
