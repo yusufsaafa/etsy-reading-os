@@ -31,7 +31,7 @@ export async function approveReviewAction(orderId:string,readingId:string,_state
   if([...form.keys()].some(key=>key!=="revision"&&!key.startsWith("$ACTION_")))throw new ReviewDraftError("INVALID");
   const token=z.string().regex(/^(none|\d+)$/).parse(form.get("revision"));
   await approveReadingReview(database(),scope,orderId,readingId,token==="none"?null:Number(token));
- }catch(error){return {error:error instanceof ReviewDraftError&&error.kind==="CONFLICT"?"This reading changed since you opened it. Review the latest version before approving.":"This reading could not be approved. Refresh and check its status before continuing."};}
+ }catch(error){return {error:error instanceof ReviewDraftError&&error.kind==="STALE"?reviewDraftMessage(error):error instanceof ReviewDraftError&&error.kind==="CONFLICT"?"This reading changed since you opened it. Review the latest version before approving.":"This reading could not be approved. Refresh and check its status before continuing."};}
  const path=`/orders/${orderId}/readings/${readingId}/review`;
  revalidatePath(path);revalidatePath(`/orders/${orderId}`);revalidatePath("/orders");redirect(path);
 }

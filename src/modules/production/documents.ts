@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { and,eq,or,lte,asc } from "drizzle-orm";
 import { z } from "zod";
 import type { Database,DbExecutor } from "../../db/client";
-import { documentProduction,readingReviews,generations,memberships,auditLogs } from "../../db/schema";
+import { documentProduction,readingReviews,generations,memberships,auditLogs,stores } from "../../db/schema";
 import type { Scope } from "../intake/contracts";
 import { verifyScope,tenantWhere } from "../intake/service";
 import { configurationSchema } from "../products/contracts";
@@ -17,8 +17,10 @@ type Work=typeof documentProduction.$inferSelect;
 /** Called after approval in the existing Store-locked transaction. No rendering/storage here. */
 export async function admitDocumentProductionInTransaction(tx:DbExecutor,scope:Scope,reviewId:string,orderId:string,manual=false){
  await verifyScope(tx,scope);
+ await tx.select({id:stores.id}).from(stores).where(and(eq(stores.id,scope.storeId),eq(stores.organizationId,scope.organizationId))).for("update");
  const [review]=await tx.select().from(readingReviews).where(and(tenantWhere(readingReviews,scope),eq(readingReviews.id,reviewId),eq(readingReviews.state,"APPROVED")));
  if(!review)throw new Error("REVIEW_UNAVAILABLE");
+ await getApprovedReadingForDocumentInTransaction(tx,scope,orderId,review.unitId);
  const [generation]=await tx.select().from(generations).where(and(tenantWhere(generations,scope),eq(generations.id,review.generationId)));
  if(!generation)throw new Error("REVIEW_UNAVAILABLE");
  const config=configurationSchema.parse(generation.context.product.configuration);
@@ -29,9 +31,9 @@ export async function admitDocumentProductionInTransaction(tx:DbExecutor,scope:S
 /** Explicit owner preparation/recovery for Manual or attention work; exact frozen input retained. */
 export async function requestDocumentProduction(db:Database,scope:Scope,raw:unknown){
  const command=z.strictObject({orderId:z.uuid(),readingId:z.uuid()}).parse(raw);
- const approved=await getApprovedReadingForDocument(db,scope,command.orderId,command.readingId);
  return db.transaction(async tx=>{
   await lockDocumentStore(tx,scope);
+  const approved=await getApprovedReadingForDocumentInTransaction(tx,scope,command.orderId,command.readingId);
   await admitDocumentProductionInTransaction(tx,scope,approved.provenance.reviewId,command.orderId,true);
   const [work]=await tx.select().from(documentProduction).where(and(tenantWhere(documentProduction,scope),eq(documentProduction.reviewId,approved.provenance.reviewId))).for("update");
   if(work?.state==="ATTENTION"){
@@ -98,6 +100,7 @@ export class DocumentProductionWorker{
   return this.db.transaction(async tx=>{
    await lockDocumentStore(tx,scope);const [row]=await tx.select().from(documentProduction).where(eq(documentProduction.id,work.id)).for("update");
    if(row.state!=="PROCESSING"||row.claimToken!==work.claimToken)return {status:"SUPERSEDED" as const};
+   if(changes.state==="COMPLETED")await getApprovedReadingForDocumentInTransaction(tx,scope,row.orderId,row.readingId);
    await tx.update(documentProduction).set({...changes,claimToken:null,claimExpiresAt:null,updatedAt:new Date()}).where(eq(documentProduction.id,work.id));
    await tx.insert(auditLogs).values({organizationId:scope.organizationId,storeId:scope.storeId,resourceId:work.id,action:changes.state==="COMPLETED"?"document_production_completed":changes.state==="RETRY_WAIT"?"document_production_retry_scheduled":"document_production_needs_attention"});
    return {status:changes.state,workId:work.id,failureCode:changes.failureCode??null};
@@ -106,11 +109,13 @@ export class DocumentProductionWorker{
 }
 /** Backend projection for seller/Delivery integration. Approval != delivery completion. */
 export async function readingOutputStatus(db:Database,scope:Scope,orderId:string,readingId:string){
- const approved=await getApprovedReadingForDocument(db,scope,orderId,readingId);
- const [generation]=await db.select().from(generations).where(and(tenantWhere(generations,scope),eq(generations.id,approved.provenance.generationId)));
+ return db.transaction(async tx=>{
+ const approved=await getApprovedReadingForDocumentInTransaction(tx,scope,orderId,readingId);
+ const [generation]=await tx.select().from(generations).where(and(tenantWhere(generations,scope),eq(generations.id,approved.provenance.generationId)));
  if(!generation)throw new Error("REVIEW_UNAVAILABLE");
  if(configurationSchema.parse(generation.context.product.configuration).output==="TEXT")return {status:"Approved" as const,deliveryReady:true,artifactId:null};
- const [work]=await db.select().from(documentProduction).where(and(tenantWhere(documentProduction,scope),eq(documentProduction.reviewId,approved.provenance.reviewId)));
- if(work?.state==="COMPLETED"&&work.artifactId){const artifact=await getDocumentArtifact(db,scope,readingId,work.artifactId);if(artifact.state!=="AVAILABLE")throw new Error("ARTIFACT_UNAVAILABLE");return {status:"Ready to deliver" as const,deliveryReady:true,artifactId:artifact.id};}
+ const [work]=await tx.select().from(documentProduction).where(and(tenantWhere(documentProduction,scope),eq(documentProduction.reviewId,approved.provenance.reviewId)));
+ if(work?.state==="COMPLETED"&&work.artifactId){const artifact=await getDocumentArtifact(tx,scope,readingId,work.artifactId);if(artifact.state!=="AVAILABLE")throw new Error("ARTIFACT_UNAVAILABLE");return {status:"Ready to deliver" as const,deliveryReady:true,artifactId:artifact.id};}
  return {status:work?.state==="ATTENTION"?"Problem" as const:work?.state==="PROCESSING"?"Preparing" as const:"Waiting" as const,deliveryReady:false,artifactId:null};
+ },{isolationLevel:"repeatable read"});
 }

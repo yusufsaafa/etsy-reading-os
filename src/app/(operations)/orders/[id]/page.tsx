@@ -44,6 +44,7 @@ export default async function OrderDetail({params,searchParams}:{params:Promise<
  const productionStatus=generation?.status==="SUCCEEDED"?(generation.customerRevision!==unit.revision?"STALE":"SUCCEEDED"):active?(queue.state==="EXECUTING"?"PROCESSING":"WAITING"):queue?.state==="ATTENTION"?"FAILED":generation?.status;
  const status=review??readingStatus(unit.issues,productionStatus==="SUCCEEDED"?"FAILED":productionStatus);
  return {id:unit.id,index:unit.unitIndex,status,operations,revision:unit.revision,answers:context?.answers??[],queue:queue?.state.replaceAll("_"," "),generation:generation?{status:generation.status,revision:generation.customerRevision,date:generation.createdAt.toISOString()}:undefined,workflow:<>
+ {!review&&data.reviews?.some(r=>r.unitId===unit.id)&&<p className="small muted"><Link href={`/orders/${id}/readings/${unit.id}/review`}>View historical reading</Link> · Historical content cannot be approved or used for new production.</p>}
  <div id={`preparation-${unit.id}`}>
  <ReadingPreparation approved={review==="Approved"} reviewHref={undefined} scope={scope} productionStatus={productionStatus} unitId={unit.id} currentRevision={unit.revision} eligible={!!eligible} evidence={{mode:operations.prepare,generationId:generation?.id,message:""}}/>
  </div>

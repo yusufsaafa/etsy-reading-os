@@ -18,3 +18,7 @@ it("active edit mode has no approval action or visible saved-content approval sh
  mocks.open.mockResolvedValue({...view,approved:false});const html=renderToStaticMarkup(await ReviewPage({params:Promise.resolve({id:"order",readingId:"reading"}),searchParams:Promise.resolve({edit:"1"})}));
  expect(html).toContain("textarea");expect(html).not.toContain("Approve reading");expect(html).not.toContain("Edit reading");
 });
+it.each([false,true])("historical review preserves body and removes operational controls (approved %s)",async approved=>{
+ mocks.open.mockResolvedValue({...view,approved,outdated:true});const html=renderToStaticMarkup(await ReviewPage({params:Promise.resolve({id:"order",readingId:"reading"}),searchParams:Promise.resolve({edit:"1"})}));
+ expect(html).toContain("Historical / Outdated");expect(html).toContain("Visible saved body");expect(html).toContain("Updated information requires eligible current reading production");expect(html).not.toContain("Approve reading");expect(html).not.toContain("Edit reading");expect(html).not.toContain("textarea");expect(html).not.toContain("ready for the next step");
+});

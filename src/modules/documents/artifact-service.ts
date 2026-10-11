@@ -12,6 +12,7 @@ import { getDocumentRenderInput } from "./media-service";
 import { availableArtifactSchema,artifactObjectKey,immutableArtifact,DocumentArtifactError,type DocumentArtifact } from "./artifact-contract";
 import { readArtifactBytes } from "./artifact-storage";
 import { retainedBytes,sha256 } from "./resources/bytes";
+import { getApprovedReadingForDocumentInTransaction } from "../review/service";
 
 export async function lockDocumentStore(tx:DbExecutor,scope:Scope){
  await verifyScope(tx,scope,true);
@@ -45,7 +46,9 @@ export async function getDocumentArtifact(db:DbExecutor,scope:Scope,readingId:st
  return contract(row);
 }
 /** Recoverable protocol: durable PENDING evidence BEFORE conditional object creation.
- * Repeated/ambiguous writes verify the same exact object. No transaction spans storage I/O.
+ * Repeated/ambiguous writes verify the same exact object. New writes hold Store
+ * across conditional storage I/O so customer corrections cannot invalidate admission.
+ * PENDING commits first, preserving recovery when storage or commit responses are lost.
  */
 export async function produceDocumentArtifact(db:Database,scope:Scope,mediaSnapshotId:string,assets:PlatformAssetStorage,storage:ImmutableArtifactStorage){
  await verifyScope(db,scope,true);
@@ -58,6 +61,11 @@ export async function produceDocumentArtifact(db:Database,scope:Scope,mediaSnaps
   try{await readArtifactBytes(storage,pending);return finalize(db,scope,pending);}catch(error){if(!(error instanceof ArtifactStorageError)||error.code!=="MISSING")throw error;}
  }
  const input=await getDocumentRenderInput(db,scope,mediaSnapshotId);
+ const requireCurrent=async(tx:DbExecutor)=>{
+  const approved=await getApprovedReadingForDocumentInTransaction(tx,scope,input.snapshot.reading.order.id,input.snapshot.reading.readingId);
+  if(approved.provenance.reviewId!==input.snapshot.provenance.reviewId||approved.provenance.generationId!==input.snapshot.provenance.generationId||approved.contentHash!==input.snapshot.reading.contentHash)throw new Error("REVIEW_UNAVAILABLE");
+ };
+ await db.transaction(async tx=>{await lockDocumentStore(tx,scope);await requireCurrent(tx);});
  const pdf=await renderDocumentPdfForReading(db,scope,mediaSnapshotId,assets),bytes=pdf.copyBytes();
  if(sha256(bytes)!==pdf.metadata.sha256||bytes.length!==pdf.metadata.byteLength)throw new DocumentArtifactError("DOCUMENT_INVALID");
  const evidence={organizationId:scope.organizationId,storeId:scope.storeId,orderId:input.snapshot.reading.order.id,readingId:input.snapshot.reading.readingId,
@@ -65,19 +73,28 @@ export async function produceDocumentArtifact(db:Database,scope:Scope,mediaSnaps
  sha256:pdf.metadata.sha256,byteLength:pdf.metadata.byteLength,pageCount:pdf.metadata.pageCount,contentType:"application/pdf" as const};
  const pending=await db.transaction(async tx=>{
   await lockDocumentStore(tx,scope);
+  await requireCurrent(tx);
   const [inserted]=await tx.insert(documentArtifacts).values({...evidence,objectKey:artifactObjectKey(evidence)}).onConflictDoNothing().returning();
   const [winner]=inserted?[inserted]:await tx.select().from(documentArtifacts).where(and(tenantWhere(documentArtifacts,scope),eq(documentArtifacts.mediaSnapshotId,mediaSnapshotId),eq(documentArtifacts.rendererVersion,PDF_RENDERER)));
   if(!winner||Object.entries(evidence).some(([k,v])=>winner[k as keyof typeof winner]!==v))throw new DocumentArtifactError("ARTIFACT_RENDER_CONFLICT");
   if(inserted)await tx.insert(auditLogs).values({...scope,action:"document_artifact_pending",resourceId:winner.id,actorId:null});
   return contract(winner);
  });
- await storage.putImmutable({organizationId:pending.organizationId,objectKey:pending.objectKey,bytes,contentType:"application/pdf",sha256:pending.sha256,byteLength:pending.byteLength});
- await readArtifactBytes(storage,pending);
- return finalize(db,scope,pending);
+ return db.transaction(async tx=>{
+  await lockDocumentStore(tx,scope);
+  await requireCurrent(tx);
+  await storage.putImmutable({organizationId:pending.organizationId,objectKey:pending.objectKey,bytes,contentType:"application/pdf",sha256:pending.sha256,byteLength:pending.byteLength});
+  await readArtifactBytes(storage,pending);
+  return finalizeInTransaction(tx,scope,pending);
+ });
 }
 async function finalize(db:Database,scope:Scope,artifact:DocumentArtifact){
  return db.transaction(async tx=>{
   await lockDocumentStore(tx,scope);
+  return finalizeInTransaction(tx,scope,artifact);
+ });
+}
+async function finalizeInTransaction(tx:DbExecutor,scope:Scope,artifact:DocumentArtifact){
   const [row]=await tx.select().from(documentArtifacts).where(and(tenantWhere(documentArtifacts,scope),eq(documentArtifacts.id,artifact.id))).for("update");
   if(!row)throw new DocumentArtifactError("ARTIFACT_UNAVAILABLE");
   if(row.state==="AVAILABLE")return contract(row);
@@ -85,7 +102,6 @@ async function finalize(db:Database,scope:Scope,artifact:DocumentArtifact){
   const [saved]=await tx.update(documentArtifacts).set({state:"AVAILABLE",availableAt:new Date(clock.now)}).where(eq(documentArtifacts.id,row.id)).returning();
   await tx.insert(auditLogs).values({...scope,action:"document_artifact_available",resourceId:row.id,actorId:null});
   return contract(saved);
- });
 }
 /** Seller/Delivery boundary: authorize Reading + artifact, then bounded full integrity read.
  * Public metadata deliberately excludes objectKey. Download never means delivered.

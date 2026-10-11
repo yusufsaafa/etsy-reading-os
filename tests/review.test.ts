@@ -32,3 +32,32 @@ it("long Unicode customer data and near-bound reading text stay complete escaped
  const result=reviewContent(generation),html=renderToStaticMarkup(createElement(ReviewReading,{reading:{approved:true,customer:"Customer",product:"Reading",orderReference:"2002",index:1,quantity:2,...result}}));
  expect(result.details[0].value).toBe(question);expect(result.sections[1].content).toBe(body);expect(html).toContain("x".repeat(39000));expect(html).toContain("猫 🐾");expect(html).toContain("&lt;script&gt;");expect(html).not.toContain("<script>");expect(html).not.toContain("href=\"https://example.invalid/");
 });
+
+import {currentReadingEligible} from "../src/modules/review/service";
+function currentEvidence():Parameters<typeof currentReadingEligible>[0]{
+ const generation=evidence();generation.context.product.configuration.sections.forEach(s=>{s.instruction="Prepare this section";});generation.contextHash=createHash("sha256").update(stableJson(generation.context)).digest("hex");
+ const tenant={organizationId:"org",storeId:"store"};Object.assign(generation,tenant,{id:"generation"});
+ const line={...tenant,id:"line",orderId:"order",quantity:1,snapshot:{digital:true,quantity:1,answers:generation.context.customer.answers}};
+ const order={...tenant,id:"order",paid:true,canceled:false,refund:"none",latestSnapshot:{paid:true,canceled:false,refund:"none"}};
+ return {generation,latest:generation,queue:undefined,paused:false,unit:{...tenant,id:"reading",lineItemId:"line",configurationState:"versioned",productVersionId:"product",revision:2,issues:[],sourceChanged:false,contextAllocated:false},line,order,input:{...tenant,unitId:"reading",revision:2,answers:generation.context.customer.answers},version:{...tenant,id:"product",status:"PUBLISHED",configuration:generation.context.product.configuration}} as unknown as Parameters<typeof currentReadingEligible>[0];
+}
+it("current reading contract accepts matching immutable evidence",()=>{expect(currentReadingEligible(currentEvidence())).toBe(true);});
+it.each(["revision","newer","tenant","pin","unpaid","canceled","refund","source","issues","queue","allocation","paused","input","version","result"])("current eligibility rejects disagreeing persisted %s evidence",field=>{
+ const data=currentEvidence();
+ if(field==="revision")data.unit.revision++;
+ if(field==="newer")data.latest={...data.generation,id:"newer"};
+ if(field==="tenant")data.order.storeId="foreign";
+ if(field==="pin")data.unit.productVersionId="different";
+ if(field==="unpaid")data.order.paid=false;
+ if(field==="canceled")data.order.canceled=true;
+ if(field==="refund")data.order.refund="full";
+ if(field==="source")data.unit.sourceChanged=true;
+ if(field==="issues")data.unit.issues=["source_changed"];
+ if(field==="queue")data.queue={state:"EXECUTING"};
+ if(field==="allocation")data.line.snapshot.quantity=2;
+ if(field==="paused")data.paused=true;
+ if(field==="input")data.input={...data.input!,revision:3};
+ if(field==="version")data.version={...data.version!,status:"DRAFT"};
+ if(field==="result")data.generation.result={sections:[]};
+ expect(currentReadingEligible(data)).toBe(false);
+});

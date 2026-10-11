@@ -40,3 +40,10 @@ it("approval conflict and internal errors return safe actionable messages",async
  const f=new FormData();f.set("revision","none");mocks.approve.mockRejectedValue(new ReviewDraftError("CONFLICT"));expect((await approveReviewAction(order,reading,{},f)).error).toContain("before approving");
  mocks.approve.mockRejectedValue(new Error("secret SQL"));expect((await approveReviewAction(order,reading,{},f)).error).not.toContain("secret");expect(mocks.redirect).not.toHaveBeenCalled();
 });
+
+it("stale save and approval return actionable non-destructive errors without redirect",async()=>{
+ mocks.save.mockRejectedValue(new ReviewDraftError("STALE"));mocks.approve.mockRejectedValue(new ReviewDraftError("STALE"));
+ const approval=new FormData();approval.set("revision","3");
+ for(const result of [await saveReviewDraftAction(order,reading,{},form()),await approveReviewAction(order,reading,{},approval)])expect(result.error).toContain("Your saved history is unchanged");
+ expect(mocks.redirect).not.toHaveBeenCalled();expect(mocks.refresh).not.toHaveBeenCalled();
+});

@@ -198,6 +198,8 @@ it("late customer correction keeps earlier canonical work but cannot project it 
  await correctInput(db,a,unitId,0,[{label:"Name",value:"Changed recipient",kind:"text"}],false);release();
  const result=await running;expect(result.status).toBe("SUCCEEDED");expect(result.customerRevision).toBe(0);
  expect((await workspaceData(db,a)).units.find(u=>u.id===unitId)?.productionStatus).toBe("STALE");
+ const review=await import("../src/modules/review/service");expect(await review.reviewAvailable(db,a,result.context.orderId,unitId)).toBe(false);
+ await expect(review.openReadingReview(db,a,result.context.orderId,unitId,true)).rejects.toThrow("REVIEW_UNAVAILABLE");expect(await db.select().from(schema.readingReviews)).toHaveLength(0);
 });
 it("a changed admission between claim and dispatch settles known zero without contacting provider",async()=>{
  const p=new FakeGenerationProvider(),gateway=new CentralAIGateway(db,{provider:p,model:"deterministic-v1",pricing:pricingFor("fake","deterministic-v1"),maxOutputTokens:8192,dailyBudgetNanos:0n,attemptBudgetNanos:0n});
@@ -397,7 +399,7 @@ it("pinned review does not float to a newer successful reading and does not use 
  const changed=await context();const [newer]=await db.insert(schema.generations).values({...result,id:randomUUID(),status:"PROCESSING",result:null,completedAt:null,createdAt:new Date(result.createdAt.getTime()+1000),customerRevision:changed.customer.revision,context:changed,contextHash:createHash("sha256").update(stableJson(changed)).digest("hex")}).returning();
  expect(await (await import("../src/modules/review/service")).reviewAvailable(db,a,result.context.orderId,unitId)).toBe(false);
  await db.update(schema.generations).set({status:"SUCCEEDED",result:result.result,completedAt:new Date()}).where(eq(schema.generations.id,newer.id));
- const retained=await openReadingReview(db,a,result.context.orderId,unitId);expect(retained).toEqual(original);
+ const retained=await openReadingReview(db,a,result.context.orderId,unitId);expect(retained).toEqual({...original,outdated:true});
  expect((await db.select().from(schema.readingReviews))[0].generationId).toBe(result.id);
 });
 it("review mixed-cart and quantity readings remain independently owned and pinned",async()=>{
@@ -420,6 +422,13 @@ it("review mixed-cart and quantity readings remain independently owned and pinne
  await approveReadingReview(db,a,o.id,us[0].id,1);
  expect((await openReadingReview(db,a,o.id,us[0].id)).approved).toBe(true);
  for(const u of us.slice(1))expect((await openReadingReview(db,a,o.id,u.id)).approved).toBe(false);
+ const pins=us.map(u=>u.productVersionId);
+ await correctInput(db,a,us[1].id,1,[{label:"Name",value:"Changed sibling recipient",kind:"text"}],true);
+ expect((await openReadingReview(db,a,o.id,us[1].id)).outdated).toBe(true);
+ await expect(approveReadingReview(db,a,o.id,us[1].id,1)).rejects.toMatchObject({kind:"STALE"});
+ expect((await openReadingReview(db,a,o.id,us[0].id)).outdated).toBe(false);expect((await openReadingReview(db,a,o.id,us[2].id)).outdated).toBe(false);
+ await approveReadingReview(db,a,o.id,us[2].id,1);
+ const retainedUnits=(await workspaceData(db,a)).units;for(const [i,u]of us.entries())expect(retainedUnits.find(r=>r.id===u.id)?.productVersionId).toBe(pins[i]);
  expect(await db.select().from(schema.readingReviewDrafts)).toHaveLength(3);
  expect(await db.select().from(schema.readingReviews)).toHaveLength(3);
  expect(await reviewAvailable(db,a,(await context()).orderId,us[0].id)).toBe(false);
@@ -587,7 +596,8 @@ it("approved handoff never replaces content with later successful evidence or mu
  const changed=structuredClone(result.result!);changed.sections[0].content="Later content, never approved";
  const [later]=await db.insert(schema.generations).values({...result,id:randomUUID(),status:"PROCESSING",result:null,completedAt:null,createdAt:new Date(result.createdAt.getTime()+1000)}).returning();await db.update(schema.generations).set({status:"SUCCEEDED",result:changed,completedAt:new Date()}).where(eq(schema.generations.id,later.id));
  await pg.exec("BEGIN; SET LOCAL session_replication_role=replica");await pg.query("UPDATE reading_review_drafts SET content=$1 WHERE review_id=$2",[JSON.stringify(changed),approved.id]);await pg.exec("SET LOCAL session_replication_role=origin; COMMIT");
- expect(await getApprovedReadingForDocument(db,a,orderId,unitId)).toEqual(original);
+ await expect(getApprovedReadingForDocument(db,a,orderId,unitId)).rejects.toThrow("REVIEW_UNAVAILABLE");
+ const historical=await openReadingReview(db,a,orderId,unitId);expect(historical.outdated).toBe(true);expect(historical.sections).toEqual(original.sections.map(({title,content})=>({title,content})));
 });
 
 // MVP defaults: a fresh owned Store with no seller/style/history setup.
@@ -636,4 +646,50 @@ it("new context pins approved title, field meanings and attribution despite muta
  expect((await context()).product.title).toBe("Personalized guidance");
  const {assembleInstructions}=await import("../src/modules/generation/instructions");const p=JSON.parse(assembleInstructions(c).data);
  expect(p.product.title).toBe("Personalized guidance");expect(p.customerFields[0]).toMatchObject({key:"name",label:"Name",required:true,type:"TEXT"});expect(p.sellerIdentity.displayName).toBe(c.seller.displayName);
+});
+
+// Milestone 6.2A: persisted freshness is separate from historical Review identity.
+it("customer correction before initialization cannot create actionable review or draft",async()=>{
+ const review=await import("../src/modules/review/service"),{result}=await prepare();
+ await correctInput(db,a,unitId,0,[{label:"Name",value:"Updated",kind:"text"}],false);
+ await expect(review.openReadingReview(db,a,result.context.orderId,unitId,true)).rejects.toThrow("REVIEW_UNAVAILABLE");
+ expect(await db.select().from(schema.readingReviews)).toHaveLength(0);expect(await db.select().from(schema.readingReviewDrafts)).toHaveLength(0);
+});
+it.each([false,true])("customer correction after review/draft save (%s) preserves history and blocks advancement",async save=>{
+ const review=await import("../src/modules/review/service"),{result}=await prepare(),orderId=result.context.orderId;
+ const initial=await review.openReadingReview(db,a,orderId,unitId,true),content=structuredClone(initial.draft!.content);
+ content.sections[0].content="Historical seller edit";if(save)await review.saveReadingReviewDraft(db,a,orderId,unitId,0,content);
+ const drafts=await db.select().from(schema.readingReviewDrafts),reviews=await db.select().from(schema.readingReviews),pin=(await db.select().from(schema.units))[0].productVersionId;
+ await correctInput(db,a,unitId,0,[{label:"Name",value:"Updated",kind:"text"}],false);
+ const old=await review.openReadingReview(db,a,orderId,unitId,true);expect(old.outdated).toBe(true);expect(old.details).toEqual(initial.details);
+ await expect(review.saveReadingReviewDraft(db,a,orderId,unitId,save?1:0,content)).rejects.toMatchObject({kind:"STALE"});
+ await expect(review.approveReadingReview(db,a,orderId,unitId,save?1:0)).rejects.toMatchObject({kind:"STALE"});
+ expect(await db.select().from(schema.readingReviewDrafts)).toEqual(drafts);expect(await db.select().from(schema.readingReviews)).toEqual(reviews);
+ expect((await db.select().from(schema.units))[0].productVersionId).toBe(pin);expect(await review.readingReviewStatus(db,a,orderId,unitId)).toBeNull();
+});
+it("outdated edit opening cannot lazily initialize a historical draft",async()=>{
+ const review=await import("../src/modules/review/service"),{result}=await prepare(),orderId=result.context.orderId;
+ await review.openReadingReview(db,a,orderId,unitId);await correctInput(db,a,unitId,0,[{label:"Name",value:"Updated",kind:"text"}],false);
+ expect((await review.openReadingReview(db,a,orderId,unitId,true)).draft).toBeNull();expect(await db.select().from(schema.readingReviewDrafts)).toHaveLength(0);
+});
+it.each([true,false])("correction racing approval serializes in transaction order (correction first %s)",async correctionFirst=>{
+ const review=await import("../src/modules/review/service"),{result}=await prepare(),orderId=result.context.orderId;await review.openReadingReview(db,a,orderId,unitId);
+ const correct=()=>correctInput(db,a,unitId,0,[{label:"Name",value:"Updated",kind:"text"}],false),approve=()=>review.approveReadingReview(db,a,orderId,unitId,null);
+ const outcomes=await Promise.allSettled(correctionFirst?[correct(),approve()]:[approve(),correct()]);expect(outcomes[correctionFirst?0:1].status).toBe("fulfilled");
+ const approval=outcomes[correctionFirst?1:0];expect(approval.status).toBe(correctionFirst?"rejected":"fulfilled");
+ expect((await db.select().from(schema.readingReviews))[0].state).toBe(correctionFirst?"PENDING":"APPROVED");
+ expect((await review.openReadingReview(db,a,orderId,unitId)).outdated).toBe(true);await expect(review.getApprovedReadingForDocument(db,a,orderId,unitId)).rejects.toThrow();
+});
+it.each(["canceled","refund","unpaid","source","allocation"])("new review operations reject persisted %s hold but preserve initialized history",async hold=>{
+ const review=await import("../src/modules/review/service"),{result}=await prepare(),orderId=result.context.orderId;const initial=await review.openReadingReview(db,a,orderId,unitId,true);
+ if(hold==="source")await db.update(schema.units).set({sourceChanged:true}).where(eq(schema.units.id,unitId));
+ else if(hold==="allocation")await db.update(schema.units).set({issues:["quantity_context"]}).where(eq(schema.units.id,unitId));
+ else await db.update(schema.orders).set(hold==="canceled"?{canceled:true}:hold==="refund"?{refund:"full"}:{paid:false}).where(eq(schema.orders.id,orderId));
+ expect((await review.openReadingReview(db,a,orderId,unitId)).outdated).toBe(true);
+ await expect(review.saveReadingReviewDraft(db,a,orderId,unitId,0,initial.draft!.content)).rejects.toMatchObject({kind:"STALE"});await expect(review.approveReadingReview(db,a,orderId,unitId,0)).rejects.toMatchObject({kind:"STALE"});
+});
+it("superseding in-flight generation blocks older approval without rebinding history",async()=>{
+ const review=await import("../src/modules/review/service"),{result}=await prepare(),orderId=result.context.orderId;await review.openReadingReview(db,a,orderId,unitId);
+ await db.insert(schema.generations).values({...result,id:randomUUID(),status:"PROCESSING",result:null,completedAt:null,createdAt:new Date(result.createdAt.getTime()+1000)});
+ await expect(review.approveReadingReview(db,a,orderId,unitId,null)).rejects.toMatchObject({kind:"STALE"});expect((await review.openReadingReview(db,a,orderId,unitId)).outdated).toBe(true);expect((await db.select().from(schema.readingReviews))[0].generationId).toBe(result.id);
 });

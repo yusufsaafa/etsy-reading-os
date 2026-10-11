@@ -29,7 +29,7 @@ it.each(["Ready for review","Approved"])("current %s exposes the exact owned rev
 it("a successful result with failed review validation has no enabled View Reading",()=>{const o=readingOperations(evidence({generation}));expect(o.next.key).toBe("review_unavailable");expect(o.next.action).toBeUndefined();});
 it("PDF requires AVAILABLE owned projection and configured access, historical output stays explicit",()=>{
  const artifact={id:"artifact",generationId:"g1",customerRevision:0};
- expect(readingOperations(evidence({generation,artifact})).pdf).toEqual({href:"/api/readings/reading/artifacts/artifact?view=inline",historical:false});
+ expect(readingOperations(evidence({generation,artifact,review:"Approved"})).pdf).toEqual({href:"/api/readings/reading/artifacts/artifact?view=inline",historical:false});
  expect(readingOperations(evidence({generation,artifact,revision:1})).pdf?.historical).toBe(true);
  expect(readingOperations(evidence({generation,artifact,pdfAccess:false})).pdf).toBeUndefined();expect(readingOperations(evidence()).pdf).toBeUndefined();
 });
@@ -46,4 +46,9 @@ it("50 sample details reuse mapping, demonstrate all cases and enable no real wo
  }
  expect(new Set(sampleOrderDetail("DEMO-1004")!.items.flatMap(i=>i.readings).map(r=>r.operations!.next.key)).size).toBeGreaterThan(1);
  for(const key of ["pending","review","missing_input","unmapped_listing","failure","stale","active","canceled","source_changed"])expect(keys.has(key)).toBe(true);
+});
+
+it.each([{canceled:true},{refund:"full"},{eligible:false},{review:undefined}])("held or unapproved historical PDF retains preview without current label %j",hold=>{
+ const result=readingOperations(evidence({generation:{id:"g1",status:"SUCCEEDED",customerRevision:0},artifact:{id:"artifact",generationId:"g1",customerRevision:0},review:"Approved",...hold}));
+ expect(result.pdf?.historical).toBe(true);expect(result.pdfNote).toContain("Historical PDF");
 });

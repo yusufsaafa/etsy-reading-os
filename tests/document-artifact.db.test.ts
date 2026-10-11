@@ -1,4 +1,4 @@
-import { beforeEach, afterEach, it, expect } from "vitest";
+import { beforeEach, afterEach, it, expect, vi } from "vitest";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { readFileSync,readdirSync } from "node:fs";
@@ -216,11 +216,12 @@ it("synthetic tarot artifact stays downloadable after preference change/deck ret
 it("late expired worker cannot settle a replacement claim; immutable storage effects converge",async()=>{
  await ready();const storage=new MemoryArtifactStorage();let release!:()=>void,entered!:()=>void;
  const gate=new Promise<void>(resolve=>{release=resolve;}),started=new Promise<void>(resolve=>{entered=resolve;});
- const put=storage.putImmutable.bind(storage);let first=true;storage.putImmutable=async value=>{if(first){first=false;entered();await gate;}await put(value);};
+ const review=await import("../src/modules/review/service"),getApproved=review.getApprovedReadingForDocument;let first=true;
+ const preflight=vi.spyOn(review,"getApprovedReadingForDocument").mockImplementation(async(...args)=>{if(first){first=false;entered();await gate;}return getApproved(...args);});
  const one=DocumentProductionWorker.forInternalWorker(db,{assets,artifacts:storage}),two=DocumentProductionWorker.forInternalWorker(db,{assets,artifacts:storage});
  const [work]=await db.select().from(schema.documentProduction);const old=one.execute(work.id);await started;
  await pg.exec("BEGIN; SET LOCAL session_replication_role=replica");await pg.query("UPDATE document_production SET claim_expires_at=clock_timestamp()-interval '1 second' WHERE id=$1",[work.id]);await pg.exec("SET LOCAL session_replication_role=origin; COMMIT");
- try{expect(await two.execute(work.id)).toMatchObject({status:"COMPLETED"});}finally{release();}
+ try{expect(await two.execute(work.id)).toMatchObject({status:"COMPLETED"});}finally{release();preflight.mockRestore();}
  expect(await old).toEqual({status:"SUPERSEDED"});const [done]=await db.select().from(schema.documentProduction);expect(done.state).toBe("COMPLETED");expect(done.attempt).toBe(2);expect(await db.select().from(schema.documentArtifacts)).toHaveLength(1);expect(storage.objects.size).toBe(1);
 });
 it("pending output evidence mismatch fails closed without overwriting stored intent",async()=>{
@@ -242,4 +243,50 @@ it("concrete local storage and authorized download integrate with existing immut
   await expect(downloadDocument(db,b,{readingId,artifactId:artifact.id},storage)).rejects.toThrow();await expect(downloadDocument(db,sibling,{readingId,artifactId:artifact.id},storage)).rejects.toThrow();
   expect(await db.select().from(schema.documentArtifacts)).toHaveLength(1);expect(await db.select().from(schema.aiRequests)).toHaveLength(1);
  }finally{await rm(root,{recursive:true,force:true});}
+});
+
+it("stale approved reading denies every new document boundary and worker side effect",async()=>{
+ await ready();const frozen=await input(),storage=new MemoryArtifactStorage();const {correctInput}=await import("../src/modules/intake/service"),{admitDocumentProductionInTransaction}=await import("../src/modules/production/documents");
+ const [approved]=await db.select().from(schema.readingReviews);await correctInput(db,a,readingId,0,[{label:"Name",value:"Updated",kind:"text"}],false);
+ await expect(create()).rejects.toThrow("REVIEW_UNAVAILABLE");await expect(input()).rejects.toThrow("REVIEW_UNAVAILABLE");await expect(requestDocumentProduction(db,a,{orderId,readingId})).rejects.toThrow("REVIEW_UNAVAILABLE");
+ await expect(db.transaction(tx=>admitDocumentProductionInTransaction(tx,a,approved.id,orderId,true))).rejects.toThrow("REVIEW_UNAVAILABLE");
+ await expect(produce(frozen.media.id,storage)).rejects.toThrow("REVIEW_UNAVAILABLE");expect(await db.select().from(schema.documentArtifacts)).toHaveLength(0);expect(storage.writes).toBe(0);
+ expect(await DocumentProductionWorker.forInternalWorker(db,{assets,artifacts:storage}).runCycle()).toMatchObject([{status:"ATTENTION",failureCode:"READING_HOLD"}]);expect(storage.writes).toBe(0);
+ expect(await approveReadingReview(db,a,orderId,readingId,null)).toEqual(approved);expect(await db.select().from(schema.readingReviews)).toEqual([approved]);expect(await db.select().from(schema.documentProduction)).toHaveLength(1);
+ await expect(readingOutputStatus(db,a,orderId,readingId)).rejects.toThrow("REVIEW_UNAVAILABLE");
+});
+it("historical AVAILABLE PDF and approval replay retain identity without current delivery readiness",async()=>{
+ await ready();const storage=new MemoryArtifactStorage(),worker=DocumentProductionWorker.forInternalWorker(db,{assets,artifacts:storage});await worker.runCycle();const [artifact]=await db.select().from(schema.documentArtifacts),[approved]=await db.select().from(schema.readingReviews),works=await db.select().from(schema.documentProduction);
+ expect((await readingOutputStatus(db,a,orderId,readingId)).deliveryReady).toBe(true);
+ const {correctInput}=await import("../src/modules/intake/service");await correctInput(db,a,readingId,0,[{label:"Name",value:"Updated",kind:"text"}],false);
+ const writes=storage.writes;await expect(readingOutputStatus(db,a,orderId,readingId)).rejects.toThrow();expect(sha256((await retrieve(artifact.id,storage)).copyBytes())).toBe(artifact.sha256);
+ expect((await produce(artifact.mediaSnapshotId,storage)).id).toBe(artifact.id);expect(await approveReadingReview(db,a,orderId,readingId,null)).toEqual(approved);
+ expect(await db.select().from(schema.documentArtifacts)).toEqual([artifact]);expect(await db.select().from(schema.documentProduction)).toEqual(works);expect(storage.writes).toBe(writes);
+ expect((await openReadingReview(db,a,orderId,readingId,true)).outdated).toBe(true);
+});
+it.each([false,true])("stale PENDING recovery writes no missing object; existing object recovery is safe (%s)",async objectExists=>{
+ await ready();const frozen=await input(),storage=new MemoryArtifactStorage();storage.failBefore=!objectExists;storage.loseWriteResponse=objectExists;await expect(produce(frozen.media.id,storage)).rejects.toThrow();const [pending]=await db.select().from(schema.documentArtifacts);
+ const {correctInput}=await import("../src/modules/intake/service");await correctInput(db,a,readingId,0,[{label:"Name",value:"Updated",kind:"text"}],false);storage.failBefore=false;storage.loseWriteResponse=false;const writes=storage.writes;
+ if(objectExists){const recovered=await produce(frozen.media.id,storage);expect(recovered.id).toBe(pending.id);expect(recovered.state).toBe("AVAILABLE");expect(sha256((await retrieve(recovered.id,storage)).copyBytes())).toBe(pending.sha256);}
+ else{await expect(produce(frozen.media.id,storage)).rejects.toThrow("REVIEW_UNAVAILABLE");expect(await db.select().from(schema.documentArtifacts)).toEqual([pending]);}
+ expect(storage.writes).toBe(writes);await expect(readingOutputStatus(db,a,orderId,readingId)).rejects.toThrow();
+});
+it("correction waiting behind guarded storage write makes completed artifact historical",async()=>{
+ await ready();const frozen=await input(),storage=new MemoryArtifactStorage();let enter!:()=>void,release!:()=>void;const entered=new Promise<void>(r=>{enter=r;}),gate=new Promise<void>(r=>{release=r;}),put=storage.putImmutable.bind(storage);
+ storage.putImmutable=async value=>{enter();await gate;return put(value);};const production=produce(frozen.media.id,storage);await entered;
+ const {correctInput}=await import("../src/modules/intake/service");const correction=correctInput(db,a,readingId,0,[{label:"Name",value:"Updated",kind:"text"}],false);release();const [artifact]=await Promise.all([production,correction]);
+ expect(artifact.state).toBe("AVAILABLE");expect(sha256((await retrieve(artifact.id,storage)).copyBytes())).toBe(artifact.sha256);await expect(readingOutputStatus(db,a,orderId,readingId)).rejects.toThrow();
+});
+it("correction during speculative rendering prevents pending evidence and storage writes",async()=>{
+ await ready();const frozen=await input(),storage=new MemoryArtifactStorage(),pdf=await import("../src/modules/documents/pdf/service"),render=pdf.renderDocumentPdfForReading,{correctInput}=await import("../src/modules/intake/service");
+ const spy=vi.spyOn(pdf,"renderDocumentPdfForReading").mockImplementationOnce(async(...args)=>{await correctInput(db,a,readingId,0,[{label:"Name",value:"Updated during rendering",kind:"text"}],false);return render(...args);});
+ try{await expect(produce(frozen.media.id,storage)).rejects.toThrow("REVIEW_UNAVAILABLE");}finally{spy.mockRestore();}
+ expect(await db.select().from(schema.documentArtifacts)).toHaveLength(0);expect(storage.writes).toBe(0);expect((await openReadingReview(db,a,orderId,readingId)).outdated).toBe(true);
+});
+it("operator review policy remains intact while explicit document production stays owner-only",async()=>{
+ const d=await design();await setDefaultDocumentDesign(db,a,d.id);await db.insert(schema.users).values({id:"review-operator",name:"Operator"});await db.insert(schema.memberships).values({organizationId:a.organizationId,userId:"review-operator",role:"operator"});const operator=await authorizeStore(db,"review-operator",a.storeId);
+ const view=await openReadingReview(db,operator,orderId,readingId,true);await saveReadingReviewDraft(db,operator,orderId,readingId,0,view.draft!.content);const approved=await approveReadingReview(db,operator,orderId,readingId,1);expect(approved.approvedByUserId).toBe(operator.userId);expect(await db.select().from(schema.documentProduction)).toHaveLength(1);
+ await expect(requestDocumentProduction(db,operator,{orderId,readingId})).rejects.toThrow("Resource unavailable");await expect(createDocumentRenderInput(db,operator,{orderId,readingId})).rejects.toThrow("Resource unavailable");
+ const frozen=await input(),storage=new MemoryArtifactStorage(),artifact=await produce(frozen.media.id,storage);expect(sha256((await retrieve(artifact.id,storage,operator)).copyBytes())).toBe(artifact.sha256);
+ const {correctInput}=await import("../src/modules/intake/service");await correctInput(db,operator,readingId,0,[{label:"Name",value:"Updated by operator",kind:"text"}],false);expect((await openReadingReview(db,operator,orderId,readingId)).outdated).toBe(true);await expect(saveReadingReviewDraft(db,operator,orderId,readingId,1,view.draft!.content)).rejects.toMatchObject({kind:"STALE"});
 });
