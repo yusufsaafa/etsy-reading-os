@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {automaticIntakeStatus} from "@/modules/etsy/automatic-intake";
+import {webhookIntakeStatus} from "@/modules/etsy/webhook-intake";
 import {internalOperatorAllowed} from "@/modules/identity/internal-access";
 import {database} from "@/db/client";
 import {currentScope} from "@/modules/identity/session";
@@ -16,6 +17,6 @@ export default async function OrdersPage({searchParams}:{searchParams:Promise<Re
    const {sampleOrdersData}=await import("@/modules/orders/sample-preview");
    return <OrdersListPage data={sampleOrdersData(query)} query={{...query,preview:"sample"}} previewAvailable samplePreview/>;
  }
- try{const [data,status]=await Promise.all([ordersWorkQueue(database(),scope,query),automaticIntakeStatus(database(),scope)]);return <OrdersListPage data={data} query={query} previewAvailable={previewAvailable} syncControl={<section aria-label="Incoming Etsy orders"><p role="status">{status}</p>{internalOperatorAllowed(scope.userId)&&<Link href="/etsy/diagnostics">Intake diagnostics</Link>}</section>}/>;}
+ try{const [data,status,backup]=await Promise.all([ordersWorkQueue(database(),scope,query),webhookIntakeStatus(database(),scope),automaticIntakeStatus(database(),scope)]);return <OrdersListPage data={data} query={query} previewAvailable={previewAvailable} syncControl={<section aria-label="Incoming Etsy orders"><p role="status">{status}</p><p>Backup polling / reconciliation: {backup}</p>{internalOperatorAllowed(scope.userId)&&<Link href="/etsy/diagnostics">Intake diagnostics</Link>}</section>}/>;}
  catch(error){if(error instanceof AccessDenied)throw error;return <OrdersError query={query}/>;}
 }

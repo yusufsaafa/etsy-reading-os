@@ -18,6 +18,7 @@
     "db:seed": "tsx --env-file=.env.local scripts/seed.ts",
     "worker": "tsx --env-file=.env.local scripts/worker.ts",
     "worker:etsy-intake": "tsx --env-file=.env.local scripts/etsy-intake-worker.ts",
+    "worker:etsy-webhooks": "tsx --env-file=.env.local scripts/etsy-webhook-worker.ts",
     "typecheck:core": "tsc --noEmit -p tsconfig.core.json",
     "local:configure": "node scripts/configure-local.mjs"
   },

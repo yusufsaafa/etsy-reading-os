@@ -6,6 +6,7 @@ vi.mock("@/modules/intake/service",()=>({verifyScope:mocks.verify}));
 vi.mock("@/db/client",()=>({database:()=>mocks.db}));
 vi.mock("@/modules/orders/work-queue",()=>({ordersWorkQueue:mocks.data}));
 vi.mock("@/modules/etsy/automatic-intake",()=>({automaticIntakeStatus:async()=>"Etsy connected. Automatic intake is not enabled in this environment."}));
+vi.mock("@/modules/etsy/webhook-intake",()=>({webhookIntakeStatus:async()=>"Webhook receiver configured. Etsy Portal interoperability and connected-shop coverage are not yet verified."}));
 import Page from "../src/app/(operations)/orders/page";
 import {ordersQuery,ordersHref} from "../src/modules/orders/query";
 import * as samples from "../src/modules/orders/sample-preview";

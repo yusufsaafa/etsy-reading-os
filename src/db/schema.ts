@@ -8,6 +8,23 @@ const id = () => uuid("id").defaultRandom().primaryKey();
 const org = () => uuid("organization_id").notNull();
 const store = () => uuid("store_id").notNull();
 const time = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
+// Verified notification identity is separate from receipt-discovery identity.
+// Unknown/disconnected shops are quarantined without tenant adoption.
+export const webhookEvents = pgTable("etsy_webhook_events", {
+ id:id(), eventId:text("event_id").notNull(), eventType:text("event_type").notNull(),
+ shopId:text("shop_id").notNull(), receiptId:text("receipt_id").notNull(), bodyHash:text("body_hash").notNull(),
+ signedAt:bigint("signed_at",{mode:"number"}).notNull(), receivedAt:time("received_at").defaultNow().notNull(),
+ organizationId:uuid("organization_id"), storeId:uuid("store_id"), epoch:integer("epoch"),
+ status:text("status").notNull().default("PENDING"), attempts:integer("attempts").notNull().default(0),
+ claim:uuid("claim"), leaseUntil:time("lease_until"), nextAt:time("next_at").defaultNow().notNull(),
+ errorCode:text("error_code"), result:text("result"), settledAt:time("settled_at"),
+},t=>[unique("webhook_event_identity").on(t.eventId),
+ foreignKey({columns:[t.organizationId,t.storeId,t.epoch],foreignColumns:[automaticIntake.organizationId,automaticIntake.storeId,automaticIntake.epoch]}),
+ check("webhook_event_evidence",sql`${t.eventId} ~ '^[A-Za-z0-9_-]+$' and length(${t.eventId}) between 1 and 256 and ${t.shopId} ~ '^[1-9][0-9]{0,19}$' and ${t.receiptId} ~ '^[1-9][0-9]{0,19}$' and ${t.bodyHash} ~ '^[0-9a-f]{64}$' and ${t.signedAt}>=0 and ${t.eventType} in ('order.paid','order.canceled','order.shipped','order.delivered')`),
+ check("webhook_event_binding",sql`(${t.organizationId} is null and ${t.storeId} is null and ${t.epoch} is null and ${t.status} in ('ATTENTION','SUCCEEDED')) or (${t.organizationId} is not null and ${t.storeId} is not null and ${t.epoch} is not null and ${t.epoch}>=0)`),
+ check("webhook_event_status",sql`${t.status} in ('PENDING','PROCESSING','SUCCEEDED','ATTENTION') and ${t.attempts} between 0 and 5`),
+ check("webhook_event_claim",sql`(${t.status}='PROCESSING' and ${t.claim} is not null and ${t.leaseUntil} is not null) or (${t.status}<>'PROCESSING' and ${t.claim} is null and ${t.leaseUntil} is null)`),
+ index("webhook_events_due").on(t.status,t.nextAt),index("webhook_events_store").on(t.organizationId,t.storeId,t.receivedAt)]);
 // OAuth-owned automatic intake only; receipt evidence remains in the existing intake domain.
 export const automaticIntake = pgTable("etsy_automatic_intake", {
  id:id(), organizationId:org(), storeId:store(), actorId:text("actor_id").notNull(), epoch:integer("epoch").notNull(),
