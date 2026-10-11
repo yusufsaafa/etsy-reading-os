@@ -1,3 +1,4 @@
+import {purchasedChoices} from "@/modules/orders/purchased-choices";
 import {orderFinanceView} from "@/modules/orders-finance/service";
 import Link from "next/link";
 import {notFound} from "next/navigation";
@@ -33,7 +34,7 @@ export default async function OrderDetail({params,searchParams}:{params:Promise<
  const providerEnabled=["fake","google"].includes(process.env.AI_PROVIDER??"");
  let pdfAccess=false;try{pdfAccess=!!configuredDocumentPorts();}catch{/* No raw configuration details in seller UI. */}
  const historyByUnit=new Map(data.history.map(g=>[g.unitId,g])),queueByUnit=new Map(data.queue.map(q=>[q.unitId,q])),inputByUnit=new Map(data.inputs.map(c=>[c.unitId,c])),versionById=new Map(data.versions.map(v=>[v.id,v])),attemptByGeneration=new Map(data.attempts.map(a=>[a.generationId,a])),artifactByUnit=new Map(artifacts.map(a=>[a.readingId,a]));
- const items=await Promise.all(data.lines.map(async line=>({id:line.id,title:line.title,quantity:line.quantity,variations:line.snapshot.variations.map(v=>`${v.label}: ${v.value}`),answers:line.snapshot.answers,readings:await Promise.all(data.units.filter(u=>u.lineItemId===line.id).map(async unit=>{
+ const items=await Promise.all(data.lines.map(async line=>({id:line.id,title:line.title,quantity:line.quantity,variations:purchasedChoices(line.snapshot),answers:line.snapshot.answers,readings:await Promise.all(data.units.filter(u=>u.lineItemId===line.id).map(async unit=>{
  const generation=historyByUnit.get(unit.id),queue=queueByUnit.get(unit.id),context=inputByUnit.get(unit.id),review=reviews.get(unit.id);
  const mapping=data.mappings.find(m=>m.listingExternalId===line.listingExternalId&&m.variantKey===line.variantKey),version=unit.productVersionId?versionById.get(unit.productVersionId):undefined;
  const parsed=configurationSchema.safeParse(version?.configuration);

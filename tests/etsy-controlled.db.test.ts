@@ -140,3 +140,87 @@ it("optional finance savepoint failure leaves authorized purchase intake intact 
  const r={...receipt(),grandtotal:{amount:2499,divisor:100,currency_code:"USD"}};
  const result=await ingestControlledReceipt(db,a,body(r),now(),command(r));expect(result.finance).toBe("FAILED");expect((await workspaceData(db,a)).units).toHaveLength(1);await noExecution();
 });
+
+// Operational wrapper uses synthetic owned reads; no Etsy/AI/storage calls.
+import {orderSyncAccess,syncOrderReceipt} from "../src/modules/orders/sync";
+import {ordersWorkQueue} from "../src/modules/orders/work-queue";
+import {ordersQuery} from "../src/modules/orders/query";
+import {purchasedChoices} from "../src/modules/orders/purchased-choices";
+import {correctInput} from "../src/modules/intake/service";
+async function operationalGrant(){
+ await db.update(schema.stores).set({source:"etsy"}).where(eq(schema.stores.id,a.storeId));
+ await db.update(schema.connections).set({status:"connected",encryptedTokens:"synthetic-never-decrypted",scopes:["transactions_r"]}).where(eq(schema.connections.storeId,a.storeId));
+}
+const operationalCommand=()=>({receiptId:"900",commandId:randomUUID()});
+it("owner explicit sync imports exact receipt and quantity-expanded mixed cart without admission",async()=>{
+ await operationalGrant();const r=receipt();r.transactions[0].quantity=2;r.transactions.push({...structuredClone(r.transactions[0]),transaction_id:902,quantity:1});
+ expect((await orderSyncAccess(db,a)).allowed).toBe(true);
+ const result=await syncOrderReceipt(db,a,operationalCommand(),reviewReader(r));expect(result.kind).toBe("PARTIAL");
+ const d=await workspaceData(db,a);expect([d.orders.length,d.lines.length,d.units.length]).toEqual([1,2,3]);expect(d.units.every(u=>u.productVersionId===version)).toBe(true);expect(d.units.filter(u=>u.issues.includes("quantity_context"))).toHaveLength(2);
+ expect(purchasedChoices(d.lines[0].snapshot).join(" ")).toContain("property");
+ const queue=await ordersWorkQueue(db,a,ordersQuery());expect(queue.rows[0]).toMatchObject({count:3,status:"Information or setup needed"});await noExecution();
+});
+it("operational duplicate and concurrent replay preserve units, corrections and immutable pins",async()=>{
+ await operationalGrant();const r=receipt(),c=operationalCommand();await Promise.all([syncOrderReceipt(db,a,c,reviewReader(r)),syncOrderReceipt(db,a,c,reviewReader(r))]);
+ const d=await workspaceData(db,a);await correctInput(db,a,d.units[0].id,d.units[0].revision,[{label:"question",value:"Owner correction",kind:"text"}],true);
+ const before=await workspaceData(db,a);const result=await syncOrderReceipt(db,a,c,reviewReader(r));expect(result.kind).toBe("ALREADY_IMPORTED");
+ const after=await workspaceData(db,a);expect([after.orders.length,after.lines.length,after.units.length]).toEqual([1,1,1]);expect(after.inputs).toEqual(before.inputs);expect(after.units[0].productVersionId).toBe(version);
+ // correctInput retains its established admission policy; sync adds no work.
+ expect(await db.select().from(schema.aiRequests)).toHaveLength(0);
+});
+it("owner authorization, disconnected and missing scopes reject before reader invocation",async()=>{
+ const reader=vi.fn(reviewReader(receipt()));await expect(syncOrderReceipt(db,a,operationalCommand(),reader)).rejects.toThrow("SYNC_CONNECTION_REQUIRED");
+ await operationalGrant();await db.update(schema.connections).set({scopes:[]}).where(eq(schema.connections.storeId,a.storeId));await expect(syncOrderReceipt(db,a,operationalCommand(),reader)).rejects.toThrow("SYNC_CONNECTION_REQUIRED");
+ await expect(syncOrderReceipt(db,{...a,userId:"b"},operationalCommand(),reader)).rejects.toThrow();expect(reader).not.toHaveBeenCalled();await noExecution();
+});
+it("operator cannot sync even with a forged owner scope",async()=>{
+ await operationalGrant();await db.insert(schema.memberships).values({organizationId:a.organizationId,userId:"b",role:"operator"});
+ expect((await orderSyncAccess(db,{...a,userId:"b"})).allowed).toBe(false);
+ const reader=vi.fn(reviewReader());await expect(syncOrderReceipt(db,{...a,userId:"b"},operationalCommand(),reader)).rejects.toThrow();expect(reader).not.toHaveBeenCalled();
+});
+it("epoch fencing and wrong shop reject fetched receipt before intake",async()=>{
+ await operationalGrant();await expect(syncOrderReceipt(db,a,operationalCommand(),async()=>({...await reviewReader(receipt())(),epoch:1}))).rejects.toThrow("CONNECTION_CHANGED");
+ await expect(syncOrderReceipt(db,a,operationalCommand(),async()=>({...await reviewReader(receipt())(),shopId:"88"}))).rejects.toThrow("CONNECTION_CHANGED");
+ expect((await workspaceData(db,a)).orders).toHaveLength(0);
+});
+it("historical receipt including mixed current sibling is never silently adopted",async()=>{
+ await operationalGrant();const r=receipt(true);const result=await syncOrderReceipt(db,a,operationalCommand(),reviewReader(r));expect(result.kind).toBe("HISTORICAL");expect((await workspaceData(db,a)).orders).toHaveLength(0);expect(await db.select().from(schema.etsyHistoricalAdoptions)).toHaveLength(0);await noExecution();
+});
+it("fully held missing input, unmapped, paused, canceled, refund and unpaid receipt does not bypass intake",async()=>{
+ await operationalGrant();for(const kind of ["missing","unmapped","canceled","refund","unpaid"]){const r=receipt();if(kind==="missing")r.transactions[0].variations[2].formatted_value="";if(kind==="unmapped"){r.transactions[0].variations[0].value_id=99;r.transactions[0].product_data[0].value_ids=[99];}if(kind==="canceled")r.status="Canceled";if(kind==="refund")r.status="Fully Refunded";if(kind==="unpaid")r.is_paid=false;
+ const result=await syncOrderReceipt(db,a,operationalCommand(),reviewReader(r));expect(["INELIGIBLE","UNRESOLVED"]).toContain(result.kind);expect(result.holds.length).toBeGreaterThan(0);}
+ await db.update(schema.mappings).set({paused:true}).where(eq(schema.mappings.storeId,a.storeId));expect((await syncOrderReceipt(db,a,operationalCommand(),reviewReader(receipt()))).kind).toBe("INELIGIBLE");expect((await workspaceData(db,a)).orders).toHaveLength(0);await noExecution();
+});
+it("existing cancellation reconciliation preserves snapshots and pins and adds safety holds",async()=>{
+ await operationalGrant();const r=receipt();await syncOrderReceipt(db,a,operationalCommand(),reviewReader(r));const before=await workspaceData(db,a);r.status="Canceled";r.updated_timestamp+=10;
+ expect((await syncOrderReceipt(db,a,operationalCommand(),reviewReader(r))).kind).toBe("PARTIAL");const after=await workspaceData(db,a);expect(after.orders[0].canceled).toBe(true);expect(after.orders[0].purchasedSnapshot).toEqual(before.orders[0].purchasedSnapshot);expect(after.lines[0].snapshot).toEqual(before.lines[0].snapshot);expect(after.inputs).toEqual(before.inputs);expect(after.units[0].productVersionId).toBe(version);expect(after.units[0].issues).toContain("canceled");await noExecution();
+});
+it("existing reconciliation cannot expand quantity or invent another purchased line",async()=>{
+ await operationalGrant();const r=receipt();await syncOrderReceipt(db,a,operationalCommand(),reviewReader(r));r.transactions[0].quantity=2;
+ expect((await syncOrderReceipt(db,a,operationalCommand(),reviewReader(r))).kind).toBe("UNRESOLVED");expect((await workspaceData(db,a)).units).toHaveLength(1);await noExecution();
+});
+it("transport failure and transaction failure do not report successful partial intake",async()=>{
+ await operationalGrant();await expect(syncOrderReceipt(db,a,operationalCommand(),async()=>{throw new Error("Synthetic API failure");})).rejects.toThrow();
+ const r=receipt(),c=operationalCommand();await syncOrderReceipt(db,a,c,reviewReader(r));const other=receipt();other.receipt_id=910;other.transactions[0].receipt_id=910;other.transactions[0].transaction_id=911;
+ await expect(syncOrderReceipt(db,a,{...c,receiptId:"910"},reviewReader(other))).rejects.toThrow("INGEST_COMMAND_CONFLICT");expect((await workspaceData(db,a)).orders).toHaveLength(1);await noExecution();
+});
+it("current normal order is ready for preparation but no generation or delivery is invented",async()=>{
+ await operationalGrant();await syncOrderReceipt(db,a,operationalCommand(),reviewReader(receipt()));const queue=await ordersWorkQueue(db,a,ordersQuery());expect(queue.rows[0].status).toBe("Ready for Preparation");expect(queue.rows[0].status).not.toMatch(/Delivered|Completed/);await noExecution();
+});
+it("operational receipt bound prevents unbounded quantity work atomically",async()=>{
+ await operationalGrant();const r=receipt();r.transactions[0].quantity=101;await expect(syncOrderReceipt(db,a,operationalCommand(),reviewReader(r))).rejects.toThrow("SYNC_RECEIPT_BOUND");expect((await workspaceData(db,a)).orders).toHaveLength(0);await noExecution();
+});
+it("connection revoked during owned read fences intake after HTTP without an open transaction",async()=>{
+ await operationalGrant();const reader=async()=>{await db.update(schema.connections).set({epoch:1,status:"disconnected",encryptedTokens:null}).where(eq(schema.connections.storeId,a.storeId));return reviewReader(receipt())();};await expect(syncOrderReceipt(db,a,operationalCommand(),reader)).rejects.toThrow("CONNECTION_CHANGED");expect((await workspaceData(db,a)).orders).toHaveLength(0);await noExecution();
+});
+it("cross-store owned receipt evidence cannot be imported",async()=>{
+ await operationalGrant();await expect(syncOrderReceipt(db,{...a,organizationId:b.organizationId},operationalCommand(),reviewReader(receipt()))).rejects.toThrow();expect((await workspaceData(db,a)).orders).toHaveLength(0);expect((await workspaceData(db,b)).orders).toHaveLength(0);
+});
+it("operational replay keeps archived original version after a newer publication",async()=>{
+ await operationalGrant();const r=receipt();await syncOrderReceipt(db,a,operationalCommand(),reviewReader(r));const next=await editProduct(db,a,product);await activateProduct(db,a,product,next,0,{name:"New",configuration:config()});await syncOrderReceipt(db,a,operationalCommand(),reviewReader(r));expect((await workspaceData(db,a)).units[0].productVersionId).toBe(version);await noExecution();
+});
+it("duplicate sync reports persisted quantity allocation rather than obsolete receipt-level holds",async()=>{
+ await operationalGrant();const r=receipt();r.transactions[0].quantity=2;await syncOrderReceipt(db,a,operationalCommand(),reviewReader(r));const d=await workspaceData(db,a);
+ for(const u of d.units)await correctInput(db,a,u.id,0,[{label:"question",value:`Recipient ${u.unitIndex}`,kind:"text"}],true);
+ const before=await db.select().from(schema.productionQueue);const result=await syncOrderReceipt(db,a,operationalCommand(),reviewReader(r));expect(result.kind).toBe("ALREADY_IMPORTED");expect(result.holds).not.toContain("quantity_context");expect(result.readings).toBe(2);expect(await db.select().from(schema.productionQueue)).toEqual(before);expect(await db.select().from(schema.aiRequests)).toHaveLength(0);
+});

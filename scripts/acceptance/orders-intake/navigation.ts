@@ -1,0 +1,1 @@
+export function useRouter(){return {refresh:()=>undefined,push:(url:string)=>{location.href=url}}}export function usePathname(){return location.pathname}export function useSearchParams(){return new URLSearchParams(location.search)}

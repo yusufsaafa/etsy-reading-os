@@ -4,7 +4,8 @@ const mocks=vi.hoisted(()=>({scope:vi.fn(),verify:vi.fn(),data:vi.fn(),db:{selec
 vi.mock("@/modules/identity/session",()=>({currentScope:mocks.scope}));
 vi.mock("@/modules/intake/service",()=>({verifyScope:mocks.verify}));
 vi.mock("@/db/client",()=>({database:()=>mocks.db}));
-vi.mock("@/modules/orders/service",()=>({ordersData:mocks.data}));
+vi.mock("@/modules/orders/work-queue",()=>({ordersWorkQueue:mocks.data}));
+vi.mock("@/modules/orders/sync",()=>({orderSyncAccess:async()=>({allowed:false,reason:"Fixture access"})}));
 import Page from "../src/app/(operations)/orders/page";
 import {ordersQuery,ordersHref} from "../src/modules/orders/query";
 import * as samples from "../src/modules/orders/sample-preview";
