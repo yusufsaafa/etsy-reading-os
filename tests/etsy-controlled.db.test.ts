@@ -65,7 +65,7 @@ it("migration upgrades existing legacy decisions without rewriting, replays/no-o
  try{
   mkdirSync(join(folder,"meta"));const journal=JSON.parse(readFileSync("drizzle/meta/_journal.json","utf8"));
   for(const f of readdirSync("drizzle").filter(f=>f.endsWith(".sql")))writeFileSync(join(folder,f),readFileSync("drizzle/"+f));
-  writeFileSync(join(folder,"meta/_journal.json"),JSON.stringify({...journal,entries:journal.entries.slice(0,-1)}));const migrated=drizzle(separate,{schema});await separate.exec("SELECT 1");await migrate(migrated,{migrationsFolder:folder});
+  writeFileSync(join(folder,"meta/_journal.json"),JSON.stringify({...journal,entries:journal.entries.filter((entry:{idx:number})=>entry.idx<26)}));const migrated=drizzle(separate,{schema});await separate.exec("SELECT 1");await migrate(migrated,{migrationsFolder:folder});
   const tables=(await pg.query<{tablename:string}>("SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename")).rows;
   const expected=new Map<string,unknown[]>();await separate.exec("SET session_replication_role=replica");
   for(const {tablename} of tables){const rows=(await pg.query(`SELECT * FROM "${tablename}"`)).rows;expected.set(tablename,rows);for(const row of rows)await separate.query(`INSERT INTO "${tablename}" SELECT (jsonb_populate_record(NULL::"${tablename}",$1::jsonb)).*`,[JSON.stringify(row)]);}
@@ -223,4 +223,83 @@ it("duplicate sync reports persisted quantity allocation rather than obsolete re
  await operationalGrant();const r=receipt();r.transactions[0].quantity=2;await syncOrderReceipt(db,a,operationalCommand(),reviewReader(r));const d=await workspaceData(db,a);
  for(const u of d.units)await correctInput(db,a,u.id,0,[{label:"question",value:`Recipient ${u.unitIndex}`,kind:"text"}],true);
  const before=await db.select().from(schema.productionQueue);const result=await syncOrderReceipt(db,a,operationalCommand(),reviewReader(r));expect(result.kind).toBe("ALREADY_IMPORTED");expect(result.holds).not.toContain("quantity_context");expect(result.readings).toBe(2);expect(await db.select().from(schema.productionQueue)).toEqual(before);expect(await db.select().from(schema.aiRequests)).toHaveLength(0);
+});
+
+// Automatic OAuth receipt polling: synthetic ports only, no live transport.
+import {runAutomaticIntakeTick,automaticIntakeStatus,retryAutomaticIntake,intakeDiagnostics} from "../src/modules/etsy/automatic-intake";
+import {ReceiptPilotError} from "../src/modules/etsy/receipt-read";
+async function automaticSetup(r=receipt()){
+ await operationalGrant();const cutoff=now()-120;
+ const [state]=await db.insert(schema.automaticIntake).values({organizationId:a.organizationId,storeId:a.storeId,actorId:a.userId,epoch:0,cutoff,cursor:cutoff}).returning();
+ const page=vi.fn(async()=>({receipts:[{receiptId:String(r.receipt_id),modified:r.updated_timestamp}],complete:true,epoch:0,shopId:"77"}));
+ return {state,page,receipt:vi.fn(reviewReader(r)),now:new Date((now()+60)*1000)};
+}
+it("automatic intake imports mixed quantities with independent units and no execution",async()=>{
+ const r=receipt();r.transactions[0].quantity=2;r.transactions.push({...structuredClone(r.transactions[0]),transaction_id:902,quantity:1});const p=await automaticSetup(r);await runAutomaticIntakeTick(db,p);
+ const d=await workspaceData(db,a);expect([d.orders.length,d.lines.length,d.units.length]).toEqual([1,2,3]);expect(d.units.every(u=>u.productVersionId===version)).toBe(true);expect((await db.select().from(schema.automaticReceipts))[0]).toMatchObject({status:"ATTENTION",result:"PARTIAL"});await noExecution();
+});
+it("automatic concurrent discovery and replay produce one receipt and one order",async()=>{
+ const p=await automaticSetup();await Promise.all([runAutomaticIntakeTick(db,p),runAutomaticIntakeTick(db,p)]);await runAutomaticIntakeTick(db,{...p,now:new Date(p.now.getTime()+61000)});
+ expect(await db.select().from(schema.automaticReceipts)).toHaveLength(1);const d=await workspaceData(db,a);expect([d.orders.length,d.lines.length,d.units.length]).toEqual([1,1,1]);await noExecution();
+});
+it("automatic pagination is durable and overlapping windows keep receipt identities unique",async()=>{
+ const p=await automaticSetup();p.page.mockResolvedValueOnce({...await p.page(),complete:false});await runAutomaticIntakeTick(db,p);let s=(await db.select().from(schema.automaticIntake))[0];expect(s.offset).toBe(1);const end=s.windowEnd;
+ await runAutomaticIntakeTick(db,p);s=(await db.select().from(schema.automaticIntake))[0];expect(s.offset).toBe(0);expect(s.cursor).toBe(end);expect(p.page.mock.calls[1]).toBeDefined();expect(await db.select().from(schema.automaticReceipts)).toHaveLength(1);await noExecution();
+});
+it("automatic discovery failure retains cursor and bounded retry evidence",async()=>{
+ const p=await automaticSetup();p.page.mockRejectedValueOnce(new ReceiptPilotError("discovery",429,120));await runAutomaticIntakeTick(db,p);const s=(await db.select().from(schema.automaticIntake))[0];expect(s.cursor).toBe(p.state.cursor);expect(s.errorCode).toBe("RATE_LIMITED");expect(s.nextAt.getTime()).toBeGreaterThanOrEqual(p.now.getTime()+120000);expect(await db.select().from(schema.automaticReceipts)).toHaveLength(0);
+});
+it("automatic revoked or disconnected grants cannot fetch or import",async()=>{
+ const p=await automaticSetup();await db.update(schema.connections).set({status:"disconnected",encryptedTokens:null}).where(eq(schema.connections.storeId,a.storeId));await runAutomaticIntakeTick(db,p);expect(p.page).not.toHaveBeenCalled();expect(p.receipt).not.toHaveBeenCalled();expect((await workspaceData(db,a)).orders).toHaveLength(0);
+});
+it("automatic missing scopes and operator actor fail before transport",async()=>{
+ const p=await automaticSetup();await db.update(schema.connections).set({scopes:[]}).where(eq(schema.connections.storeId,a.storeId));await runAutomaticIntakeTick(db,p);expect(p.page).not.toHaveBeenCalled();expect((await db.select().from(schema.automaticIntake))[0].errorCode).toBe("AUTHORIZATION_REQUIRED");
+ await db.update(schema.connections).set({scopes:["transactions_r"]}).where(eq(schema.connections.storeId,a.storeId));await db.update(schema.memberships).set({role:"operator"}).where(eq(schema.memberships.userId,a.userId));await db.update(schema.automaticIntake).set({attempts:0}).where(eq(schema.automaticIntake.id,p.state.id));await runAutomaticIntakeTick(db,p);expect(p.page).not.toHaveBeenCalled();await noExecution();
+});
+it("automatic epoch revocation during discovery fences durable writes",async()=>{
+ const p=await automaticSetup();p.page.mockImplementationOnce(async()=>{await db.update(schema.connections).set({epoch:1}).where(eq(schema.connections.storeId,a.storeId));return {receipts:[{receiptId:"900",modified:now()}],complete:true,epoch:0,shopId:"77"};});await runAutomaticIntakeTick(db,p);expect(await db.select().from(schema.automaticReceipts)).toHaveLength(0);expect(p.receipt).not.toHaveBeenCalled();
+});
+it("automatic receipt ownership mismatch cannot cross tenants",async()=>{
+ const p=await automaticSetup();p.receipt.mockResolvedValueOnce({...await reviewReader()(),shopId:"88"});await runAutomaticIntakeTick(db,p);expect((await workspaceData(db,a)).orders).toHaveLength(0);expect((await workspaceData(db,b)).orders).toHaveLength(0);expect((await db.select().from(schema.automaticReceipts))[0].status).toBe("ATTENTION");await noExecution();
+});
+it("automatic disconnect during detail read rejects intake after Store locking",async()=>{
+ const p=await automaticSetup();p.receipt.mockImplementationOnce(async()=>{await db.update(schema.connections).set({epoch:1,status:"disconnected",encryptedTokens:null}).where(eq(schema.connections.storeId,a.storeId));return reviewReader()();});await runAutomaticIntakeTick(db,p);expect((await workspaceData(db,a)).orders).toHaveLength(0);await noExecution();
+});
+it("automatic historical cutoff and unmapped orders remain attention without adoption",async()=>{
+ const p=await automaticSetup(receipt(true));await runAutomaticIntakeTick(db,p);expect((await workspaceData(db,a)).orders).toHaveLength(0);expect(await db.select().from(schema.etsyHistoricalAdoptions)).toHaveLength(0);expect((await db.select().from(schema.automaticReceipts))[0].status).toBe("ATTENTION");await noExecution();
+});
+it("automatic entirely held receipt does not disappear as success",async()=>{
+ const r=receipt();r.transactions[0].variations[2].formatted_value="";const p=await automaticSetup(r);await runAutomaticIntakeTick(db,p);expect((await db.select().from(schema.automaticReceipts))[0]).toMatchObject({status:"ATTENTION",result:"INELIGIBLE"});expect((await workspaceData(db,a)).orders).toHaveLength(0);await noExecution();
+});
+it("automatic crash after durable discovery recovers expired processing lease",async()=>{
+ const p=await automaticSetup();await db.insert(schema.automaticReceipts).values({organizationId:a.organizationId,storeId:a.storeId,epoch:0,receiptId:"900",sourceModified:receipt().updated_timestamp,status:"PROCESSING",attempts:1,claim:randomUUID(),leaseUntil:new Date(0)});await runAutomaticIntakeTick(db,p);expect((await db.select().from(schema.automaticReceipts))[0]).toMatchObject({status:"SUCCEEDED",attempts:2});expect((await workspaceData(db,a)).orders).toHaveLength(1);await noExecution();
+});
+it("automatic lost claim rejects receipt before new persisted order side effects",async()=>{
+ const p=await automaticSetup();p.receipt.mockImplementationOnce(async()=>{await db.update(schema.automaticReceipts).set({claim:randomUUID()});return reviewReader()();});await runAutomaticIntakeTick(db,p);expect((await workspaceData(db,a)).orders).toHaveLength(0);await noExecution();
+});
+it("automatic timeout retains pending receipt and retries without duplicates",async()=>{
+ const p=await automaticSetup();p.receipt.mockRejectedValueOnce(new DOMException("synthetic","TimeoutError"));await runAutomaticIntakeTick(db,p);let item=(await db.select().from(schema.automaticReceipts))[0];expect(item).toMatchObject({status:"PENDING",attempts:1,errorCode:"RETRY_PENDING"});await runAutomaticIntakeTick(db,{...p,now:new Date(item.nextAt.getTime()+1)});item=(await db.select().from(schema.automaticReceipts))[0];expect(item.status).toBe("SUCCEEDED");expect((await workspaceData(db,a)).units).toHaveLength(1);await noExecution();
+});
+it("automatic retry requires internal owner authorization and preserves command idempotency",async()=>{
+ const r=receipt();r.transactions[0].variations[2].formatted_value="";const p=await automaticSetup(r);await runAutomaticIntakeTick(db,p);const item=(await db.select().from(schema.automaticReceipts))[0],command={id:item.id,kind:"receipt",commandId:randomUUID()};
+ vi.stubEnv("INTERNAL_TOOLS_ENABLED","false");await expect(retryAutomaticIntake(db,a,command)).rejects.toThrow();vi.stubEnv("INTERNAL_TOOLS_ENABLED","true");await expect(retryAutomaticIntake(db,b,command)).rejects.toThrow();await retryAutomaticIntake(db,a,command);await retryAutomaticIntake(db,a,command);expect((await db.select().from(schema.auditLogs)).filter(r=>r.action.startsWith("automatic_intake_retry:"))).toHaveLength(1);expect((await db.select().from(schema.automaticReceipts))[0].status).toBe("PENDING");await noExecution();
+});
+it("automatic status does not promise activity without worker evidence and diagnostics isolate tenants",async()=>{
+ const p=await automaticSetup();vi.stubEnv("ETSY_AUTOMATIC_INTAKE_ENABLED","true");vi.stubEnv("ETSY_LIVE_OAUTH_ENABLED","true");vi.stubEnv("ETSY_ADAPTER","etsy");expect(await automaticIntakeStatus(db,a)).toContain("not confirmed");await runAutomaticIntakeTick(db,p);await db.insert(schema.automaticReceipts).values({organizationId:a.organizationId,storeId:a.storeId,epoch:0,receiptId:"900",sourceModified:receipt().updated_timestamp-1,status:"ATTENTION",errorCode:"INELIGIBLE"});expect(await automaticIntakeStatus(db,a)).toContain("recently checked");expect((await intakeDiagnostics(db,a)).receipts).toHaveLength(2);expect((await intakeDiagnostics(db,b)).receipts).toHaveLength(0);await expect(intakeDiagnostics(db,{...a,userId:"b"})).rejects.toThrow();
+});
+it("automatic durable inserts are receipt-atomic on invalid discovery and retain cursor",async()=>{
+ const p=await automaticSetup();p.page.mockResolvedValueOnce({receipts:[{receiptId:"900",modified:now()},{receiptId:"invalid",modified:now()}],complete:true,epoch:0,shopId:"77"});await runAutomaticIntakeTick(db,p);expect(await db.select().from(schema.automaticReceipts)).toHaveLength(0);expect((await db.select().from(schema.automaticIntake))[0].cursor).toBe(p.state.cursor);await noExecution();
+});
+it("automatic later receipt processing preserves customer corrections and immutable ProductVersion pins",async()=>{
+ const r=receipt(),p=await automaticSetup(r);await runAutomaticIntakeTick(db,p);const d=await workspaceData(db,a);await correctInput(db,a,d.units[0].id,0,[{label:"question",value:"Corrected context",kind:"text"}],true);
+ const next=await editProduct(db,a,product);await activateProduct(db,a,product,next,0,{name:"New configuration",configuration:config()});const before=await workspaceData(db,a),queue=await db.select().from(schema.productionQueue);
+ p.page.mockResolvedValueOnce({receipts:[{receiptId:"900",modified:r.updated_timestamp+1}],complete:true,epoch:0,shopId:"77"});await runAutomaticIntakeTick(db,{...p,now:new Date(p.now.getTime()+61000)});
+ const after=await workspaceData(db,a);expect(after.units).toHaveLength(1);expect(after.units[0].productVersionId).toBe(version);expect(after.inputs).toEqual(before.inputs);expect(await db.select().from(schema.productionQueue)).toEqual(queue);expect(await db.select().from(schema.generations)).toHaveLength(0);expect(await db.select().from(schema.aiRequests)).toHaveLength(0);
+});
+it("automatic additive migration initializes existing owned grants from deployment time and preserves prior rows",async()=>{
+ const separate=new PGlite();try{for(const f of readdirSync("drizzle").filter(f=>f.endsWith(".sql")&&!f.startsWith("0027_")).sort())await separate.exec(readFileSync("drizzle/"+f,"utf8"));const old=drizzle(separate,{schema}) as unknown as Database;await old.insert(schema.users).values({id:"migration-owner",name:"Synthetic"});const s=await authorizeStore(old,"migration-owner",await createWorkspace(old,"migration-owner","Existing","fixtures"));await old.update(schema.stores).set({source:"etsy",externalShopId:"88"}).where(eq(schema.stores.id,s.storeId));await old.update(schema.connections).set({status:"connected",epoch:7,encryptedTokens:"synthetic",scopes:["transactions_r"]}).where(eq(schema.connections.storeId,s.storeId));await old.insert(schema.auditLogs).values({organizationId:s.organizationId,storeId:s.storeId,actorId:s.userId,action:"etsy_connected",createdAt:new Date(1700000000000)});const prior=await old.select().from(schema.connections);const started=Math.floor(Date.now()/1000);await separate.exec(readFileSync("drizzle/0027_automatic_receipt_intake.sql","utf8"));const rows=await old.select().from(schema.automaticIntake);expect(rows).toHaveLength(1);expect(rows[0].cutoff).toBeGreaterThanOrEqual(started);expect(rows[0].epoch).toBe(7);expect(await old.select().from(schema.connections)).toEqual(prior);expect(await old.select().from(schema.automaticReceipts)).toHaveLength(0);}finally{await separate.close();}
+});
+
+it("automatic revoked actor quarantines expired claims without blocking other tenants",async()=>{
+ const p=await automaticSetup();await db.update(schema.automaticIntake).set({claim:randomUUID(),leaseUntil:new Date(0)}).where(eq(schema.automaticIntake.id,p.state.id));await db.insert(schema.automaticReceipts).values({organizationId:a.organizationId,storeId:a.storeId,epoch:0,receiptId:"900",sourceModified:now(),status:"PROCESSING",claim:randomUUID(),leaseUntil:new Date(0)});await db.update(schema.memberships).set({role:"operator"}).where(eq(schema.memberships.userId,a.userId));await runAutomaticIntakeTick(db,p);expect((await db.select().from(schema.automaticIntake))[0]).toMatchObject({claim:null,attempts:5,errorCode:"AUTHORIZATION_REQUIRED"});expect((await db.select().from(schema.automaticReceipts))[0]).toMatchObject({status:"ATTENTION",claim:null,errorCode:"AUTHORIZATION_REQUIRED"});expect(p.page).not.toHaveBeenCalled();expect(p.receipt).not.toHaveBeenCalled();await noExecution();
 });

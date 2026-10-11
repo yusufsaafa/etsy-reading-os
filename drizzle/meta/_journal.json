@@ -190,6 +190,13 @@
       "when": 1791630926708,
       "tag": "0026_red_joseph",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1791721290120,
+      "tag": "0027_automatic_receipt_intake",
+      "breakpoints": true
     }
   ]
 }

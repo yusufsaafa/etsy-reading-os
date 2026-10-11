@@ -1,7 +1,7 @@
 import { and, eq, isNull, gt, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import type { Database } from "../../db/client";
-import { connections, stores, oauthStates, syncRuns, auditLogs } from "../../db/schema";
+import { connections, stores, oauthStates, syncRuns, auditLogs, automaticIntake } from "../../db/schema";
 import { verifyScope, tenantWhere } from "../intake/service";
 import type { Scope } from "../intake/contracts";
 import type { SecretVault } from "../../infrastructure/secrets";
@@ -50,6 +50,8 @@ export async function completeOAuth(db: Database, userId: string, state: string,
     if (connection.epoch !== record.connectionEpoch || (store.externalShopId && store.externalShopId !== shop.id)) throw new Error("CONNECTION_CHANGED");
     await tx.update(stores).set({ externalShopId: shop.id, name: shop.name }).where(and(eq(stores.organizationId, scope.organizationId), eq(stores.id, scope.storeId)));
     await tx.update(connections).set({ status: "connected", encryptedTokens: vault.seal(JSON.stringify(tokens), context(scope)), scopes, expiresAt: new Date(Date.now() + tokens.expires_in * 1000), epoch: connection.epoch + 1, refreshClaim: null, refreshStartedAt: null }).where(tenantWhere(connections, scope));
+    const cutoff=Math.max(Math.floor(store.importSince.getTime()/1000),Math.floor(Date.now()/1000));
+    await tx.insert(automaticIntake).values({organizationId:scope.organizationId,storeId:scope.storeId,actorId:userId,epoch:connection.epoch+1,cutoff,cursor:cutoff});
     await tx.update(syncRuns).set({ status: "canceled" }).where(and(tenantWhere(syncRuns, scope), sql`${syncRuns.status} in ('queued','running')`));
     await tx.insert(auditLogs).values({ organizationId: scope.organizationId, storeId: scope.storeId, actorId: userId, action: "etsy_connected" });
   });

@@ -5,7 +5,7 @@ vi.mock("@/modules/identity/session",()=>({currentScope:mocks.scope}));
 vi.mock("@/modules/intake/service",()=>({verifyScope:mocks.verify}));
 vi.mock("@/db/client",()=>({database:()=>mocks.db}));
 vi.mock("@/modules/orders/work-queue",()=>({ordersWorkQueue:mocks.data}));
-vi.mock("@/modules/orders/sync",()=>({orderSyncAccess:async()=>({allowed:false,reason:"Fixture access"})}));
+vi.mock("@/modules/etsy/automatic-intake",()=>({automaticIntakeStatus:async()=>"Etsy connected. Automatic intake is not enabled in this environment."}));
 import Page from "../src/app/(operations)/orders/page";
 import {ordersQuery,ordersHref} from "../src/modules/orders/query";
 import * as samples from "../src/modules/orders/sample-preview";

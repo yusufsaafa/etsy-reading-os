@@ -1,7 +1,5 @@
-import {randomUUID} from "node:crypto";
-import {orderSyncAccess} from "@/modules/orders/sync";
-import {OrderSync} from "@/components/order-sync";
-import {syncOrdersAction} from "./actions";
+import Link from "next/link";
+import {automaticIntakeStatus} from "@/modules/etsy/automatic-intake";
 import {internalOperatorAllowed} from "@/modules/identity/internal-access";
 import {database} from "@/db/client";
 import {currentScope} from "@/modules/identity/session";
@@ -18,6 +16,6 @@ export default async function OrdersPage({searchParams}:{searchParams:Promise<Re
    const {sampleOrdersData}=await import("@/modules/orders/sample-preview");
    return <OrdersListPage data={sampleOrdersData(query)} query={{...query,preview:"sample"}} previewAvailable samplePreview/>;
  }
- try{const [data,access]=await Promise.all([ordersWorkQueue(database(),scope,query),orderSyncAccess(database(),scope)]);return <OrdersListPage data={data} query={query} previewAvailable={previewAvailable} syncControl={<OrderSync access={access} commandId={randomUUID()} action={syncOrdersAction} historicalHref={internalOperatorAllowed(scope.userId)?"/etsy/historical-review":undefined}/>}/>;}
+ try{const [data,status]=await Promise.all([ordersWorkQueue(database(),scope,query),automaticIntakeStatus(database(),scope)]);return <OrdersListPage data={data} query={query} previewAvailable={previewAvailable} syncControl={<section aria-label="Incoming Etsy orders"><p role="status">{status}</p>{internalOperatorAllowed(scope.userId)&&<Link href="/etsy/diagnostics">Intake diagnostics</Link>}</section>}/>;}
  catch(error){if(error instanceof AccessDenied)throw error;return <OrdersError query={query}/>;}
 }

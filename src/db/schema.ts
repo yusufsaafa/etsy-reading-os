@@ -8,6 +8,26 @@ const id = () => uuid("id").defaultRandom().primaryKey();
 const org = () => uuid("organization_id").notNull();
 const store = () => uuid("store_id").notNull();
 const time = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
+// OAuth-owned automatic intake only; receipt evidence remains in the existing intake domain.
+export const automaticIntake = pgTable("etsy_automatic_intake", {
+ id:id(), organizationId:org(), storeId:store(), actorId:text("actor_id").notNull(), epoch:integer("epoch").notNull(),
+ cutoff:integer("cutoff").notNull(), cursor:integer("cursor").notNull(), windowEnd:integer("window_end"), offset:integer("offset").notNull().default(0),
+ claim:uuid("claim"), leaseUntil:time("lease_until"), nextAt:time("next_at").defaultNow().notNull(),
+ attempts:integer("attempts").notNull().default(0), errorCode:text("error_code"), lastSuccessAt:time("last_success_at"),
+},t=>[unique("automatic_intake_store_epoch").on(t.organizationId,t.storeId,t.epoch),
+ foreignKey({columns:[t.organizationId,t.storeId],foreignColumns:[stores.organizationId,stores.id]}),
+ check("automatic_intake_bounds",sql`${t.epoch}>=0 and ${t.cutoff}>=946684800 and ${t.cursor}>=${t.cutoff} and ${t.offset} between 0 and 10000 and ${t.attempts} between 0 and 5 and (${t.windowEnd} is null or ${t.windowEnd}>=${t.cursor})`),
+ check("automatic_intake_claim",sql`(${t.claim} is null)=(${t.leaseUntil} is null)`),index("automatic_intake_due").on(t.nextAt)]);
+export const automaticReceipts = pgTable("etsy_automatic_receipts", {
+ id:id(), organizationId:org(), storeId:store(), epoch:integer("epoch").notNull(), receiptId:text("receipt_id").notNull(), sourceModified:integer("source_modified").notNull(),
+ status:text("status").notNull().default("PENDING"), attempts:integer("attempts").notNull().default(0), claim:uuid("claim"), leaseUntil:time("lease_until"),
+ nextAt:time("next_at").defaultNow().notNull(), errorCode:text("error_code"), result:text("result"), createdAt:time("created_at").defaultNow().notNull(),
+},t=>[unique("automatic_receipt_identity").on(t.organizationId,t.storeId,t.epoch,t.receiptId,t.sourceModified),
+ foreignKey({columns:[t.organizationId,t.storeId,t.epoch],foreignColumns:[automaticIntake.organizationId,automaticIntake.storeId,automaticIntake.epoch]}),
+ check("automatic_receipt_bounds",sql`${t.receiptId} ~ '^[1-9][0-9]{0,18}$' and ${t.sourceModified}>=946684800 and ${t.attempts} between 0 and 5`),
+ check("automatic_receipt_status",sql`${t.status} in ('PENDING','PROCESSING','SUCCEEDED','ATTENTION')`),
+ check("automatic_receipt_claim",sql`(${t.status}='PROCESSING')=(${t.claim} is not null and ${t.leaseUntil} is not null)`),
+ index("automatic_receipts_due").on(t.status,t.nextAt)]);
 export const users = pgTable("app_users", { id: text("id").primaryKey(), name: text("name").notNull(), email: text("email").unique(), passwordHash: text("password_hash"), createdAt: time("created_at").defaultNow().notNull() });
 export const organizations = pgTable("organizations", { id: id(), name: text("name").notNull(), createdAt: time("created_at").defaultNow().notNull() });
 export const memberships = pgTable("memberships", { id: id(), organizationId: org().references(() => organizations.id), userId: text("user_id").notNull().references(() => users.id), role: text("role").notNull().default("owner") }, t => [unique().on(t.organizationId, t.userId), check("membership_role", sql`${t.role} in ('owner', 'operator')`)]);

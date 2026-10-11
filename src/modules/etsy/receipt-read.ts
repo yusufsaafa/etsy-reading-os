@@ -24,6 +24,16 @@ export async function readReceiptDetail(shopId:string,receiptId:string,token:str
  if(z.object({receipt_id:identifier}).parse(parseEtsyJson(body)).receipt_id!==receiptId)throw new ReceiptPilotError("receipt_linkage");
  return {body,evidence};
 }
+export const receiptWindow=z.object({cutoff:z.number().int().min(946684800).safe(),from:z.number().int().min(946684800).safe(),through:z.number().int().min(946684800).safe(),offset:z.number().int().min(0).max(10000)}).refine(w=>w.through>=w.from);
+/** Official getShopReceipts, ten results per page. No customer content leaves this reader. */
+export async function readReceiptPage(shopId:string,token:string,config:{clientId:string;secret:string},raw:unknown,fetcher:typeof fetch=fetch){
+ const w=receiptWindow.parse(raw),{get}=receiptReader(shopId,token,config,fetcher);
+ const params=new URLSearchParams({min_created:String(w.cutoff),min_last_modified:String(w.from),max_last_modified:String(w.through),limit:"10",offset:String(w.offset),sort_on:"receipt_id",sort_order:"asc"});
+ const parsed=z.object({count:z.number().int().nonnegative().safe(),results:z.array(z.object({receipt_id:identifier,shop_id:identifier.optional(),create_timestamp:z.number().int().safe().optional(),created_timestamp:z.number().int().safe().optional(),update_timestamp:z.number().int().safe().optional(),updated_timestamp:z.number().int().safe().optional()}).passthrough()).max(10)}).parse(parseEtsyJson(await get("?"+params,"discovery")));
+ const receipts=parsed.results.map(r=>{const created=r.created_timestamp??r.create_timestamp,modified=r.updated_timestamp??r.update_timestamp;if(created==null||modified==null||created<w.cutoff||modified<w.from||modified>w.through||(r.shop_id&&r.shop_id!==shopId))throw new ReceiptPilotError("discovery_linkage");return {receiptId:r.receipt_id,modified};});
+ if(new Set(receipts.map(r=>r.receiptId)).size!==receipts.length||(!receipts.length&&w.offset<parsed.count))throw new ReceiptPilotError("discovery_incomplete");
+ return {receipts,complete:w.offset+receipts.length>=parsed.count};
+}
 export async function readReceiptSample(shopId:string,token:string,config:{clientId:string;secret:string},since:number,fetcher:typeof fetch=fetch){
  z.number().int().nonnegative().safe().parse(since);
  const {get,evidence}=receiptReader(shopId,token,config,fetcher);

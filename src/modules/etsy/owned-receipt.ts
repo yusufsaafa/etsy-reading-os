@@ -9,6 +9,7 @@ import {tokenSchema} from "./oauth";
 import {etsyId} from "./source-contract";
 import {parseEtsyJson} from "./raw-normalizer";
 import {readReceiptDetail} from "./receipt-read";
+import {readReceiptPage} from "./receipt-read";
 import {ingestControlledReceipt} from "./controlled-intake";
 /** Trusted server read of one explicitly selected receipt; never exposes grant material. */
 async function ownedGrant(db:Database,scope:Scope){
@@ -29,6 +30,10 @@ export async function readOwnedReceipt(db:Database,scope:Scope,receiptId:string)
  const decoded=parseEtsyJson(detail.body) as Record<string,unknown>;
  if(decoded.seller_user_id!=null&&String(decoded.seller_user_id)!==tokens.access_token.split(".")[0])throw new Error("SHOP_OWNER_MISMATCH");
  return {...detail,epoch:grant.epoch,shopId:store.externalShopId!};
+}
+export async function readOwnedReceiptPage(db:Database,scope:Scope,window:Parameters<typeof readReceiptPage>[3]){
+ const {store,grant,tokens,config}=await ownedGrant(db,scope);
+ return {...await readReceiptPage(store.externalShopId!,tokens.access_token,config,window),epoch:grant.epoch,shopId:store.externalShopId!};
 }
 /** No route/startup/worker calls this. Live invocation requires separate seller authorization. */
 export async function ingestOwnedReceipt(db:Database,scope:Scope,receiptId:string,command:unknown){

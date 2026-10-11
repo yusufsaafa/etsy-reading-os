@@ -3,10 +3,12 @@ import {revalidatePath} from "next/cache";
 import {database} from "@/db/client";
 import {currentScope} from "@/modules/identity/session";
 import {syncOrderReceipt,syncFailure} from "@/modules/orders/sync";
+import {assertInternalOperator} from "@/modules/identity/internal-access";
 export type SyncFeedback={message:string;error?:boolean;orderId?:string;historical?:boolean};
 export async function syncOrdersAction(_previous:SyncFeedback,form:FormData):Promise<SyncFeedback>{
  const scope=await currentScope();
  try{
+  assertInternalOperator(scope.userId);
   const result=await syncOrderReceipt(database(),scope,{receiptId:form.get("receiptId"),commandId:form.get("commandId")});
   if(result.orderId){revalidatePath("/orders");revalidatePath(`/orders/${result.orderId}`);}
   const labels={IMPORTED:"Receipt imported",ALREADY_IMPORTED:"Receipt already imported; readings preserved",PARTIAL:"Receipt recorded with attention required",HISTORICAL:"Historical approval required. Nothing imported",INELIGIBLE:"Receipt is held. Nothing imported",UNRESOLVED:"Source evidence could not be safely resolved. No new readings imported"};

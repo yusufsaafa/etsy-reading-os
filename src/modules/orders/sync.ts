@@ -29,7 +29,7 @@ async function persistedReceiptSummary(tx:DbExecutor,scope:Scope,orderId:string)
  return {readings:rows.length,holds:[...new Set(rows.flatMap(r=>r.issues))]};
 }
 /** One bounded owned HTTP read, then Store-first receipt-atomic intake. No discovery or AI. */
-export async function syncOrderReceipt(db:Database,scope:Scope,raw:unknown,reader:OwnedReader=readOwnedReceipt):Promise<SyncResult>{
+export async function syncOrderReceipt(db:Database,scope:Scope,raw:unknown,reader:OwnedReader=readOwnedReceipt,guard?:(tx:DbExecutor)=>Promise<void>):Promise<SyncResult>{
  const command=syncOrderCommand.parse(raw);
  await verifyScope(db,scope,true);
  const access=await orderSyncAccess(db,scope);if(!access.allowed)throw new Error("SYNC_CONNECTION_REQUIRED");
@@ -39,6 +39,7 @@ export async function syncOrderReceipt(db:Database,scope:Scope,raw:unknown,reade
   const [store]=await tx.select().from(stores).where(and(eq(stores.id,scope.storeId),eq(stores.organizationId,scope.organizationId))).for("update");
   await verifyScope(tx,scope,true);
   const [grant]=await tx.select().from(connections).where(tenantWhere(connections,scope));
+  if(guard)await guard(tx); // Internal automation claim fence, after the established Store lock.
   if(store?.source!=="etsy"||store.externalShopId!==detail.shopId||grant?.status!=="connected"||!grant.encryptedTokens||!grant.scopes.includes("transactions_r")||grant.epoch!==detail.epoch)throw new Error("CONNECTION_CHANGED");
   const observedAt=Math.floor(Date.now()/1000),a=await assessReceiptForIntake(tx,scope,detail.body,observedAt);
   if(a.sources.some(s=>s.receipt.receiptId!==command.receiptId))throw new Error("SOURCE_SELECTION_MISMATCH");
