@@ -56,3 +56,13 @@ it("read-only storage readiness never creates directories and requires private c
  await chmod(root,0o755);expect(await localDocumentStorageReadiness(env)).toBe("INVALID_CONFIGURATION");await chmod(root,0o500);expect(await localDocumentStorageReadiness(env)).toBe("INVALID_CONFIGURATION");await chmod(root,0o700);
  expect(await localDocumentStorageReadiness({...env,NODE_ENV:"production"})).toBe("PRODUCTION_CONFIGURATION_REQUIRED");
 });
+it("production persistent-volume storage requires explicit durability and survives adapter restart",async()=>{
+ const env:NodeJS.ProcessEnv={NODE_ENV:"production",DOCUMENT_STORAGE_DRIVER:"persistent-volume",DOCUMENT_STORAGE_PERSISTENCE_CONFIRMED:"true",DOCUMENT_ARTIFACT_ROOT:root};
+ expect(()=>configuredDocumentPorts({...env,DOCUMENT_STORAGE_PERSISTENCE_CONFIRMED:"false"})).toThrow("UNAVAILABLE");
+ expect(await localDocumentStorageReadiness(env)).toBe("PERSISTENT_READY");const data=input();await configuredDocumentPorts(env)!.artifacts.putImmutable(data);
+ const reread=await configuredDocumentPorts(env)!.artifacts.read({organizationId:data.organizationId,objectKey:data.objectKey,maxBytes:data.byteLength});expect(reread.bytes).toEqual(data.bytes);
+});
+it("missing persistent-volume root fails closed and is never created as an ephemeral fallback",async()=>{
+ const missing=join(root,"unmounted"),env:NodeJS.ProcessEnv={NODE_ENV:"production",DOCUMENT_STORAGE_DRIVER:"persistent-volume",DOCUMENT_STORAGE_PERSISTENCE_CONFIRMED:"true",DOCUMENT_ARTIFACT_ROOT:missing};
+ expect(await localDocumentStorageReadiness(env)).toBe("INVALID_CONFIGURATION");await expect(configuredDocumentPorts(env)!.artifacts.putImmutable(input())).rejects.toThrow("MISSING");expect(await readdir(root)).not.toContain("unmounted");
+});

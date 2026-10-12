@@ -19,7 +19,8 @@ const config: NextConfig = {
   outputFileTracingIncludes: { "/**": ["./resources/fonts/**/*", "./resources/platform/**/*"] },
   async headers() {
     return [{ source: "/:path*", headers: [
-      { key: "Referrer-Policy", value: "no-referrer" },
+      // Preserve same-origin form Origin validation; omit referrers to external sites.
+      { key: "Referrer-Policy", value: "same-origin" },
       { key: "X-Content-Type-Options", value: "nosniff" },
       { key: "X-Frame-Options", value: "DENY" },
       { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },

@@ -17,18 +17,19 @@ function error(error:unknown):never {
  if(error instanceof ArtifactStorageError)throw error;
  throw new ArtifactStorageError((error as NodeJS.ErrnoException)?.code==="ENOENT"?"MISSING":"UNAVAILABLE");
 }
-/** Private local development ONLY. One atomic immutable envelope per artifact.
+/** One atomic immutable envelope per artifact. Development may create its root;
+ * production persistent-volume configuration requires a pre-provisioned durable root.
  * Root must be outside public/static directories, owned exclusively by the app OS user.
  * No overwrite/remove capability, no buyer content in paths, no URL interface.
  */
 export class LocalArtifactStorage implements ImmutableArtifactStorage {
  private readonly root:string;
- constructor(root:string){
+ constructor(root:string,private readonly requireExistingRoot=false){
   if(!isAbsolute(root)||root.split(/[\\/]/).some(p=>["public","static",".next","node_modules"].includes(p)))throw new ArtifactStorageError("UNAVAILABLE");
   this.root=resolve(root);
  }
  private async directory(create=false){
-  if(create)await mkdir(this.root,{recursive:true,mode:0o700});
+  if(create&&!this.requireExistingRoot)await mkdir(this.root,{recursive:true,mode:0o700});
   const stat=await lstat(this.root);
   if(!stat.isDirectory()||stat.isSymbolicLink()||await realpath(this.root)!==this.root||(stat.mode&0o077)!==0||(typeof process.getuid==="function"&&stat.uid!==process.getuid()))throw new ArtifactStorageError("UNAVAILABLE");
  }

@@ -4,6 +4,10 @@ Operations software for sellers of personalized digital products on Etsy. The in
 
 The seller experience centers on orders, product configuration, production, review, and delivery. AI is an internal production capability, not the product's information architecture.
 
+## Production launch preparation
+
+The current source includes configuration-independent order capture, controlled Reading recovery, review editing/approval, private PDF artifacts and manual delivery tracking. Production build and isolated checks pass; hosting, credentials, production migrations and durable storage still require owner configuration. See [Production launch Phase 1](docs/PRODUCTION_LAUNCH_PHASE1.md) for the supported topology, environment variables, guarded commands and verification limits. Earlier milestone descriptions below retain their historical context; do not use local fixture/acceptance commands as production startup commands.
+
 ## Current status
 
 Milestone 1 skeleton and transactional intake core, dated 2026-10-05. TypeScript/pnpm/Next.js/PostgreSQL/Drizzle/Zod/Auth.js/Vitest are approved. Synthetic intake is implemented and database-tested; live Etsy intake is deliberately gated pending response-contract validation. The current follow-up implements canonical preparation through a central accounted AI gateway; PDF, delivery automation and Redis are not included.

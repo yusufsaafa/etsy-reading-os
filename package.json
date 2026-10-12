@@ -20,7 +20,13 @@
     "worker:etsy-intake": "tsx --env-file=.env.local scripts/etsy-intake-worker.ts",
     "worker:etsy-webhooks": "tsx --env-file=.env.local scripts/etsy-webhook-worker.ts",
     "typecheck:core": "tsc --noEmit -p tsconfig.core.json",
-    "local:configure": "node scripts/configure-local.mjs"
+    "local:configure": "node scripts/configure-local.mjs",
+    "acceptance:recovery-native": "tsx scripts/acceptance/recovery/native.ts",
+    "acceptance:recovery-browser": "tsx scripts/acceptance/recovery/browser-host.ts",
+    "db:migrate:production": "tsx scripts/migrate-production.ts",
+    "worker:production": "tsx scripts/production-worker.ts",
+    "worker:etsy-webhooks:production": "tsx scripts/etsy-webhook-worker.ts",
+    "worker:etsy-intake:production": "tsx scripts/etsy-intake-worker.ts"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",
