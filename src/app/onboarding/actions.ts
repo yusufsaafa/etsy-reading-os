@@ -47,10 +47,11 @@ export async function selectProductsAction(_previous: FormState, form: FormData)
 }
 export async function retryImportAction(_previous: FormState): Promise<FormState> {
   const scope = await currentStoreScope();
-  try { const data=await onboardingData(database(),scope); if(data.store.source === "fixtures") await new PostgresSyncJobs(database()).enqueueSync(scope, `onboarding-retry-${randomUUID()}`); else { const result=await syncCatalog(database(),scope); if(result.processed>0)await completeManualCatalogDiscovery(database(),scope); if(result.status==="FAILED"||result.issues.length)return {error:"Catalog synchronization is incomplete. Your saved selections are preserved. Try again."}; if(result.hasMore)return {error:"Catalog batch saved. Select Try again to continue synchronization."}; } }
+  let feedback: FormState = {};
+  try { const data=await onboardingData(database(),scope); if(data.store.source === "fixtures") await new PostgresSyncJobs(database()).enqueueSync(scope, `onboarding-retry-${randomUUID()}`); else { const result=await syncCatalog(database(),scope); if(result.processed>0)await completeManualCatalogDiscovery(database(),scope); if(result.status==="FAILED"||result.issues.length)feedback={error:"Catalog synchronization is incomplete. Your saved selections are preserved. Try again."}; else if(result.hasMore)feedback={error:"Catalog batch saved. Select Try again to continue synchronization."}; } }
   catch { return { error: "Products couldn't be loaded. Check your Etsy connection and try again." }; }
   revalidatePath("/onboarding/products");
-  return {};
+  return feedback;
 }
 
 export async function disconnectOnboardingAction(_previous: FormState): Promise<FormState> {

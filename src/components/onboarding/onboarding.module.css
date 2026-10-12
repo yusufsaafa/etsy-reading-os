@@ -121,3 +121,24 @@
 /* Etsy classification remains distinct from Reading OS setup state. */
 .activeDot { background:#2f754f; border-color:#2f754f; }
 .inactiveDot { background:#737b85; border-color:#737b85; }
+
+/* Step 2 only: keep connection status and the next operational action together. */
+.etsyCard { padding:24px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md); min-width:0; overflow-wrap:anywhere; }
+.etsyIdentity { display:flex; align-items:center; gap:14px; }
+.etsyIdentity > div { min-width:0; display:grid; gap:8px; }
+.etsyIdentity h2 { margin:0; font-size:16px; line-height:1.5; }
+.etsyIdentity p { margin:0; }
+.etsyDescription { color:var(--text-secondary); margin:20px 0 0; max-width:60ch; }
+.etsyCard .actionForm { margin-top:20px; gap:12px; }
+.etsyCard > .note { margin:12px 0 0; }
+.etsyAccess { border-top:1px solid var(--border); padding-top:20px; margin-top:24px; }
+.etsyAccess h3 { font-size:13px; margin:0 0 8px; }
+.etsyAccess p { margin:8px 0 0; color:var(--text-secondary); font-size:13px; line-height:1.6; }
+.etsyOptions { margin-top:12px; font-size:12px; color:var(--text-secondary); }
+.etsyOptions summary { cursor:pointer; min-height:44px; display:list-item; align-content:center; }
+@media(max-width:600px) {
+ .etsyCard { padding:20px 16px; }
+ .etsyIdentity { gap:12px; }
+ .etsyCard .actionForm, .etsyCard .actionForm > :global(.button) { width:100%; }
+ .etsyCard .actionForm > :global(.button) { white-space:normal; text-align:center; }
+}

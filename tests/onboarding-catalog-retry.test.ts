@@ -1,0 +1,15 @@
+import {it,expect,vi,beforeEach} from "vitest";
+const m=vi.hoisted(()=>({data:vi.fn(),sync:vi.fn(),complete:vi.fn(),refresh:vi.fn(),enqueue:vi.fn(),scope:{organizationId:"org",storeId:"store",userId:"owner"}}));
+vi.mock("@/db/client",()=>({database:()=>({})}));
+vi.mock("@/modules/identity/session",()=>({currentStoreScope:async()=>m.scope}));
+vi.mock("@/modules/onboarding/service",()=>({onboardingData:m.data,completeManualCatalogDiscovery:m.complete}));
+vi.mock("@/modules/catalog/sync",()=>({syncCatalog:m.sync}));
+vi.mock("@/infrastructure/jobs",()=>({PostgresSyncJobs:class{enqueueSync=m.enqueue;}}));
+vi.mock("next/cache",()=>({revalidatePath:m.refresh}));
+vi.mock("next/navigation",()=>({redirect:vi.fn()}));
+import {retryImportAction} from "../src/app/onboarding/actions";
+beforeEach(()=>{vi.clearAllMocks();m.data.mockResolvedValue({store:{source:"etsy"}});m.sync.mockResolvedValue({processed:5,hasMore:true,status:"SUCCEEDED",issues:[]});});
+it("saved partial batch revalidates before returning its hasMore feedback",async()=>{const result=await retryImportAction({});expect(result.error).toContain("Catalog batch saved");expect(m.sync).toHaveBeenCalledWith({},m.scope);expect(m.complete).toHaveBeenCalledWith({},m.scope);expect(m.refresh).toHaveBeenCalledExactlyOnceWith("/onboarding/products");expect(m.refresh.mock.invocationCallOrder[0]).toBeGreaterThan(m.complete.mock.invocationCallOrder[0]);});
+it("terminal success also revalidates and clears previous feedback",async()=>{m.sync.mockResolvedValue({processed:1,hasMore:false,status:"SUCCEEDED",issues:[]});expect(await retryImportAction({error:"Previous"})).toEqual({});expect(m.refresh).toHaveBeenCalled();});
+it("partially persisted failed batch preserves failure feedback and refreshes saved state",async()=>{m.sync.mockResolvedValue({processed:1,hasMore:true,status:"FAILED",issues:["synthetic"]});expect((await retryImportAction({})).error).toContain("incomplete");expect(m.refresh).toHaveBeenCalled();});
+it("thrown errors remain seller-safe and fixture retry still uses the existing job path",async()=>{m.sync.mockRejectedValue(new Error("private credentials"));expect((await retryImportAction({})).error).not.toContain("credentials");m.data.mockResolvedValue({store:{source:"fixtures"}});expect(await retryImportAction({})).toEqual({});expect(m.enqueue).toHaveBeenCalledWith(m.scope,expect.stringMatching(/^onboarding-retry-/));expect(m.refresh).toHaveBeenCalled();});
