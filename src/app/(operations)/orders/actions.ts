@@ -16,3 +16,13 @@ export async function syncOrdersAction(_previous:SyncFeedback,form:FormData):Pro
   return {message:`${labels[result.kind]}.${result.orderId?` ${result.lines} purchased items, ${result.readings} readings.`:""}${holds}${result.finance==="FAILED"?" Financial projection failed; operational intake is recorded.":""} No generation or delivery was started.`,orderId:result.orderId,historical:result.kind==="HISTORICAL"};
  }catch(error){return {message:syncFailure(error),error:true};}
 }
+
+export async function assignReadingAction(_previous:{message:string},form:FormData):Promise<{message:string}>{
+ const scope=await currentScope();
+ const {assignReadingConfiguration,AssignmentError,assignmentReason}=await import("@/modules/orders/assignment");
+ try{
+  const result=await assignReadingConfiguration(database(),scope,{unitId:form.get("unitId"),versionId:form.get("versionId"),commandId:form.get("commandId"),expectedRevision:Number(form.get("revision")),confirmed:form.get("confirmed")==="yes"});
+  revalidatePath("/orders");revalidatePath(`/orders/${result.orderId}`);revalidatePath("/");
+  return {message:result.kind==="ASSIGNED"?"Configuration assigned. Review customer information, then use Prepare reading when eligible. No generation was started.":"This configuration is already assigned. No generation was started."};
+ }catch(error){return {message:error instanceof AssignmentError?assignmentReason(error.code):"Assignment unavailable. Refresh and check ownership, purchase evidence and the selected configuration."};}
+}

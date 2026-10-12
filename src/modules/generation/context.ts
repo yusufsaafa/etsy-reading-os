@@ -1,3 +1,4 @@
+import {mappedCustomerAnswers} from "../products/runtime";
 import { and, desc, eq } from "drizzle-orm";
 import type { DbExecutor } from "../../db/client";
 import { units, orders, lineItems, customerInputs, productVersions, mappings, stores } from "../../db/schema";
@@ -31,7 +32,9 @@ export async function buildProductionContextForStoreInTransaction(tx:DbExecutor,
   const [input] = await tx.select().from(customerInputs).where(and(tenantWhere(customerInputs,scope),eq(customerInputs.unitId,unit.id))).orderBy(desc(customerInputs.revision)).limit(1);
   if (!input || input.revision!==unit.revision) throw new AdmissionError("CUSTOMER_INFORMATION");
   const [mapping] = await tx.select().from(mappings).where(and(tenantWhere(mappings,scope),eq(mappings.listingExternalId,line.listingExternalId),eq(mappings.variantKey,line.variantKey)));
-  const issues = triage(order.latestSnapshot,line.snapshot,{ required:inputPolicy(parsed.data),paused:mapping?.paused??false,etsyFulfillment:parsed.data.etsyFulfillment },input.answers,unit.contextAllocated,unit.sourceChanged);
+  const policy={required:inputPolicy(parsed.data),paused:mapping?.paused??false,etsyFulfillment:parsed.data.etsyFulfillment};
+  const answers=mappedCustomerAnswers(line.snapshot,input,policy);
+  const issues = triage(order.latestSnapshot,line.snapshot,policy,answers,unit.contextAllocated,unit.sourceChanged);
   if (issues.some(i=>["missing_input","unusable_input","quantity_context"].includes(i))) throw new AdmissionError("CUSTOMER_INFORMATION");
   if (issues.length || unit.issues.length) throw new AdmissionError("READING_HOLD");
   const data = await sellerStyleDataForStoreInTransaction(tx,scope);
@@ -46,5 +49,5 @@ export async function buildProductionContextForStoreInTransaction(tx:DbExecutor,
     seller:{id:data.seller?.id??store.id,source:data.seller?"SELLER_PROFILE":"STORE",...seller.data}, style:{id:selectedStyle.id,versionNumber:selectedStyle.versionNumber,configuration:style.data},
     styleResolution:{source:"PLATFORM_DEFAULT",version:DEFAULT_STYLE_VERSION,configuration:defaultStyle().configuration},outputLanguage:READING_OUTPUT_LANGUAGE,
     product:{id:version.id,versionNumber:version.versionNumber,...pinnedProductTitle(parsed.data),configuration:parsed.data},
-    customer:{revision:input.revision,answers:input.answers} };
+    customer:{revision:input.revision,answers} };
 }

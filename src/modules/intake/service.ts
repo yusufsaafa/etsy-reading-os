@@ -1,6 +1,6 @@
 import { admitReadingInTransaction, reconcileProductionInTransaction } from "../production/service";
 import { generations, productVersions, productionQueue } from "../../db/schema";
-import { resolveConfiguration, resolveEtsySourceConfiguration, unitPolicy } from "../products/runtime";
+import { resolveConfiguration, resolveEtsySourceConfiguration, unitPolicy, mappedCustomerAnswers } from "../products/runtime";
 import { and, eq, desc } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import type { Database, DbExecutor } from "../../db/client";
@@ -74,7 +74,8 @@ export async function ingestOrderInTransaction(tx:DbExecutor,scope:Scope,raw:unk
         const unit = created ?? existingUnit ?? (await tx.select().from(units).where(and(tenantWhere(units, scope), eq(units.lineItemId, stored.id), eq(units.unitIndex, unitIndex))))[0];
         if (created) await tx.insert(customerInputs).values({ organizationId: scope.organizationId, storeId: scope.storeId, unitId: unit.id, revision: 0, answers: sourceResolution?.answers??stored.snapshot.answers, source: "etsy_snapshot" }).onConflictDoNothing();
         const [context] = await tx.select().from(customerInputs).where(and(tenantWhere(customerInputs, scope), eq(customerInputs.unitId, unit.id))).orderBy(desc(customerInputs.revision)).limit(1);
-        await tx.update(units).set({ sourceChanged: sourceChanged || unit.sourceChanged, issues: [...new Set([...triage(effective, stored.snapshot, await unitPolicy(tx,scope,unit,mapping), context.answers, unit.contextAllocated, sourceChanged || unit.sourceChanged),...(unit.configurationState==="unconfigured"?sourceResolution?.issues??[]:[])])] }).where(and(tenantWhere(units, scope), eq(units.id, unit.id)));
+        const policy=await unitPolicy(tx,scope,unit,mapping);
+        await tx.update(units).set({ sourceChanged: sourceChanged || unit.sourceChanged, issues: [...new Set([...triage(effective, stored.snapshot, policy, mappedCustomerAnswers(stored.snapshot,context,policy), unit.contextAllocated, sourceChanged || unit.sourceChanged),...(unit.configurationState==="unconfigured"?sourceResolution?.issues??[]:[])])] }).where(and(tenantWhere(units, scope), eq(units.id, unit.id)));
       }
       if (options.failAfterLines !== undefined && ++completed >= options.failAfterLines) throw new Error("TEST_PARTIAL_FAILURE");
     }
@@ -143,7 +144,8 @@ export async function configureMapping(db: Database, scope: Scope, listingId: st
       const ownedUnits = await tx.select().from(units).where(and(tenantWhere(units, scope), eq(units.lineItemId, line.id)));
       for (const unit of ownedUnits) {
         const [context] = await tx.select().from(customerInputs).where(and(tenantWhere(customerInputs, scope), eq(customerInputs.unitId, unit.id))).orderBy(desc(customerInputs.revision)).limit(1);
-        await tx.update(units).set({ issues: triage(order.latestSnapshot, line.snapshot, unit.configurationState === "legacy" ? { required, paused } : await unitPolicy(tx,scope,unit,existingMapping ? {...existingMapping,paused} : undefined), context.answers, unit.contextAllocated, unit.sourceChanged) }).where(and(tenantWhere(units, scope), eq(units.id, unit.id)));
+        const policy=unit.configurationState === "legacy" ? {required,paused} : await unitPolicy(tx,scope,unit,existingMapping ? {...existingMapping,paused} : undefined);
+        await tx.update(units).set({ issues: triage(order.latestSnapshot, line.snapshot, policy, mappedCustomerAnswers(line.snapshot,context,policy), unit.contextAllocated, unit.sourceChanged) }).where(and(tenantWhere(units, scope), eq(units.id, unit.id)));
       }
     }
     await tx.insert(auditLogs).values({ organizationId: scope.organizationId, storeId: scope.storeId, actorId: scope.userId, action: paused ? "mapping_paused" : "mapping_configured", resourceId: listing.id });

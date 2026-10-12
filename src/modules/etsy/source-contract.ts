@@ -63,6 +63,7 @@ export const etsySourceSchema = z.object({
     refundAssessment: z.enum(["NONE_REPORTED", "PARTIAL", "FULL", "UNRESOLVED"]),
   }).strict(),
   transaction: z.object({ transactionId: etsyId, receiptId: observed(etsyId), listingId: observed(etsyId),
+    purchasedTitle: observed(z.string().min(1).max(1000)).optional(),
     quantity: z.number().int().min(0).max(1000), sku: observed(z.string().max(500)), isDigital: observed(z.boolean()),
     listingType: observed(z.enum(["physical", "download", "both"])),
     listingTypeProvenance: z.enum(["PURCHASE_PINNED", "CURRENT_LISTING_OBSERVATION", "UNAVAILABLE"]),

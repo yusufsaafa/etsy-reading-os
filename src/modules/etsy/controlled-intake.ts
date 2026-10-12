@@ -1,4 +1,3 @@
-import {pinnedProductTitle,configurationSchema} from "../products/contracts";
 import {z} from "zod";
 import {and,eq} from "drizzle-orm";
 import type {Database,DbExecutor} from "../../db/client";
@@ -49,7 +48,7 @@ export async function assessReceiptForIntake(tx:DbExecutor,scope:Scope,body:stri
    }
   }
   if(!key||source.transaction.listingId.presence!=="value"||source.transaction.isDigital.presence!=="value"||source.transaction.quantity<1){projectable=false;reasons.push("source_evidence_incomplete");}
-  else lines.push({externalId:source.transaction.transactionId,listingId:source.transaction.listingId.value,title:prior?.title??(resolution.version?pinnedProductTitle(configurationSchema.parse(resolution.version.configuration)).title:"Unconfigured purchase"),quantity:source.transaction.quantity,sku:source.transaction.sku.presence==="value"?source.transaction.sku.value:null,variantKey:key,variations:[],answers:resolution.answers,digital:source.transaction.isDigital.value,etsySource:source});
+  else lines.push({externalId:source.transaction.transactionId,listingId:source.transaction.listingId.value,title:prior?.title??(source.transaction.purchasedTitle?.presence==="value"?source.transaction.purchasedTitle.value:"Purchased title unavailable"),quantity:source.transaction.quantity,sku:source.transaction.sku.presence==="value"?source.transaction.sku.value:null,variantKey:key,variations:[],answers:resolution.answers,digital:source.transaction.isDigital.value,etsySource:source});
   if(reasons.length)report.held++;
   for(const reason of new Set(reasons))report.holdReasons[reason]=(report.holdReasons[reason]??0)+1;
  }
@@ -65,7 +64,7 @@ export async function assessReceiptForIntake(tx:DbExecutor,scope:Scope,body:stri
  return {report,order,sources,resolvedVersions};
 }
 /** Explicit owner command. Receipt-atomic existing intake; never schedules preparation. */
-export async function ingestControlledReceipt(db:Database,scope:Scope,body:string,observedAt:number,rawCommand:unknown,options:{failAfterLines?:number;epoch?:number;verifiedShopId?:string}={}){
+export async function ingestControlledReceipt(db:Database,scope:Scope,body:string,observedAt:number,rawCommand:unknown,options:{failAfterLines?:number;epoch?:number;verifiedShopId?:string;captureUnconfigured?:boolean}={}){
  const command=controlledIntakeCommand.parse(rawCommand);
  return db.transaction(async tx=>{
   await verifyScope(tx,scope,true);
@@ -77,7 +76,12 @@ export async function ingestControlledReceipt(db:Database,scope:Scope,body:strin
   const assessment=await assessReceiptForIntake(tx,scope,body,observedAt);
   if(!assessment.order||assessment.order.externalId!==command.receiptId)throw new Error("SOURCE_SELECTION_MISMATCH");
   const entries=Object.entries(assessment.resolvedVersions);
-  if(!entries.length)throw new Error("NO_ELIGIBLE_LINES");
+  // Capture is independent of preparation. This internal option is used only by
+  // owned operational sync; explicit historical intake retains its original gate.
+  if(options.captureUnconfigured){
+   if(options.epoch===undefined||!options.verifiedShopId)throw new Error("CAPTURE_CONNECTION_REQUIRED");
+   if(!assessment.order.paid||assessment.order.canceled||assessment.order.refund!=="none"||assessment.report.holdReasons.source_evidence_incomplete)throw new Error("CAPTURE_SOURCE_HOLD");
+  }else if(!entries.length)throw new Error("NO_ELIGIBLE_LINES");
   if(entries.some(([id,version])=>command.approvedVersions[id]!==version)||Object.keys(command.approvedVersions).some(id=>assessment.resolvedVersions[id]!==command.approvedVersions[id]))throw new Error("PRODUCT_VERSION_MISMATCH");
   if(assessment.report.holdReasons.source_changed)throw new Error("SOURCE_CHANGED");
   const id=await ingestOrderInTransaction(tx,scope,assessment.order,{controlled:{commandId:command.commandId,versions:command.approvedVersions},suppressProductionAdmission:true,epoch:options.epoch,failAfterLines:options.failAfterLines});

@@ -24,7 +24,7 @@ export const rawEtsyReceiptSchema = z.object({
     created_timestamp:optional(integer),status:optional(z.string().max(80)),reason:optional(z.string().max(10000)),
   }).strict()).max(100)),
   transactions:z.array(z.object({transaction_id:id,buyer_user_id:optional(id),receipt_id:optional(id),listing_id:optional(id),
-    quantity:integer.max(1000),sku:optional(z.string().max(500)),is_digital:optional(z.boolean()),
+    title:optional(z.string().min(1).max(1000)),quantity:integer.max(1000),sku:optional(z.string().max(500)),is_digital:optional(z.boolean()),
     variations:optional(z.array(variation).max(128)),product_data:optional(z.array(productData).max(3)),
   }).strict()).max(100),
 }).strict().superRefine((r,ctx)=>{
@@ -72,7 +72,7 @@ export function parseEtsyJson(body:string):unknown {
 // Full API responses contain unrelated buyer/commerce fields. Only explicit reviewed
 // fields enter the strict subset; nested consumed structures are never stripped.
 const receiptFields=["receipt_id","buyer_user_id","is_paid","status","create_timestamp","created_timestamp","update_timestamp","updated_timestamp","refunds","transactions"] as const;
-const transactionFields=["transaction_id","buyer_user_id","receipt_id","listing_id","quantity","sku","is_digital","variations","product_data"] as const;
+const transactionFields=["transaction_id","buyer_user_id","receipt_id","listing_id","title","quantity","sku","is_digital","variations","product_data"] as const;
 // Explicit non-consumed fields from the Part 3 official OpenAPI snapshot. New
 // fields reject until reviewed, rather than silently losing a future input shape.
 const receiptIgnored="receipt_type seller_user_id seller_email buyer_user_id buyer_email name first_line second_line city state zip formatted_address country_iso payment_method payment_email message_from_seller message_from_buyer message_from_payment is_shipped is_gift gift_message gift_sender grandtotal subtotal total_price total_shipping_cost total_tax_cost total_vat_cost discount_amt gift_wrap_price shipments".split(" ");
@@ -98,7 +98,7 @@ export function normalizeEtsyReceipt(body:string,context:{verifiedShopId:string;
       cancellation:status==="canceled"?{state:"CANCELED",basis:"STATUS"}:["paid","completed","open","payment processing","fully refunded","partially refunded"].includes(status??"")?{state:"NOT_CANCELED",basis:"STATUS"}:{state:"UNKNOWN",basis:"UNRESOLVED"},
       refunds:presence(r.refunds==null?r.refunds:r.refunds.map(f=>({amount:presence(f.amount==null?f.amount:{amount:f.amount.amount,divisor:f.amount.divisor,currencyCode:f.amount.currency_code}),createdTimestamp:presence(f.created_timestamp),status:presence(f.status),reasonPresence:presence(f.reason).presence}))),
       refundAssessment:status==="fully refunded"?"FULL":status==="partially refunded"?"PARTIAL":r.refunds?.length===0?"NONE_REPORTED":"UNRESOLVED"},
-      transaction:{transactionId:t.transaction_id,receiptId:presence(t.receipt_id),listingId:presence(t.listing_id),quantity:t.quantity,sku:presence(t.sku),isDigital:presence(t.is_digital),listingType:{presence:"absent"},listingTypeProvenance:"UNAVAILABLE"},
+      transaction:{transactionId:t.transaction_id,receiptId:presence(t.receipt_id),listingId:presence(t.listing_id),...(t.title!==undefined?{purchasedTitle:presence(t.title)}:{}),quantity:t.quantity,sku:presence(t.sku),isDigital:presence(t.is_digital),listingType:{presence:"absent"},listingTypeProvenance:"UNAVAILABLE"},
       purchaseSelections:[],purchaseProductData:presence(t.product_data==null?t.product_data:t.product_data.map((p,sourceOrder)=>({sourceOrder,propertyId:presence(p.property_id),propertyName:presence(p.property_name),scaleId:presence(p.scale_id),scaleName:presence(p.scale_name),valueIds:presence(p.value_ids),values:presence(p.values)}))),buyerInputs:[],buyerFiles:[],unsupported:[]};
     if(buyerMessage!=null&&buyerMessage!=="")source.unsupported.push({code:"UNRESOLVED_ENCODING",fieldNames:["message_from_buyer"]});
     const variations=t.variations??[];

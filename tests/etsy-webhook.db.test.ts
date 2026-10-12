@@ -20,6 +20,12 @@ import type {Scope} from "../src/modules/intake/contracts";
 import type {Configuration} from "../src/modules/products/contracts";
 import {policy} from "./fixtures/etsy-source";
 import {rawReceipt} from "./fixtures/etsy-raw";
+import {buildGenerationContext} from "../src/modules/generation/context";
+import {admitReading} from "../src/modules/production/service";
+import {ordersData} from "../src/modules/orders/service";
+import {ordersQuery} from "../src/modules/orders/query";
+import {orderDetailData} from "../src/modules/orders/detail";
+import {purchasedAnswers,purchasedChoices} from "../src/modules/orders/purchased-choices";
 
 let pg:PGlite,db:Database,a:Scope,b:Scope,version:string,product:string;
 const secret="whsec_"+Buffer.from("synthetic-etsy-signing-key").toString("base64");
@@ -66,6 +72,32 @@ it("verified HTTP paid event is durable before receipt work; worker imports with
   expect(await state()).toMatchObject({status:"PENDING",epoch:0,organizationId:a.organizationId,storeId:a.storeId});expect(receipt).not.toHaveBeenCalled();expect((await workspaceData(db,a)).orders).toHaveLength(0);
   await runWebhookIntakeTick(db,{receipt});expect(await state()).toMatchObject({status:"SUCCEEDED",result:"IMPORTED",attempts:1,claim:null});
   const d=await workspaceData(db,a);expect([d.orders.length,d.lines.length,d.units.length]).toEqual([1,1,1]);expect(d.units[0].productVersionId).toBe(version);expect((await workspaceData(db,b)).orders).toHaveLength(0);await noExecution();
+});
+it("fully unconfigured purchase retains title, options, original text and quantity in seller attention",async()=>{
+ const r=receipt();r.transactions[0].listing_id=999;r.transactions[0].quantity=3;Object.assign(r.transactions[0],{title:"Purchased Career Reading"});
+ const e=event();await acceptVerifiedWebhook(db,e);await acceptVerifiedWebhook(db,e);await runWebhookIntakeTick(db,{receipt:reader(r)});
+ const d=await workspaceData(db,a);expect([d.orders.length,d.lines.length,d.units.length]).toEqual([1,1,3]);expect(d.units.map(u=>u.unitIndex).sort()).toEqual([1,2,3]);
+ expect(d.units.every(u=>u.productVersionId===null&&u.configurationState==="unconfigured"&&u.issues.includes("unmapped_listing"))).toBe(true);
+ expect(d.lines[0].title).toBe("Purchased Career Reading");expect(purchasedChoices(d.lines[0].snapshot)).toHaveLength(2);expect(purchasedAnswers(d.lines[0].snapshot)).toEqual([{label:"Question",value:"Synthetic context",kind:"text"}]);
+ const list=await ordersData(db,a,ordersQuery({filter:"attention"}));expect(list.rows.map(o=>o.id)).toEqual([d.orders[0].id]);expect(list.rows[0].count).toBe(3);expect((await orderDetailData(db,a,d.orders[0].id))?.units).toHaveLength(3);
+ expect((await workspaceData(db,b)).orders).toHaveLength(0);await expect(buildGenerationContext(db,b,d.units[0].id)).rejects.toThrow();
+ for(const unit of d.units){await expect(buildGenerationContext(db,a,unit.id)).rejects.toMatchObject({code:"PRODUCT_SETUP"});expect((await admitReading(db,a,unit.id)).outcome).toBe("ineligible");}
+ expect(await rows()).toHaveLength(1);expect(await state()).toMatchObject({status:"ATTENTION",result:"PARTIAL",attempts:1});await noExecution();
+});
+it.each(["webhook_first","polling_first","concurrent"])("unconfigured %s replay converges and preserves purchase identity",async ordering=>{
+ const r=receipt();r.transactions[0].listing_id=999;r.transactions[0].quantity=2;Object.assign(r.transactions[0],{title:"Original purchased title"});await accepted();const p=await polling(r),w={receipt:reader(r)};
+ if(ordering==="webhook_first"){await runWebhookIntakeTick(db,w);await runAutomaticIntakeTick(db,p);}else if(ordering==="polling_first"){await runAutomaticIntakeTick(db,p);await runWebhookIntakeTick(db,w);}else await Promise.all([runWebhookIntakeTick(db,w),runAutomaticIntakeTick(db,p)]);
+ const before=await workspaceData(db,a);expect([before.orders.length,before.lines.length,before.units.length]).toEqual([1,1,2]);
+ Object.assign(r.transactions[0],{title:"Changed live title"});r.updated_timestamp+=10;await syncOrderReceipt(db,a,{receiptId:"900",commandId:randomUUID()},reader(r));const after=await workspaceData(db,a);
+ expect(after.lines).toEqual(before.lines);expect(after.orders[0].purchasedSnapshot).toEqual(before.orders[0].purchasedSnapshot);expect(after.units.map(u=>u.id).sort()).toEqual(before.units.map(u=>u.id).sort());expect(after.units.every(u=>u.sourceChanged&&u.productVersionId===null)).toBe(true);await noExecution();
+});
+it("later setup never reassigns an unconfigured purchase and DB immutability stays authoritative",async()=>{
+ const r=receipt();r.transactions[0].variations[0].value_id=99;r.transactions[0].product_data[0].value_ids=[99];await accepted();await runWebhookIntakeTick(db,{receipt:reader(r)});const before=await workspaceData(db,a),unit=before.units[0];
+ const newPolicy={...policy(),purchaseSelections:policy().purchaseSelections.map(s=>s.propertyId==="513"?{...s,valueIds:["99"]}:s)};
+ await db.update(schema.stores).set({source:"fixtures"}).where(eq(schema.stores.id,a.storeId));const p=await beginEtsyProductDraft(db,a,newPolicy),v=(await productData(db,a,p)).draft!.id;await activateProduct(db,a,p,v,0,{name:"New option",configuration:{...config(),etsyFulfillment:newPolicy}});await db.update(schema.stores).set({source:"etsy"}).where(eq(schema.stores.id,a.storeId));
+ await syncOrderReceipt(db,a,{receiptId:"900",commandId:randomUUID()},reader(r));expect((await workspaceData(db,a)).units[0].productVersionId).toBeNull();
+ await expect(db.update(schema.units).set({productVersionId:v,configurationState:"versioned"}).where(eq(schema.units.id,unit.id))).rejects.toThrow();
+ expect((await workspaceData(db,a)).units.map(u=>u.id)).toEqual([unit.id]);await noExecution();
 });
 it("duplicate and concurrent deliveries produce one immutable obligation",async()=>{
   const e=event();await Promise.all([acceptVerifiedWebhook(db,e),acceptVerifiedWebhook(db,e)]);await acceptVerifiedWebhook(db,e);
@@ -137,14 +169,14 @@ it.each(["missing_input","unmapped_choice","paused","canceled","refunded","unpai
   if(kind==="unmapped_choice"){r.transactions[0].variations[0].value_id=99;r.transactions[0].product_data[0].value_ids=[99];}
   if(kind==="paused")await db.update(schema.mappings).set({paused:true}).where(eq(schema.mappings.storeId,a.storeId));
   if(kind==="canceled")r.status="Canceled";if(kind==="refunded")r.status="Fully Refunded";if(kind==="unpaid")r.is_paid=false;
-  await accepted();await runWebhookIntakeTick(db,{receipt:reader(r)});expect((await state()).status).toBe("ATTENTION");expect((await workspaceData(db,a)).orders).toHaveLength(0);await noExecution();
+  await accepted();await runWebhookIntakeTick(db,{receipt:reader(r)});expect((await state()).status).toBe("ATTENTION");expect((await workspaceData(db,a)).orders).toHaveLength(["canceled","refunded","unpaid"].includes(kind)?0:1);await noExecution();
 });
 it("held sibling stays independent while the eligible line is imported",async()=>{
   const r=receipt(),held={...structuredClone(r.transactions[0]),transaction_id:902};held.variations[2].formatted_value="";r.transactions.push(held);await accepted();await runWebhookIntakeTick(db,{receipt:reader(r)});
   const d=await workspaceData(db,a);expect([d.orders.length,d.lines.length,d.units.length]).toEqual([1,2,2]);expect(d.units.filter(u=>u.issues.length===0)).toHaveLength(1);expect(d.units.filter(u=>u.issues.length>0)).toHaveLength(1);expect((await state()).result).toBe("PARTIAL");await noExecution();
 });
-it("unmapped ambiguous sibling conservatively holds the complete receipt under existing policy",async()=>{
-  const r=receipt();r.transactions.push({...structuredClone(r.transactions[0]),listing_id:999,transaction_id:902});await accepted();await runWebhookIntakeTick(db,{receipt:reader(r)});expect((await state()).status).toBe("ATTENTION");expect((await workspaceData(db,a)).orders).toHaveLength(0);await noExecution();
+it("unmapped ambiguous sibling is captured independently without blocking the configured line",async()=>{
+  const r=receipt();r.transactions[0].quantity=2;r.transactions.push({...structuredClone(r.transactions[0]),listing_id:999,transaction_id:902,quantity:1});await accepted();await runWebhookIntakeTick(db,{receipt:reader(r)});expect((await state()).status).toBe("ATTENTION");const d=await workspaceData(db,a);expect([d.orders.length,d.lines.length,d.units.length]).toEqual([1,2,3]);expect(d.units.filter(u=>u.productVersionId===version)).toHaveLength(2);expect(d.units.filter(u=>u.configurationState==="unconfigured"&&u.productVersionId===null)).toHaveLength(1);await noExecution();
 });
 it("webhook cannot bypass the existing 100-reading command bound",async()=>{
   const r=receipt();r.transactions[0].quantity=101;await accepted();await runWebhookIntakeTick(db,{receipt:reader(r)});expect((await state()).status).toBe("ATTENTION");expect((await workspaceData(db,a)).orders).toHaveLength(0);await noExecution();
@@ -154,7 +186,7 @@ it("historical cutoff remains mandatory despite a freshly signed paid notificati
   expect(await state()).toMatchObject({status:"ATTENTION",errorCode:"HISTORICAL_APPROVAL_REQUIRED"});expect((await workspaceData(db,a)).orders).toHaveLength(0);expect(await db.select().from(schema.etsyHistoricalAdoptions)).toHaveLength(0);await noExecution();
 });
 it("missing ProductVersion cannot manufacture a configuration or success",async()=>{
-  await db.update(schema.mappings).set({productId:null}).where(eq(schema.mappings.storeId,a.storeId));await accepted();await runWebhookIntakeTick(db,{receipt:reader()});expect((await state()).status).toBe("ATTENTION");expect((await workspaceData(db,a)).orders).toHaveLength(0);await noExecution();
+  await db.update(schema.mappings).set({productId:null}).where(eq(schema.mappings.storeId,a.storeId));await accepted();await runWebhookIntakeTick(db,{receipt:reader()});expect((await state()).status).toBe("ATTENTION");const d=await workspaceData(db,a);expect(d.orders).toHaveLength(1);expect(d.units[0]).toMatchObject({configurationState:"unconfigured",productVersionId:null});await noExecution();
 });
 it("corrections, original pins and source snapshots survive later webhook replay",async()=>{
   const r=receipt();await accepted();await runWebhookIntakeTick(db,{receipt:reader(r)});const d=await workspaceData(db,a);

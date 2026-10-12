@@ -59,3 +59,9 @@ it("groups repeated attention reasons once while preserving affected reading ref
  const section=markup.slice(markup.indexOf('id="action-required"'),markup.indexOf('aria-labelledby="purchased-readings"'));
  expect(section.match(/Customer information missing/g)).toHaveLength(1);expect(section).toContain('href="#reading-u"');expect(section).toContain('href="#reading-second"');expect(orderSummary(view([reading({operations}),reading({id:"second",operations})])).attention).toBe(2);
 });
+
+it("unconfigured purchased units are visible with blocked preparation and retained original information",()=>{
+ const operations=readingOperations(evidence({configurationState:"unconfigured",eligible:false,issues:["unmapped_listing","quantity_context"],productHref:"/products"}));
+ const data=view([reading({status:"Unconfigured",answers:[],operations})]);const markup=html(data);
+ expect(compactReadingStatus(data.items[0].readings[0])).toBe("Unconfigured");expect(markup).toContain("Unconfigured");expect(markup).toContain("Original answer");expect(markup).toContain("purchase is saved");expect(markup).toContain('href="/products"');expect(operations.prepare).toBeNull();expect(orderSummary(data).attention).toBe(1);
+});

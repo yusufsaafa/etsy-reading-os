@@ -59,11 +59,12 @@ export async function syncOrderReceipt(db:Database,scope:Scope,raw:unknown,reade
    const persisted=await persistedReceiptSummary(tx,scope,id);
    return {kind:persisted.holds.length?"PARTIAL":"ALREADY_IMPORTED",orderId:id,...summary,...persisted};
   }
-  if(a.report.historicalAdoptionRequired)return {kind:"HISTORICAL",...summary};
-  if(a.report.historicalOrMappingAmbiguity)return {kind:"UNRESOLVED",...summary};
-  if(!a.report.exactResolved)return {kind:"INELIGIBLE",...summary};
+  // Configuration/input/historical holds block preparation, not durable capture.
+  // Payment, cancellation, refund and incomplete source safety remain gates.
+  if(!a.order.paid||a.order.canceled||a.order.refund!=="none")return {kind:"INELIGIBLE",...summary};
+  if(a.report.holdReasons.source_evidence_incomplete)return {kind:"UNRESOLVED",...summary};
   // Nested transaction is a savepoint on this same Store lock, never a second connection.
-  const result=await ingestControlledReceipt(tx as unknown as Database,scope,detail.body,observedAt,{...command,approvedVersions:a.resolvedVersions},{epoch:detail.epoch,verifiedShopId:detail.shopId});
+  const result=await ingestControlledReceipt(tx as unknown as Database,scope,detail.body,observedAt,{...command,approvedVersions:a.resolvedVersions},{epoch:detail.epoch,verifiedShopId:detail.shopId,captureUnconfigured:true});
   const persisted=await persistedReceiptSummary(tx,scope,result.orderId);
   return {kind:persisted.holds.length||result.finance==="FAILED"?"PARTIAL":existing?"ALREADY_IMPORTED":"IMPORTED",orderId:result.orderId,...summary,...persisted,finance:result.finance};
  });

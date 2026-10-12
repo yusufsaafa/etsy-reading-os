@@ -7,6 +7,7 @@ vi.mock("@/modules/identity/session",()=>({currentScope:async()=>({userId:"owner
 vi.mock("@/modules/review/service",()=>({openReadingReview:mocks.open,ReviewUnavailable:class extends Error{}}));
 vi.mock("@/components/review/draft-form",()=>({ReviewDraftForm:()=>createElement("textarea",{"aria-label":"Saved body"})}));
 vi.mock("@/components/review/approval-form",()=>({ReviewApprovalForm:()=>createElement("button",{},"Approve reading")}));
+vi.mock("@/components/review/pdf-panel",()=>({ReviewPdfPanel:async()=>createElement("p",{},"PDF unavailable")}));
 import ReviewPage from "../src/app/(operations)/orders/[id]/readings/[readingId]/review/page";
 const view={customer:"Customer",product:"Love",orderReference:"2002",index:1,quantity:1,details:[],sections:[{title:"One",content:"Visible saved body"}],draft:{revision:3,content:{sections:[]},modified:true}};
 it.each([false,true])("readable review controls follow durable approval %s",async approved=>{

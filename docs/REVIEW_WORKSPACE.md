@@ -100,3 +100,13 @@ PDF/document rendering, design UI, branding, assignment, delivery, Telegram, bil
 ## Reading Media — Part 2.5B
 
 Part 2.5B exposes frozen pinned semantic readingMedia in the backend workspace. Drafts still edit sections only. Approval separately freezes approved-reading-media/v1 on reading_reviews; the existing approved-reading/v1 and sections-only hash remain unchanged. Required corrupt/missing media blocks approval. No card picker/editor or final card UI is implemented. See READING_MEDIA.md and PILOT_ACCEPTANCE.md.
+
+## Milestone 6.5 seller handoff
+
+Review uses the existing revision-checked draft and immutable approval domains. Explicit saves and the first approval add tenant-scoped actor audit entries; approval replay does not duplicate the approval audit. The immutable generated original, current draft revision, and approved snapshot are retained. Migration 0030 adds an append-only archive of persisted draft bodies, enforced by database triggers. Existing current drafts are retained at migration time; unavailable earlier bodies are not reconstructed. Saved revisions carry actor audit events.
+
+Purchased options and canonical tarot names/orientations are visible alongside the reading. Images have an honest unavailable fallback. The media contract has no card-to-section interpretation relationship, so the interface does not infer one; interpretations remain in the reading sections.
+
+Approved PDF readings expose explicit Prepare PDF, preview, and download. Preparation calls the existing admission service and executes only its exact returned document work ID, with existing fencing, snapshots, renderer and immutable storage. GET/page refresh does not render, enqueue or run a queue cycle. Missing storage is actionable and never reported as PDF success. Preview/download reuse the authenticated private artifact route and byte-integrity validation. No delivery or AI operation is added.
+
+Unsaved edits warn before browser unload and application-link navigation; explicit Cancel also requires confirmation. Browser Back behavior and mobile/browser visual acceptance remain unverified in this milestone. Native application databases and live providers are not acceptance targets.

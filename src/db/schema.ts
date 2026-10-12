@@ -188,6 +188,15 @@ export const units = pgTable("fulfillment_units", {
   issues: jsonb("issues").$type<string[]>().notNull(), sourceChanged: boolean("source_changed").notNull().default(false),
   contextAllocated: boolean("context_allocated").notNull().default(false), revision: integer("revision").notNull().default(0),
 }, t => [foreignKey({ name:"unit_owned_version_fk",columns:[t.organizationId,t.storeId,t.productVersionId],foreignColumns:[productVersions.organizationId,productVersions.storeId,productVersions.id] }), check("unit_configuration_state",sql`${t.configurationState} in ('legacy','unconfigured','versioned') and ((${t.configurationState}='versioned') = (${t.productVersionId} is not null))`), unique().on(t.organizationId, t.storeId, t.lineItemId, t.unitIndex), unique().on(t.organizationId, t.storeId, t.id), foreignKey({ columns: [t.organizationId, t.storeId, t.lineItemId], foreignColumns: [lineItems.organizationId, lineItems.storeId, lineItems.id] }), check("unit_index_positive", sql`${t.unitIndex} >= 1`)]);
+// Explicit per-Reading approval; insertion validates and applies the first binding in SQL.
+export const readingAssignments = pgTable("reading_configuration_assignments", {
+ id:id(),organizationId:org(),storeId:store(),unitId:uuid("unit_id").notNull(),productVersionId:uuid("product_version_id").notNull(),
+ actorId:text("actor_id").notNull().references(()=>users.id),commandId:uuid("command_id").notNull(),expectedRevision:integer("expected_revision").notNull(),
+ sourceEvidence:jsonb("source_evidence").$type<NonNullable<ExternalOrder["lines"][number]["etsySource"]>>().notNull(),createdAt:time("created_at").defaultNow().notNull(),
+},t=>[unique("assignment_unit_unique").on(t.organizationId,t.storeId,t.unitId),unique("assignment_command_unique").on(t.organizationId,t.storeId,t.commandId),
+ foreignKey({columns:[t.organizationId,t.storeId,t.unitId],foreignColumns:[units.organizationId,units.storeId,units.id]}),
+ foreignKey({columns:[t.organizationId,t.storeId,t.productVersionId],foreignColumns:[productVersions.organizationId,productVersions.storeId,productVersions.id]}),
+ check("assignment_revision",sql`${t.expectedRevision}>=0`),check("assignment_evidence",sql`jsonb_typeof(${t.sourceEvidence})='object' and octet_length(${t.sourceEvidence}::text)<=262144`)]);
 export const customerInputs = pgTable("customer_inputs", {
   id: id(), organizationId: org(), storeId: store(), unitId: uuid("unit_id").notNull(), revision: integer("revision").notNull(),
   answers: jsonb("answers").$type<Answer[]>().notNull(), source: text("source").notNull(), actorId: text("actor_id"), createdAt: time("created_at").defaultNow().notNull(),
@@ -389,6 +398,14 @@ export const readingReviewDrafts=pgTable("reading_review_drafts",{
 },t=>[foreignKey({name:"draft_owned_review_fk",columns:[t.organizationId,t.storeId,t.reviewId],foreignColumns:[readingReviews.organizationId,readingReviews.storeId,readingReviews.id]}),
  check("review_draft_revision",sql`${t.revision}>=0`)]);
 
+// Database-triggered append-only copies of every persisted review draft revision.
+export const readingReviewDraftVersions=pgTable("reading_review_draft_versions",{
+ reviewId:uuid("review_id").notNull(),organizationId:org(),storeId:store(),revision:integer("revision").notNull(),
+ content:jsonb("content").$type<import("../modules/generation/contracts").CanonicalResult>().notNull(),savedAt:time("saved_at").notNull(),
+},t=>[unique("review_draft_version_identity").on(t.reviewId,t.revision),
+ foreignKey({name:"draft_version_owned_review_fk",columns:[t.organizationId,t.storeId,t.reviewId],foreignColumns:[readingReviews.organizationId,readingReviews.storeId,readingReviews.id]}),
+ check("reading_review_draft_versions_revision_check",sql`${t.revision}>=0`)]);
+
 // Presentation configuration is separate from product content and approved readings.
 export const documentDesigns = pgTable("document_designs", {
   id: id(), organizationId: org(), storeId: store(), name: text("name").notNull(),
@@ -464,6 +481,7 @@ export const documentArtifacts=pgTable("document_artifacts",{
  contentType:text("content_type").notNull().default("application/pdf"),objectKey:text("object_key").notNull(),
  state:text("state").notNull().default("PENDING"),createdAt:time("created_at").defaultNow().notNull(),availableAt:time("available_at"),
 },t=>[unique("artifact_owned_identity").on(t.organizationId,t.storeId,t.id),
+ unique("artifact_owned_reading_identity").on(t.organizationId,t.storeId,t.readingId,t.id),
  unique("artifact_render_intent").on(t.organizationId,t.storeId,t.readingId,t.documentSnapshotId,t.mediaSnapshotId,t.rendererVersion),
  unique("artifact_object_identity").on(t.objectKey),
  foreignKey({columns:[t.organizationId,t.storeId,t.readingId],foreignColumns:[units.organizationId,units.storeId,units.id]}),
@@ -507,3 +525,14 @@ export const etsyCandidateReviews = pgTable("etsy_candidate_reviews", {
  check("review_fingerprint",sql`${t.sourceFingerprint} ~ '^[a-f0-9]{64}$'`),
  check("review_selection",sql`length(${t.selectionKey}) between 17 and 2000 and ${t.selectionKey} like 'etsy-selection/1:%'`),
 ]);
+
+// Manual seller confirmation history; status is derived from the latest event per Reading.
+export const manualDeliveryEvents=pgTable("manual_delivery_events",{
+ id:id(),organizationId:org(),storeId:store(),readingId:uuid("reading_id").notNull(),artifactId:uuid("artifact_id").notNull(),
+ sequence:integer("sequence").notNull(),action:text("action").notNull(),actorId:text("actor_id").notNull().references(()=>users.id),
+ commandId:uuid("command_id").notNull(),commandHash:text("command_hash").notNull(),note:text("note").notNull().default(""),createdAt:time("created_at").notNull().defaultNow(),
+},t=>[unique("manual_delivery_sequence").on(t.organizationId,t.storeId,t.readingId,t.sequence),unique("manual_delivery_command").on(t.organizationId,t.storeId,t.commandId),
+ foreignKey({name:"manual_delivery_owned_unit_fk",columns:[t.organizationId,t.storeId,t.readingId],foreignColumns:[units.organizationId,units.storeId,units.id]}),
+ foreignKey({name:"manual_delivery_exact_artifact_fk",columns:[t.organizationId,t.storeId,t.readingId,t.artifactId],foreignColumns:[documentArtifacts.organizationId,documentArtifacts.storeId,documentArtifacts.readingId,documentArtifacts.id]}),
+ check("manual_delivery_events_sequence_check",sql`${t.sequence}>0`),check("manual_delivery_events_action_check",sql`${t.action} in ('CONFIRMED','CORRECTED')`),
+ check("manual_delivery_events_command_hash_check",sql`${t.commandHash} ~ '^[a-f0-9]{64}$'`),check("manual_delivery_events_note_check",sql`length(${t.note})<=1000`)]);

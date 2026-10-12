@@ -418,3 +418,22 @@ fieldset.studio-card { position:relative; padding-top:44px; }
  .shell-header-store { display:none; }
  .shell-mobile-header .shell-brand { margin-inline:auto; padding-right:44px; }
 }
+
+/* Manual delivery uses existing operations colors, spacing and controls. */
+.delivery-filters { display:flex; flex-wrap:wrap; align-items:end; gap:1rem; margin-block:1rem; }
+.delivery-filters label { display:grid; gap:.4rem; flex:1 1 12rem; }
+.delivery-table { border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--surface); overflow:hidden; }
+.delivery-table table { width:100%; border-collapse:collapse; text-align:left; }
+.delivery-table th,.delivery-table td { padding:1rem; vertical-align:top; border-bottom:1px solid var(--border); overflow-wrap:anywhere; }
+.delivery-table th { color:var(--text-secondary); font-weight:500; }
+.delivery-consent { display:flex; align-items:start; gap:.75rem; margin-block:1rem; }
+.delivery-consent input { width:1.25rem; flex-shrink:0; }
+@media(max-width:800px) {
+ .delivery-table table,.delivery-table tbody,.delivery-table tr,.delivery-table td { display:block; }
+ .delivery-table thead { display:none; }
+ .delivery-table tr { padding:.75rem; border-bottom:1px solid var(--border); }
+ .delivery-table td { padding:.5rem; border:0; }
+ .delivery-table td::before { content:attr(data-label); display:block; color:var(--text-secondary); font-size:.75rem; margin-bottom:.25rem; }
+ .delivery-filters .button { width:100%; }
+}
+.delivery-filters select { width:100%; min-height:var(--control-height); padding:11px 12px; color:var(--text-primary); background:var(--surface); border:1px solid var(--border-strong); border-radius:var(--radius-sm); }

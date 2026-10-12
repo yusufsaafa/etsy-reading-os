@@ -35,3 +35,21 @@ export async function approveReviewAction(orderId:string,readingId:string,_state
  const path=`/orders/${orderId}/readings/${readingId}/review`;
  revalidatePath(path);revalidatePath(`/orders/${orderId}`);revalidatePath("/orders");redirect(path);
 }
+
+/** Explicit exact-Reading PDF preparation; never scans a queue or invokes AI. */
+export async function prepareReviewPdfAction(orderId:string,readingId:string,_state:ReviewSaveState,form:FormData):Promise<ReviewSaveState>{
+ try{
+  const scope=await currentScope();z.uuid().parse(orderId);z.uuid().parse(readingId);
+  if([...form.keys()].some(key=>!key.startsWith("$ACTION_")))throw new Error("INVALID_COMMAND");
+  const {configuredDocumentPorts}=await import("@/infrastructure/document-runtime");
+  const ports=configuredDocumentPorts();if(!ports)return {error:"PDF storage is unavailable. Contact your workspace administrator."};
+  const {requestDocumentProduction,DocumentProductionWorker,readingOutputStatus}=await import("@/modules/production/documents");
+  const db=database(),workId=await requestDocumentProduction(db,scope,{orderId,readingId});
+  if(!workId)return {error:"This reading does not have PDF output configured."};
+  await DocumentProductionWorker.forInternalWorker(db,ports).execute(workId);
+  const result=await readingOutputStatus(db,scope,orderId,readingId);
+  if(!result.artifactId)return {error:"The PDF is not ready. Check document setup and storage, then try again."};
+ }catch{return {error:"The PDF could not be prepared. Check the approved reading, document setup and storage before retrying."};}
+ revalidatePath(`/orders/${orderId}/readings/${readingId}/review`);revalidatePath(`/orders/${orderId}`);
+ return {};
+}

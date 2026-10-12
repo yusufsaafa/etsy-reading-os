@@ -1,4 +1,12 @@
 import type {ExternalOrder} from "../intake/contracts";
+/** Display original text evidence without pretending it is a validated input mapping. */
+export function purchasedAnswers(snapshot:ExternalOrder["lines"][number]){
+ if(!snapshot.etsySource)return snapshot.answers;
+ return snapshot.etsySource.buyerInputs.flatMap(input=>input.encoding==="TEXT"&&input.value.presence==="value"?[{
+  label:input.formattedName.presence==="value"?input.formattedName.value:"Purchased customer information",
+  value:input.value.value,kind:"text" as const,
+ }]:[]);
+}
 /** Informational labels from immutable purchased evidence; never used for mapping. */
 export function purchasedChoices(snapshot:ExternalOrder["lines"][number]):string[]{
  if(snapshot.etsySource)return snapshot.etsySource.purchaseSelections.map(s=>{

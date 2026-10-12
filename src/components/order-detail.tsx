@@ -16,6 +16,7 @@ export type DetailView={reference:string;customer:string;date:string;status:stri
 export function compactReadingStatus(reading:DetailReading){
  const operations=reading.operations;
  if(operations?.issues.some(i=>i.key==="canceled"))return "Canceled";
+ if(reading.status==="Unconfigured")return "Unconfigured";
  if(operations?.output==="Stale generation"||reading.generation&&reading.generation.revision!==reading.revision)return "Stale";
  if(operations?.output==="Processing"||operations?.output==="Retry wait")return "Processing";
  if(operations?.output==="Generation failed")return "Failed";
@@ -40,19 +41,19 @@ export function OrderDetailView({data,backHref}:{data:DetailView;backHref:string
  for(const reading of exceptions)for(const issue of reading.operations!.issues){const group=issueGroups.get(issue.key);if(group)group.readings.push(reading);else issueGroups.set(issue.key,{issue,readings:[reading]});}
  const generationLabel=(state:string)=>({SUCCEEDED:"Generated",FAILED:"Failed",PROCESSING:"Processing"}[state]??"Recorded");
  const sampleLabel=data.sample?<p className={styles.muted}>SAMPLE DATA · Read-only fictional information. Workflow actions are disabled.</p>:null;
- const details=(reading:DetailReading,title:string)=><>
-  {sampleLabel}<h3>{title} · Reading {reading.index}</h3>
-  <p>{reading.operations?.output??reading.status}</p>
-  <p className={styles.muted}>Customer information revision {reading.revision}</p>
-  <h4>Current Customer Information</h4>{reading.answers.length?<CustomerInformation answers={reading.answers}/>:<p>No customer information provided.</p>}
-  {reading.generation&&<p>Latest generation: {generationLabel(reading.generation.status)} · revision {reading.generation.revision} · {displayDate(new Date(reading.generation.date))}</p>}
-  {reading.generation&&reading.generation.revision!==reading.revision&&<p>Earlier information — result is stale</p>}
-  {reading.queue&&<p>Production: {reading.queue}</p>}
-  {reading.operations?.issues.map(issue=><div key={issue.key}><h4>{issue.title}</h4><p>{issue.reason}</p>{issue.action&&!issue.action.href.startsWith("#")&&(data.sample?<button type="button" disabled>{issue.action.label} · sample only</button>:<Link href={issue.action.href} className="button secondary">{issue.action.label}</Link>)}</div>)}
-  {!reading.operations?.issues.length&&<p>{reading.operations?.next.reason}</p>}<p>{reading.operations?.pdfNote}</p>
-  <h4>Output status</h4><p>Generated results do not indicate approval, PDF completion or delivery.</p>
-  {!data.sample&&reading.workflow}
- </>;
+ const details=(reading:DetailReading,title:string)=><div className={styles.readingDetails}>
+  {sampleLabel}<header className={styles.detailsHeader}><div><h3 dir="auto">{title}</h3><p className={styles.muted}>Reading {reading.index} · Order #{data.reference}</p></div><Badge tone={reading.operations?.issues.length?"warning":/Generated|Approved/.test(compactReadingStatus(reading))?"good":"neutral"}>{compactReadingStatus(reading)}</Badge></header>
+  <section className={styles.detailsSection}><h4>Customer information</h4><p className={styles.muted}>Information currently assigned to this Reading. Original purchase answers remain in Purchase Information.</p>{reading.answers.length?<CustomerInformation answers={reading.answers}/>:<p>No customer information provided.</p>}</section>
+  <section className={styles.detailsSection}><h4>Reading progress</h4><p>{reading.operations?.output??reading.status}</p>
+   {reading.generation&&<p className={styles.muted}>Latest preparation: {generationLabel(reading.generation.status)} · {displayDate(new Date(reading.generation.date))} UTC</p>}
+   {reading.generation&&reading.generation.revision!==reading.revision&&<p role="status">This result uses earlier customer information. Check the updated information before continuing.</p>}
+   <p className={styles.muted}>{reading.operations?.pdfNote??"No available PDF recorded"}. Preparation, approval, PDF availability and delivery are separate steps.</p>
+   {!data.sample&&reading.operations?.next.action?.href.endsWith("/review")&&<Link className="button" href={reading.operations.next.action.href}>Open Review Workspace</Link>}
+   <p className={styles.muted}>Reading content is edited and approved only in Review Workspace.</p>
+  </section>
+  {!!reading.operations?.issues.length&&<section className={styles.detailsSection}><h4>Needs attention</h4>{reading.operations.issues.map(issue=><div key={issue.key}><strong>{issue.title}</strong><p>{issue.reason}</p>{issue.action&&!issue.action.href.startsWith("#")&&(data.sample?<button type="button" disabled>{issue.action.label} · sample only</button>:<Link href={issue.action.href} className="button secondary">{issue.action.label}</Link>)}</div>)}</section>}
+  {!data.sample&&reading.workflow&&<section className={styles.detailsSection}><h4>Preparation & customer information</h4>{reading.workflow}</section>}
+ </div>;
  return <div className={styles.page}>
   <Link className="back-link" href={backHref}>Back to {data.sample?"Sample Orders":"Orders"}</Link>
   <header className={styles.header}><div><h1>Order #{data.reference}</h1><p>{customerIdentity(data.customer)} <span>· Purchased {displayDate(new Date(data.date))} UTC</span></p></div><Badge tone={data.status==="Generated"?"good":summary.attention?"warning":"neutral"}>{shortOrderStatus(data.status)}</Badge></header>
@@ -91,7 +92,7 @@ export function OrderDetailView({data,backHref}:{data:DetailView;backHref:string
       <div className={styles.readingActions}>
        {next?.action&&(data.sample?<button type="button" className="button secondary" disabled aria-label={`${label} — Reading ${reading.index} — sample only`}>{label}</button>:localAction?<InformationPopover dialog label={`${label} — Reading ${reading.index} — ${item.title}`} triggerContent={label}>{details(reading,item.title)}</InformationPopover>:<Link className="button secondary" href={next.action.href} prefetch={false} aria-label={`${label} — Reading ${reading.index} — ${item.title}`}>{label}</Link>)}
        {reading.operations?.pdf&&(data.sample?<button disabled type="button" className="button secondary">View PDF · sample only</button>:<a className="button secondary" href={reading.operations.pdf.href} target="_blank" rel="noopener noreferrer" aria-label={`View ${reading.operations.pdf.historical?"historical ":""}PDF — Reading ${reading.index} — opens a new tab`}>View PDF</a>)}
-       {(!localAction||data.sample)&&<InformationPopover dialog label={`View Details — Reading ${reading.index} — ${item.title}`} triggerContent="View Details">{details(reading,item.title)}</InformationPopover>}
+       {(!localAction||data.sample)&&<InformationPopover dialog title="Reading Details" label={`View Details — Reading ${reading.index} — ${item.title}`} triggerContent="View Details">{details(reading,item.title)}</InformationPopover>}
       </div>
      </div>;
     })}

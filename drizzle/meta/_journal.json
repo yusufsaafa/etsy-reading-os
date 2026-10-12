@@ -204,6 +204,27 @@
       "when": 1791724336479,
       "tag": "0028_etsy_webhook_inbox",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1791752400000,
+      "tag": "0029_reading_first_assignment",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1791805200000,
+      "tag": "0030_review_draft_history",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1791810000000,
+      "tag": "0031_manual_delivery_history",
+      "breakpoints": true
     }
   ]
 }

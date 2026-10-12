@@ -33,3 +33,8 @@ it("text null/absence/value distinctions survive without fabricated answers",()=
 it("fractional/exponent identifier lexemes cannot round into valid integers",()=>{for(const token of ["1.0000000000000001","1e2"]){const body=JSON.stringify(rawReceipt()).replace('"receipt_id":900',`"receipt_id":${token}`);expect(()=>normalizeEtsyReceipt(body,{verifiedShopId:"77",observedAt:1})).toThrow();}});
 it("ambiguous selected question without MIME evidence retains presence only",()=>{const r=rawReceipt();r.transactions[0].variations[2].value_id=99;r.transactions[0].variations[2].formatted_value="SYNTHETIC_UNRESOLVED_REFERENCE";delete (r.transactions[0].variations[2] as {mime_type?:string|null}).mime_type;const s=normalize(r);expect(s.buyerInputs[0].encoding).toBe("UNKNOWN");expect(JSON.stringify(s)).not.toContain("SYNTHETIC_UNRESOLVED_REFERENCE");});
 it("unreviewed MIME values reject instead of being retained as file metadata",()=>{const r=rawReceipt();r.transactions[0].variations[2].mime_type="future/unknown";expect(()=>normalize(r)).toThrow();});
+
+it("purchased title is bounded source evidence, without a current listing substitution",()=>{
+ const r=rawReceipt();Object.assign(r.transactions[0],{title:"Historical Etsy title"});expect(normalize(r).transaction.purchasedTitle).toEqual(value("Historical Etsy title"));
+ Object.assign(r.transactions[0],{title:"x".repeat(1001)});expect(()=>normalize(r)).toThrow();expect(normalize(rawReceipt()).transaction.purchasedTitle).toBeUndefined();
+});

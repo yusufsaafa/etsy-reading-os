@@ -77,10 +77,17 @@ function failure(error:unknown,attempts:number,now:Date) {
   return {status:permanent||attempts>=5?"ATTENTION":"PENDING",errorCode:code,nextAt:new Date(now.getTime()+seconds*1000)};
 }
 
+export type WebhookEventSelector={id:string;eventId:string;organizationId:string;storeId:string;shopId:string;epoch:number};
+/** Internal selection only; all identity fences are included in the candidate query. */
+export function webhookEventSelection(selector:WebhookEventSelector){
+ if(!z.uuid().safeParse(selector.id).success||!z.uuid().safeParse(selector.organizationId).success||!z.uuid().safeParse(selector.storeId).success||!/^[A-Za-z0-9_-]{1,256}$/.test(selector.eventId)||!/^([1-9][0-9]{0,19})$/.test(selector.shopId)||!Number.isSafeInteger(selector.epoch)||selector.epoch<0)throw new Error("INVALID_ACCEPTANCE_SELECTOR");
+ return and(eq(webhookEvents.id,selector.id),eq(webhookEvents.eventId,selector.eventId),eq(webhookEvents.organizationId,selector.organizationId),eq(webhookEvents.storeId,selector.storeId),eq(webhookEvents.shopId,selector.shopId),eq(webhookEvents.epoch,selector.epoch),eq(webhookEvents.eventType,"order.paid"));
+}
 /** Trusted worker: at most one event/tick. No polling, generation or document work. */
-export async function runWebhookIntakeTick(db:Database,ports:{receipt?:typeof readOwnedReceipt;now?:Date}={}) {
+export async function runWebhookIntakeTick(db:Database,ports:{receipt?:typeof readOwnedReceipt;now?:Date;selector?:WebhookEventSelector}={}) {
   const now=ports.now??new Date(),reader=ports.receipt??readOwnedReceipt;
-  const [candidate]=await db.select().from(webhookEvents).where(and(lte(webhookEvents.nextAt,now),sql`(${webhookEvents.status}='PENDING' or (${webhookEvents.status}='PROCESSING' and ${webhookEvents.leaseUntil}<${now}))`)).orderBy(asc(webhookEvents.nextAt),asc(webhookEvents.id)).limit(1);
+  // Raw SQL parameters do not use the column encoder; postgres-js needs an ISO string here.
+  const [candidate]=await db.select().from(webhookEvents).where(and(...(ports.selector?[webhookEventSelection(ports.selector)]:[]),lte(webhookEvents.nextAt,now),sql`(${webhookEvents.status}='PENDING' or (${webhookEvents.status}='PROCESSING' and ${webhookEvents.leaseUntil}<${now.toISOString()}))`)).orderBy(asc(webhookEvents.nextAt),asc(webhookEvents.id)).limit(1);
   if(!candidate)return;
   const claim=randomUUID();let item:Event|undefined;
   let access:Awaited<ReturnType<typeof eventConnection>>|undefined;
@@ -115,7 +122,7 @@ export async function runWebhookIntakeTick(db:Database,ports:{receipt?:typeof re
       // Metadata-only quarantine of a pending/expired obligation. No order mutation.
       await db.transaction(async tx=>{
         if(candidate.storeId)await tx.select().from(stores).where(and(eq(stores.id,candidate.storeId),eq(stores.organizationId,candidate.organizationId!))).for("update");
-        await tx.update(webhookEvents).set({status:"ATTENTION",claim:null,leaseUntil:null,errorCode:"AUTHORIZATION_REQUIRED"}).where(and(eq(webhookEvents.id,candidate.id),sql`(${webhookEvents.status}='PENDING' or (${webhookEvents.status}='PROCESSING' and ${webhookEvents.leaseUntil}<${now}))`));
+        await tx.update(webhookEvents).set({status:"ATTENTION",claim:null,leaseUntil:null,errorCode:"AUTHORIZATION_REQUIRED"}).where(and(eq(webhookEvents.id,candidate.id),sql`(${webhookEvents.status}='PENDING' or (${webhookEvents.status}='PROCESSING' and ${webhookEvents.leaseUntil}<${now.toISOString()}))`));
       });
     }
   }

@@ -1,3 +1,5 @@
+import {mappedCustomerAnswers} from "../products/runtime";
+import {purchasedChoices} from "../orders/purchased-choices";
 import {pinnedProductTitle} from "../products/contracts";
 import { admitDocumentProductionInTransaction } from "../production/documents";
 import { readingMediaRequirement, readingMediaHash } from "../media/reading-contract";
@@ -7,7 +9,7 @@ import {createHash} from "node:crypto";
 import {and,desc,eq,inArray} from "drizzle-orm";
 import {z} from "zod";
 import type {Database,DbExecutor} from "../../db/client";
-import {readingReviews,readingReviewDrafts,units,lineItems,orders,generations,stores,productionQueue,customerInputs,productVersions,mappings} from "../../db/schema";
+import {auditLogs,readingReviews,readingReviewDrafts,units,lineItems,orders,generations,stores,productionQueue,customerInputs,productVersions,mappings} from "../../db/schema";
 import {tenantWhere,verifyScope} from "../intake/service";
 import {answerSchema,stableJson,triage,type Scope} from "../intake/contracts";
 import {configurationSchema,inputPolicy,activationErrors} from "../products/contracts";
@@ -71,10 +73,12 @@ export function currentReadingEligible(data:{unit:typeof units.$inferSelect;line
   if(unit.configurationState!=="versioned"||!unit.productVersionId||generation.productVersionId!==unit.productVersionId||generation.customerRevision!==unit.revision||latest?.id!==generation.id)return false;
   if(!Array.isArray(unit.issues)||unit.issues.length||unit.sourceChanged||!order.paid||order.canceled||order.refund!=="none")return false;
   if(queue&&["ATTENTION","EXECUTING","CLAIMED","RETRY_WAIT"].includes(queue.state))return false;
-  if(!input||input.unitId!==unit.id||input.revision!==unit.revision||stableJson(input.answers)!==stableJson(generation.context.customer.answers)||!version||version.id!==unit.productVersionId||version.status==="DRAFT"||stableJson(version.configuration)!==stableJson(generation.context.product.configuration))return false;
+  if(!input||input.unitId!==unit.id||input.revision!==unit.revision||!version||version.id!==unit.productVersionId||version.status==="DRAFT"||stableJson(version.configuration)!==stableJson(generation.context.product.configuration))return false;
   reviewContent(generation);
   const configuration=configurationSchema.parse(generation.context.product.configuration);
-  return !activationErrors("Retained configuration",configuration).length&&!triage(order.latestSnapshot,line.snapshot,{required:inputPolicy(configuration),paused,etsyFulfillment:configuration.etsyFulfillment},generation.context.customer.answers,unit.contextAllocated,unit.sourceChanged).length;
+  const answers=mappedCustomerAnswers(line.snapshot,input,{etsyFulfillment:configuration.etsyFulfillment});
+  if(stableJson(answers)!==stableJson(generation.context.customer.answers))return false;
+  return !activationErrors("Retained configuration",configuration).length&&!triage(order.latestSnapshot,line.snapshot,{required:inputPolicy(configuration),paused,etsyFulfillment:configuration.etsyFulfillment},answers,unit.contextAllocated,unit.sourceChanged).length;
  }catch{return false;}
 }
 function requireCurrent(data:{current:boolean}){if(!data.current)throw new ReviewDraftError("STALE");}
@@ -96,6 +100,7 @@ export async function openReadingReview(db:Database,scope:Scope,orderId:string,r
   try{if(draft&&review.state!=="APPROVED")content=validateReviewDraft(draft.content,base);}catch{throw new ReviewUnavailable();}
   if(review.state==="APPROVED"){content=approvedReviewContent(review,base);approvedMediaForReview(review,data.generation);}
   return {outdated:!data.current,approved:review.state==="APPROVED",customer:data.order.buyerName||"Customer",product:data.line.title,orderReference:data.order.externalId,index:data.unit.unitIndex,quantity:data.line.quantity,...data.content,
+   purchasedOptions:purchasedChoices(data.line.snapshot),
    readingMedia:detached(base.readingMedia ?? {mode:"NONE" as const}),
    sections:content.sections.map(({title,content})=>({title,content})),
    draft:draft&&review.state!=="APPROVED"?{revision:draft.revision,content,modified:stableJson(content)!==stableJson({sections:base.sections})}:null};
@@ -116,6 +121,7 @@ export async function saveReadingReviewDraft(db:Database,scope:Scope,orderId:str
   const base=validateCanonical(JSON.stringify(data.generation.result),data.generation.context),content=validateReviewDraft(raw,base);
   const [saved]=await tx.update(readingReviewDrafts).set({content,revision:draft.revision+1,updatedAt:new Date()}).where(and(tenantWhere(readingReviewDrafts,scope),eq(readingReviewDrafts.reviewId,draft.reviewId),eq(readingReviewDrafts.revision,expectedRevision))).returning();
   if(!saved)throw new ReviewDraftError("CONFLICT");
+  await tx.insert(auditLogs).values({organizationId:scope.organizationId,storeId:scope.storeId,actorId:scope.userId,action:`reading_review_draft_saved:${saved.revision}`,resourceId:data.review.id});
   return {revision:saved.revision,modified:stableJson(content)!==stableJson({sections:base.sections})};
  });
 }
@@ -150,6 +156,7 @@ export async function approveReadingReview(db:Database,scope:Scope,orderId:strin
   const approvedMedia=createApprovedMedia(data.review!,data.generation,approvedAt);
   const [approved]=await tx.update(readingReviews).set({state:"APPROVED",approvedByUserId:scope.userId,approvedContent:content,approvedDraftRevision:draft?.revision??null,approvedContentHash:reviewContentHash(content),approvedAt,approvedMedia}).where(and(tenantWhere(readingReviews,scope),eq(readingReviews.id,review.id),eq(readingReviews.state,"PENDING"))).returning();
   if(!approved)throw new ReviewUnavailable();
+  await tx.insert(auditLogs).values({organizationId:scope.organizationId,storeId:scope.storeId,actorId:scope.userId,action:"reading_review_approved",resourceId:approved.id});
   await admitDocumentProductionInTransaction(tx,scope,approved.id,orderId);
   return approved;
  });

@@ -1,0 +1,28 @@
+import {it,expect,vi,beforeEach} from "vitest";
+import {createElement} from "react";
+import {renderToStaticMarkup} from "react-dom/server";
+const m=vi.hoisted(()=>({record:vi.fn(),scope:vi.fn(),ports:vi.fn(),refresh:vi.fn()}));
+vi.mock("@/db/client",()=>({database:()=>({})}));
+vi.mock("@/modules/identity/session",()=>({currentScope:m.scope}));
+vi.mock("@/infrastructure/document-runtime",()=>({configuredDocumentPorts:m.ports}));
+vi.mock("next/cache",()=>({revalidatePath:m.refresh}));
+vi.mock("next/navigation",()=>({usePathname:()=>"/deliveries/reading"}));
+vi.mock("@/modules/deliveries/service",async original=>({...await original<typeof import("../src/modules/deliveries/service")>(),recordManualDelivery:m.record}));
+import {DeliveryList,deliveryHref} from "../src/components/deliveries-list";
+import {DeliveryConfirmation} from "../src/components/delivery-confirmation";
+import {Navigation} from "../src/components/navigation";
+import {deliveryQuery,DeliveryError,type DeliveryView} from "../src/modules/deliveries/service";
+import {manualDeliveryAction} from "../src/app/(operations)/deliveries/actions";
+const readingId="00000000-0000-4000-8000-000000000001",artifactId="00000000-0000-4000-8000-000000000002";
+const view:DeliveryView={readingId,orderId:"order",orderReference:"123",customer:"<script>customer</script>",product:"Love",index:1,quantity:2,status:"AWAITING_DELIVERY",reason:"Manual",pdf:"Ready",artifactId,approval:"Approved",approvedAt:"2026-10-12T00:00:00Z",generatedAt:"2026-10-11T00:00:00Z",generationStatus:"SUCCEEDED",sequence:0,confirmed:false,confirmedArtifactId:null,confirmedAt:null,options:[],customerDetails:[],history:[]};
+beforeEach(()=>{vi.clearAllMocks();m.scope.mockResolvedValue({userId:"owner",organizationId:"org",storeId:"store"});m.ports.mockReturnValue({artifacts:{}});m.record.mockResolvedValue({sequence:1});});
+function form(){const f=new FormData();f.set("artifactId",artifactId);f.set("commandId",crypto.randomUUID());f.set("expectedSequence","0");f.set("action","CONFIRMED");f.set("confirmed","yes");f.set("note","");return f;}
+it("navigation includes an active Deliveries entry for nested detail routes",()=>{const html=renderToStaticMarkup(createElement(Navigation));expect(html).toMatch(/href="\/deliveries"[^>]*aria-current="page"|aria-current="page"[^>]*href="\/deliveries"/);expect(html).toContain("Deliveries");});
+it("list uses real supplied units, escapes customer text, and exposes search/status/sort/page controls",()=>{const html=renderToStaticMarkup(createElement(DeliveryList,{query:deliveryQuery({q:"love"}),data:{rows:[view],total:26,pages:2,page:1}}));expect(html).toContain("&lt;script&gt;");expect(html).not.toContain("<script>");expect(html).toContain("Reading 1 of 2");expect(html).toContain("Awaiting delivery");expect(html).toContain("PDF: Ready");expect(html).toContain('name="status"');expect(html).toContain('name="sort"');expect(html).toContain("Next");expect(html).toContain(`/deliveries/${readingId}`);});
+it("empty states distinguish no generated readings from no filter matches",()=>{const data={rows:[],total:0,pages:1,page:1};expect(renderToStaticMarkup(createElement(DeliveryList,{data,query:deliveryQuery({})}))).toContain("No generated readings yet");expect(renderToStaticMarkup(createElement(DeliveryList,{data,query:deliveryQuery({status:"DELIVERED"})}))).toContain("No matching deliveries");});
+it("pagination preserves filters safely and malformed queries fail closed",()=>{expect(deliveryHref(deliveryQuery({q:"Love & Career",status:"DELIVERED",sort:"OLDEST"}),2)).toContain("q=Love+%26+Career&status=DELIVERED&sort=OLDEST&page=2");expect(deliveryQuery({page:"-1",status:"forged"})).toEqual(deliveryQuery({}));});
+it("confirmation requires a checkbox and explains that no Etsy delivery is performed",()=>{const html=renderToStaticMarkup(createElement(DeliveryConfirmation,{readingId,artifactId,sequence:0}));expect(html).toContain("This only records your confirmation inside Reading OS");expect(html).toContain("You must send the PDF to the customer through Etsy yourself");expect(html).toContain('type="checkbox"');expect(html).toContain("disabled");expect(html).toContain("Mark as Delivered");});
+it("correction is explicit, requires a reason and does not imply message recall",()=>{const html=renderToStaticMarkup(createElement(DeliveryConfirmation,{readingId,artifactId,sequence:1,correction:true}));expect(html).toContain("Reason for correction");expect(html).toContain("does not recall");expect(html).toContain('value="CORRECTED"');expect(html).toContain("required");});
+it("action derives authority from the seller session and only revalidates after persistence",async()=>{await manualDeliveryAction(readingId,{},form());expect(m.record).toHaveBeenCalledWith({}, {userId:"owner",organizationId:"org",storeId:"store"},expect.objectContaining({readingId,artifactId,expectedSequence:0,confirmed:true}),{});expect(m.refresh).toHaveBeenCalledWith("/deliveries");});
+it("client-supplied tenant/work selection is rejected",async()=>{const f=form();f.set("storeId","foreign");expect((await manualDeliveryAction(readingId,{},f)).error).toBeTruthy();expect(m.record).not.toHaveBeenCalled();});
+it("conflicts retain seller-safe feedback without leaking private errors",async()=>{m.record.mockRejectedValue(new DeliveryError("CONFLICT"));expect((await manualDeliveryAction(readingId,{},form())).error).toContain("Refresh");expect(m.refresh).not.toHaveBeenCalled();m.record.mockRejectedValue(new Error("private database credentials"));expect((await manualDeliveryAction(readingId,{},form())).error).not.toContain("credentials");});

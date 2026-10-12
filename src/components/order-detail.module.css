@@ -26,3 +26,12 @@
 @media(prefers-reduced-motion:reduce) { .page * { animation:none; transition:none; } }
 
 .affected { display:flex; flex-wrap:wrap; gap:8px 16px; }.affected a { display:inline-flex; align-items:center; min-height:44px; }.exception p { margin:4px 0; color:var(--text-secondary); }
+
+.readingDetails { display:grid; gap:20px; min-width:0; overflow-wrap:anywhere; }
+.detailsHeader { display:flex; justify-content:space-between; align-items:start; gap:16px; flex-wrap:wrap; }
+.detailsHeader h3 { margin:0; font-size:16px; }
+.detailsHeader p { margin:6px 0 0; }
+.detailsSection { border-top:1px solid var(--border); padding-top:16px; min-width:0; }
+.detailsSection h4 { font-size:14px; margin:0 0 12px; }
+.detailsSection p { line-height:1.6; }
+@media(max-width:600px) { .readingDetails { gap:16px; }.detailsSection :global(.button) { width:100%; } }

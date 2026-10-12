@@ -1,4 +1,8 @@
-import {purchasedChoices} from "@/modules/orders/purchased-choices";
+import {historicalCustomerLabels} from "@/modules/orders/customer-labels";
+import {ReadingRecovery} from "@/components/reading-recovery";
+import {readingRecoveryData,assignmentReason} from "@/modules/orders/assignment";
+import {mappedCustomerAnswers} from "@/modules/products/runtime";
+import {purchasedChoices,purchasedAnswers} from "@/modules/orders/purchased-choices";
 import {orderFinanceView} from "@/modules/orders-finance/service";
 import Link from "next/link";
 import {notFound} from "next/navigation";
@@ -34,22 +38,25 @@ export default async function OrderDetail({params,searchParams}:{params:Promise<
  const providerEnabled=["fake","google"].includes(process.env.AI_PROVIDER??"");
  let pdfAccess=false;try{pdfAccess=!!configuredDocumentPorts();}catch{/* No raw configuration details in seller UI. */}
  const historyByUnit=new Map(data.history.map(g=>[g.unitId,g])),queueByUnit=new Map(data.queue.map(q=>[q.unitId,q])),inputByUnit=new Map(data.inputs.map(c=>[c.unitId,c])),versionById=new Map(data.versions.map(v=>[v.id,v])),attemptByGeneration=new Map(data.attempts.map(a=>[a.generationId,a])),artifactByUnit=new Map(artifacts.map(a=>[a.readingId,a]));
- const items=await Promise.all(data.lines.map(async line=>({id:line.id,title:line.title,quantity:line.quantity,variations:purchasedChoices(line.snapshot),answers:line.snapshot.answers,readings:await Promise.all(data.units.filter(u=>u.lineItemId===line.id).map(async unit=>{
+ const items=await Promise.all(data.lines.map(async line=>({id:line.id,title:line.title,quantity:line.quantity,variations:purchasedChoices(line.snapshot),answers:purchasedAnswers(line.snapshot),readings:await Promise.all(data.units.filter(u=>u.lineItemId===line.id).map(async unit=>{
  const generation=historyByUnit.get(unit.id),queue=queueByUnit.get(unit.id),context=inputByUnit.get(unit.id),review=reviews.get(unit.id);
  const mapping=data.mappings.find(m=>m.listingExternalId===line.listingExternalId&&m.variantKey===line.variantKey),version=unit.productVersionId?versionById.get(unit.productVersionId):undefined;
  const parsed=configurationSchema.safeParse(version?.configuration);
- const eligible=unit.configurationState==="versioned"&&version?.status!=="DRAFT"&&parsed.success&&!activationErrors("Retained configuration",parsed.data).length&&context?.revision===unit.revision&&!unit.issues.length&&!!order.latestSnapshot&&!triage(order.latestSnapshot,line.snapshot,{required:inputPolicy(parsed.data),paused:mapping?.paused??false,etsyFulfillment:parsed.data.etsyFulfillment},context.answers,unit.contextAllocated,unit.sourceChanged).length;
- const productHref=mapping?.productId?`/products/${mapping.productId}/setup`:`/products#product-${encodeURIComponent(line.listingExternalId)}`;
+ const effectiveAnswers=context?mappedCustomerAnswers(line.snapshot,context,parsed.success?{etsyFulfillment:parsed.data.etsyFulfillment}:undefined):[];
+ const recovery=unit.configurationState==="unconfigured"&&data.canOperate?await readingRecoveryData(database(),scope,unit.id):null;
+ const eligible=unit.configurationState==="versioned"&&version?.status!=="DRAFT"&&parsed.success&&!activationErrors("Retained configuration",parsed.data).length&&context?.revision===unit.revision&&!unit.issues.length&&!!order.latestSnapshot&&!triage(order.latestSnapshot,line.snapshot,{required:inputPolicy(parsed.data),paused:mapping?.paused??false,etsyFulfillment:parsed.data.etsyFulfillment},effectiveAnswers,unit.contextAllocated,unit.sourceChanged).length;
+ const productHref=mapping?.productId?`/products/${mapping.productId}/setup`:"/products";
  const operations=readingOperations({id:unit.id,orderId:id,issues:unit.issues,canceled:order.canceled,paid:order.paid,refund:order.refund,revision:unit.revision,configurationState:unit.configurationState,canOperate:data.canOperate,eligible:!!eligible,providerEnabled,profileReady,productHref,queue:queue?.state,review,generation,productVersionId:unit.productVersionId,attempt:generation?attemptByGeneration.get(generation.id):undefined,artifact:artifactByUnit.get(unit.id),pdfAccess});
  const active=queue&&["QUEUED","CLAIMED","EXECUTING","RETRY_WAIT"].includes(queue.state);
  const productionStatus=generation?.status==="SUCCEEDED"?(generation.customerRevision!==unit.revision?"STALE":"SUCCEEDED"):active?(queue.state==="EXECUTING"?"PROCESSING":"WAITING"):queue?.state==="ATTENTION"?"FAILED":generation?.status;
- const status=review??readingStatus(unit.issues,productionStatus==="SUCCEEDED"?"FAILED":productionStatus);
- return {id:unit.id,index:unit.unitIndex,status,operations,revision:unit.revision,answers:context?.answers??[],queue:queue?.state.replaceAll("_"," "),generation:generation?{status:generation.status,revision:generation.customerRevision,date:generation.createdAt.toISOString()}:undefined,workflow:<>
+ const status=review??(unit.configurationState==="unconfigured"?"Unconfigured":readingStatus(unit.issues,productionStatus==="SUCCEEDED"?"FAILED":productionStatus));
+ return {id:unit.id,index:unit.unitIndex,status,operations,revision:unit.revision,answers:historicalCustomerLabels(effectiveAnswers,parsed.success?parsed.data:undefined,line.snapshot),queue:queue?.state.replaceAll("_"," "),generation:generation?{status:generation.status,revision:generation.customerRevision,date:generation.createdAt.toISOString()}:undefined,workflow:<>
+ {recovery&&<ReadingRecovery unitId={unit.id} revision={unit.revision} candidates={recovery.candidates} reason={recovery.reason?assignmentReason(recovery.reason):undefined}/>}
  {!review&&data.reviews?.some(r=>r.unitId===unit.id)&&<p className="small muted"><Link href={`/orders/${id}/readings/${unit.id}/review`}>View historical reading</Link> · Historical content cannot be approved or used for new production.</p>}
  <div id={`preparation-${unit.id}`}>
  <ReadingPreparation approved={review==="Approved"} reviewHref={undefined} scope={scope} productionStatus={productionStatus} unitId={unit.id} currentRevision={unit.revision} eligible={!!eligible} evidence={{mode:operations.prepare,generationId:generation?.id,message:""}}/>
  </div>
- {<details id={`customer-information-${unit.id}`} open={unit.issues.some(i=>["missing_input","unusable_input","quantity_context"].includes(i))||!!generation&&generation.customerRevision!==unit.revision} className="information-editor"><summary>Review customer information</summary><InputEditor unitId={unit.id} revision={unit.revision} initial={context?.answers??[]} allocated={unit.contextAllocated} needsAllocation={line.quantity>1} inputLabel={mapping?.required[0]?.label??"Customer information"} definitions={version?.configuration.inputs}/></details>}
+ {<details id={`customer-information-${unit.id}`} open={unit.issues.some(i=>["missing_input","unusable_input","quantity_context"].includes(i))||!!generation&&generation.customerRevision!==unit.revision} className="information-editor"><summary>Review customer information</summary><InputEditor unitId={unit.id} revision={unit.revision} initial={effectiveAnswers} allocated={unit.contextAllocated} needsAllocation={line.quantity>1} inputLabel={mapping?.required[0]?.label??"Customer information"} definitions={version?.configuration.inputs}/></details>}
  <InformationPopover label="Purchase reference"><p>Listing {line.listingExternalId} · Variant {line.variantKey} · SKU {line.sku||"Not supplied"} · Transaction {line.externalId}. {unit.productVersionId&&`Retained configuration v${data.versions.find(v=>v.id===unit.productVersionId)?.versionNumber??"unavailable"}.`}</p></InformationPopover></>};
  }))})));
  const priority=data.units.some(u=>u.issues.length)||!order.paid||order.refund!=="none";

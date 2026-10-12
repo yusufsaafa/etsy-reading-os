@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import type { Database, DbExecutor } from "../../db/client";
-import { productionQueue, generations, units, stores, orders, auditLogs } from "../../db/schema";
+import { productionQueue, generations, units, stores, orders, auditLogs, readingAssignments } from "../../db/schema";
 import type { Scope } from "../intake/contracts";
 import { tenantWhere, verifyScope } from "../intake/service";
 import { AccessDenied } from "../identity/service";
@@ -19,6 +19,9 @@ export async function admitReadingInTransaction(tx: DbExecutor, scope: Scope, un
   const [generation] = await tx.select({id:generations.id}).from(generations).where(and(tenantWhere(generations,scope),eq(generations.unitId,unitId))).limit(1);
   // Existing work belongs to manual retry/review, never a second automatic operation.
   if (generation) return { outcome: "ineligible" as const };
+  // Recovered purchases require explicit seller preparation, including after input saves.
+  const [assignment]=await tx.select({id:readingAssignments.id}).from(readingAssignments).where(and(tenantWhere(readingAssignments,scope),eq(readingAssignments.unitId,unitId)));
+  if(assignment)return {outcome:"manual" as const};
   let context;
   try { context = await buildGenerationContext(tx,scope,unitId,false); }
   catch (error) { if (error instanceof AdmissionError) return { outcome: "ineligible" as const }; throw error; }

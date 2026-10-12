@@ -1,7 +1,7 @@
 import { and, eq, or, isNull, asc } from "drizzle-orm";
 import type { DbExecutor } from "../../db/client";
 import { mappings, products, productVersions, stores, etsyHistoricalAdoptions } from "../../db/schema";
-import type { Scope, InputPolicy } from "../intake/contracts";
+import type { Scope, InputPolicy, Answer, ExternalOrder } from "../intake/contracts";
 import { validateInputs } from "../intake/contracts";
 import { configurationSchema, inputPolicy } from "./contracts";
 import { assessEtsySource, etsySourceSchema, selectionKey, type EtsyProductPolicy } from "../etsy/source-contract";
@@ -81,4 +81,11 @@ export async function resolveEtsySourceConfiguration(db:DbExecutor,scope:Scope,r
   const result=assessEtsySource(source,configuration?.etsyFulfillment);
   const issues=[...result.issues,...resolutionIssues,...(mapping?.paused?["mapping_paused"]:[]),...(configuration?validateInputs(result.answers,inputPolicy(configuration)):[])];
   return {source,version,mapping,answers:result.answers,issues:[...new Set(issues)]};
+}
+
+/** Preserve input rows/revisions: only an untouched empty Etsy input projects through its pinned policy. */
+export function mappedCustomerAnswers(snapshot:ExternalOrder["lines"][number],context:{answers:Answer[];revision:number;source:string},policy?:{required?:InputPolicy;paused?:boolean;etsyFulfillment?:EtsyProductPolicy}):Answer[]{
+ if(context.revision===0&&context.source==="etsy_snapshot"&&!context.answers.length&&snapshot.etsySource&&policy?.etsyFulfillment)
+  return assessEtsySource(snapshot.etsySource,policy.etsyFulfillment).answers;
+ return context.answers;
 }

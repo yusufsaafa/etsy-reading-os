@@ -290,3 +290,95 @@ it("operator review policy remains intact while explicit document production sta
  const frozen=await input(),storage=new MemoryArtifactStorage(),artifact=await produce(frozen.media.id,storage);expect(sha256((await retrieve(artifact.id,storage,operator)).copyBytes())).toBe(artifact.sha256);
  const {correctInput}=await import("../src/modules/intake/service");await correctInput(db,operator,readingId,0,[{label:"Name",value:"Updated by operator",kind:"text"}],false);expect((await openReadingReview(db,operator,orderId,readingId)).outdated).toBe(true);await expect(saveReadingReviewDraft(db,operator,orderId,readingId,1,view.draft!.content)).rejects.toMatchObject({kind:"STALE"});
 });
+
+// Milestone 6.6: use the existing real renderer + isolated synthetic fixture lifecycle.
+import {inspectDelivery,listDeliveries,deliveryQuery,recordManualDelivery} from "../src/modules/deliveries/service";
+async function deliveryPdf(){await ready();const storage=new MemoryArtifactStorage(),f=await input(),artifact=await produce(f.media.id,storage);return {storage,artifact};}
+function deliveryCommand(artifactId:string,action:"CONFIRMED"|"CORRECTED"="CONFIRMED",expectedSequence=0,note=""){
+ return {readingId,artifactId,action,expectedSequence,note,confirmed:true as const,commandId:randomUUID()};
+}
+it("delivery readiness requires approval and valid bytes; reads never confirm or render",async()=>{
+ const storage=new MemoryArtifactStorage();expect((await inspectDelivery(db,a,readingId,storage)).status).toBe("NOT_READY");
+ await ready();expect((await inspectDelivery(db,a,readingId,storage)).status).toBe("NOT_READY");const f=await input(),artifact=await produce(f.media.id,storage),writes=storage.writes,audits=(await db.select().from(schema.auditLogs)).length;
+ const view=await inspectDelivery(db,a,readingId,storage);expect(view).toMatchObject({status:"AWAITING_DELIVERY",pdf:"Ready",artifactId:artifact.id,confirmed:false});
+ const list=await listDeliveries(db,a,deliveryQuery({}),storage);expect(list.rows).toHaveLength(1);expect(list.rows[0].readingId).toBe(readingId);
+ const {downloadDocument}=await import("../src/modules/documents/download");expect((await downloadDocument(db,a,{readingId,artifactId:artifact.id},storage)).status).toBe(200);
+ expect(storage.writes).toBe(writes);expect(await db.select().from(schema.manualDeliveryEvents)).toEqual([]);expect((await db.select().from(schema.auditLogs)).length).toBe(audits);
+ expect(JSON.stringify(view)).not.toMatch(/objectKey|encryptedTokens|contextHash/);
+});
+it("manual confirmation pins one artifact and command replay creates no duplicate audit",async()=>{
+ const {storage,artifact}=await deliveryPdf(),command=deliveryCommand(artifact.id);
+ const first=await recordManualDelivery(db,a,command,storage),second=await recordManualDelivery(db,a,command,storage);
+ expect(second).toEqual({...first,replayed:true});expect((await inspectDelivery(db,a,readingId,storage)).status).toBe("DELIVERED");
+ const events=await db.select().from(schema.manualDeliveryEvents);expect(events).toHaveLength(1);expect(events[0]).toMatchObject({artifactId:artifact.id,actorId:a.userId,sequence:1,readingId});
+ expect((await db.select().from(schema.auditLogs)).filter(x=>x.action==="manual_delivery_confirmed")).toHaveLength(1);
+ await expect(recordManualDelivery(db,a,{...command,note:"changed"},storage)).rejects.toThrow("CONFLICT");
+});
+it("explicit correction is append-only, audited, replayable and can be followed by a fresh confirmation",async()=>{
+ const {storage,artifact}=await deliveryPdf();await recordManualDelivery(db,a,deliveryCommand(artifact.id),storage);
+ await expect(recordManualDelivery(db,a,deliveryCommand(artifact.id,"CORRECTED",1),storage)).rejects.toThrow("CONFIRMATION_REQUIRED");
+ const correction=deliveryCommand(artifact.id,"CORRECTED",1,"Marked the wrong Reading accidentally");await recordManualDelivery(db,a,correction);await recordManualDelivery(db,a,correction);
+ expect((await inspectDelivery(db,a,readingId,storage)).status).toBe("AWAITING_DELIVERY");
+ expect((await db.select().from(schema.manualDeliveryEvents)).map(e=>e.action)).toEqual(["CONFIRMED","CORRECTED"]);
+ await expect(db.update(schema.manualDeliveryEvents).set({note:"replace"})).rejects.toThrow();await expect(db.delete(schema.manualDeliveryEvents)).rejects.toThrow();
+ expect((await db.select().from(schema.auditLogs)).filter(x=>x.action==="manual_delivery_corrected")).toHaveLength(1);
+ await recordManualDelivery(db,a,deliveryCommand(artifact.id,"CONFIRMED",2),storage);expect((await inspectDelivery(db,a,readingId,storage)).sequence).toBe(3);
+});
+it("confirmation requires explicit consent and rejects inaccessible or corrupt PDFs",async()=>{
+ const {storage,artifact}=await deliveryPdf();await expect(recordManualDelivery(db,a,{...deliveryCommand(artifact.id),confirmed:false},storage)).rejects.toThrow("CONFIRMATION_REQUIRED");
+ storage.objects.get(artifact.objectKey)!.bytes[0]^=255;
+ expect((await inspectDelivery(db,a,readingId,storage)).status).toBe("NEEDS_ATTENTION");await expect(recordManualDelivery(db,a,deliveryCommand(artifact.id),storage)).rejects.toThrow();
+ expect(await db.select().from(schema.manualDeliveryEvents)).toHaveLength(0);
+});
+it("cross-tenant and sibling reads/mutations cannot read PDF bytes or record delivery",async()=>{
+ const {storage,artifact}=await deliveryPdf(),reads=storage.reads;
+ for(const scope of [b,sibling,{...a,userId:b.userId}]){await expect(inspectDelivery(db,scope,readingId,storage)).rejects.toThrow();await expect(recordManualDelivery(db,scope,deliveryCommand(artifact.id),storage)).rejects.toThrow();}
+ expect(storage.reads).toBe(reads);expect((await listDeliveries(db,b,deliveryQuery({}),storage)).rows).toEqual([]);expect(await db.select().from(schema.manualDeliveryEvents)).toEqual([]);
+});
+it("SQL rejects forged tenant/actor evidence and invalid delivery transitions",async()=>{
+ const {storage,artifact}=await deliveryPdf();await recordManualDelivery(db,a,deliveryCommand(artifact.id),storage);const [event]=await db.select().from(schema.manualDeliveryEvents);
+ for(const patch of [{sequence:5},{actorId:b.userId,sequence:2,action:"CORRECTED",note:"Wrong tenant"},{sequence:2,action:"CONFIRMED"},{sequence:2,action:"CORRECTED",note:""},{readingId:randomUUID(),sequence:1}]){
+  await expect(db.insert(schema.manualDeliveryEvents).values({...event,...patch,id:randomUUID(),commandId:randomUUID()})).rejects.toThrow();
+ }
+ expect(await db.select().from(schema.manualDeliveryEvents)).toHaveLength(1);
+});
+it("racing confirmations converge for one PDF and conflict for two different PDFs",async()=>{
+ const {storage,artifact}=await deliveryPdf();const same=await Promise.all([recordManualDelivery(db,a,deliveryCommand(artifact.id),storage),recordManualDelivery(db,a,deliveryCommand(artifact.id),storage)]);
+ expect(new Set(same.map(x=>x.eventId)).size).toBe(1);await recordManualDelivery(db,a,deliveryCommand(artifact.id,"CORRECTED",1,"Test correction"));
+ const d=(await db.select().from(schema.documentDesigns))[0];const current=await getDocumentDesign(db,a,d.id);await updateDocumentDesign(db,a,d.id,current.revision,{name:"New appearance",configuration:{...config(),footerText:"Changed footer"}});
+ const f=await input(),second=await produce(f.media.id,storage);
+ const raced=await Promise.allSettled([recordManualDelivery(db,a,deliveryCommand(artifact.id,"CONFIRMED",2),storage),recordManualDelivery(db,a,deliveryCommand(second.id,"CONFIRMED",2),storage)]);
+ expect(raced.filter(x=>x.status==="fulfilled")).toHaveLength(1);expect(raced.filter(x=>x.status==="rejected")).toHaveLength(1);
+ const events=await db.select().from(schema.manualDeliveryEvents);expect(events).toHaveLength(3);expect(events[2].artifactId).toBe(raced[0].status==="fulfilled"?artifact.id:second.id);
+});
+it("correction remains possible when a previously delivered PDF becomes unavailable",async()=>{
+ const {storage,artifact}=await deliveryPdf();await recordManualDelivery(db,a,deliveryCommand(artifact.id),storage);storage.objects.delete(artifact.objectKey);
+ expect(await inspectDelivery(db,a,readingId,storage)).toMatchObject({status:"NEEDS_ATTENTION",confirmed:true,confirmedArtifactId:artifact.id});
+ await recordManualDelivery(db,a,deliveryCommand(artifact.id,"CORRECTED",1,"Wrong confirmation"));expect(await db.select().from(schema.manualDeliveryEvents)).toHaveLength(2);
+});
+it("mixed-cart quantity-expanded Readings have independent delivery history",async()=>{
+ const {correctInput}=await import("../src/modules/intake/service");await ready();
+ await ingestListing(db,a,{...fixtureListings[0],externalId:"102",title:"Career"});const p=await beginListingDraft(db,a,"102"),draft=(await productData(db,a,p)).draft!;
+ await activateProduct(db,a,p,draft.id,0,{name:"Career",configuration:{inputs:[{id:"name",key:"name",label:"Name",type:"TEXT",required:true,helpText:"",sortOrder:0}],sections:[{id:"intro",title:"Introduction",instruction:"Welcome",sortOrder:0},{id:"guidance",title:"Guidance",instruction:"Offer guidance",sortOrder:1}],output:"PDF",workflow:"ASSISTED"}});
+ const mixed=await ingestOrder(db,a,{...fixtureOrders[0],externalId:"9902",lines:[{...fixtureOrders[0].lines[0],externalId:"9921",listingId:"101",title:"Love",quantity:2,answers:[{label:"Name",value:"Synthetic",kind:"text"}]},{...fixtureOrders[0].lines[0],externalId:"9922",listingId:"102",title:"Career",quantity:1,answers:[{label:"Name",value:"Synthetic",kind:"text"}]}]});
+ const data=await workspaceData(db,a),lineIds=data.lines.filter(l=>l.orderId===mixed).map(l=>l.id),readings=data.units.filter(u=>lineIds.includes(u.lineItemId));expect(readings).toHaveLength(3);
+ const storage=new MemoryArtifactStorage(),gateway=new CentralAIGateway(db,{provider:new FakeGenerationProvider(),model:"deterministic-v1",pricing:pricingFor("fake","deterministic-v1"),maxOutputTokens:8192,dailyBudgetNanos:1000000000n,attemptBudgetNanos:1000000000n});
+ for(const unit of readings){await correctInput(db,a,unit.id,0,[{label:"Name",value:"Synthetic recipient",kind:"text"}],true);await new GenerationService(db,gateway).prepare(a,{unitId:unit.id,commandKey:randomUUID()});await openReadingReview(db,a,mixed,unit.id);await approveReadingReview(db,a,mixed,unit.id,null);const input=await createDocumentRenderInput(db,a,{orderId:mixed,readingId:unit.id});await produceDocumentArtifact(db,a,input.media.id,assets,storage);}
+ const first=await inspectDelivery(db,a,readings[0].id,storage);await recordManualDelivery(db,a,{...deliveryCommand(first.artifactId!),readingId:first.readingId},storage);
+ const states=await Promise.all(readings.map(u=>inspectDelivery(db,a,u.id,storage)));expect(states.filter(x=>x.status==="DELIVERED")).toHaveLength(1);expect(states.filter(x=>x.status==="AWAITING_DELIVERY")).toHaveLength(2);
+ const list=await listDeliveries(db,a,deliveryQuery({q:"9902",status:"AWAITING_DELIVERY"}),storage);expect(list.total).toBe(2);expect((await db.select().from(schema.manualDeliveryEvents))).toHaveLength(1);
+});
+it("competing corrections serialize and preserve a single correction event",async()=>{
+ const {storage,artifact}=await deliveryPdf();await recordManualDelivery(db,a,deliveryCommand(artifact.id),storage);
+ const outcomes=await Promise.allSettled([recordManualDelivery(db,a,deliveryCommand(artifact.id,"CORRECTED",1,"Correction A")),recordManualDelivery(db,a,deliveryCommand(artifact.id,"CORRECTED",1,"Correction B"))]);
+ expect(outcomes.filter(x=>x.status==="fulfilled")).toHaveLength(1);expect(outcomes.filter(x=>x.status==="rejected")).toHaveLength(1);expect(await db.select().from(schema.manualDeliveryEvents)).toHaveLength(2);
+});
+it("delivery pagination and sorting retain every generated quantity unit",async()=>{
+ const {correctInput}=await import("../src/modules/intake/service");const batch=await ingestOrder(db,a,{...fixtureOrders[0],externalId:"9910",lines:[{...fixtureOrders[0].lines[0],externalId:"9931",listingId:"101",quantity:27,answers:[{label:"Name",value:"Synthetic",kind:"text"}]}]});
+ const data=await workspaceData(db,a),lineIds=data.lines.filter(l=>l.orderId===batch).map(l=>l.id),batchUnits=data.units.filter(u=>lineIds.includes(u.lineItemId));
+ const gateway=new CentralAIGateway(db,{provider:new FakeGenerationProvider(),model:"deterministic-v1",pricing:pricingFor("fake","deterministic-v1"),maxOutputTokens:8192,dailyBudgetNanos:1000000000n,attemptBudgetNanos:1000000000n});
+ for(const unit of batchUnits){await correctInput(db,a,unit.id,0,[{label:"Name",value:"Synthetic",kind:"text"}],true);await new GenerationService(db,gateway).prepare(a,{unitId:unit.id,commandKey:randomUUID()});}
+ const page1=await listDeliveries(db,a,deliveryQuery({q:"9910",sort:"NEWEST"})),page2=await listDeliveries(db,a,deliveryQuery({q:"9910",sort:"NEWEST",page:2}));
+ expect(page1.total).toBe(27);expect(page1.pages).toBe(2);expect(page1.rows).toHaveLength(25);expect(page2.rows).toHaveLength(2);expect(new Set([...page1.rows,...page2.rows].map(x=>x.readingId)).size).toBe(27);
+ const oldest=await listDeliveries(db,a,deliveryQuery({q:"9910",sort:"OLDEST"}));expect(oldest.rows[0].generatedAt!<=page1.rows[0].generatedAt!).toBe(true);expect((await listDeliveries(db,a,deliveryQuery({q:"9910",status:"DELIVERED"}))).total).toBe(0);
+},20000);

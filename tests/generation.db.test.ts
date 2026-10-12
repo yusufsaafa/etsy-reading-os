@@ -465,6 +465,13 @@ it("review drafts initialize once from pinned evidence and edits persist without
  expect(saved.details).toEqual(untouched.details);expect(await readGeneration(db,a,result.id)).toEqual(original);expect((await db.select().from(schema.readingReviews))[0]).toEqual(review);expect(await generationAccounting(db,a,result.id)).toEqual(ledger);
  expect(await saveReadingReviewDraft(db,a,orderId,unitId,1,first.draft!.content)).toEqual({revision:2,modified:false});expect((await openReadingReview(db,a,orderId,unitId)).draft?.modified).toBe(false);
  expect((await openReadingReview(db,a,orderId,unitId)).draft?.revision).toBe(2);
+ const archive=await db.select().from(schema.readingReviewDraftVersions).orderBy(schema.readingReviewDraftVersions.revision);
+ expect(archive.map(v=>v.revision)).toEqual([0,1,2]);expect(archive[0].content).toEqual(first.draft!.content);expect(archive[1].content).toEqual(content);
+ await expect(db.update(schema.readingReviewDraftVersions).set({content})).rejects.toThrow();
+ await expect(db.delete(schema.readingReviewDraftVersions)).rejects.toThrow();
+ await expect(db.insert(schema.readingReviewDraftVersions).values({...archive[0],revision:99})).rejects.toThrow();
+ expect(await db.select().from(schema.readingReviewDraftVersions).orderBy(schema.readingReviewDraftVersions.revision)).toEqual(archive);
+ const audits=await db.select().from(schema.auditLogs);expect(audits.filter(x=>x.action.startsWith("reading_review_draft_saved:")).map(x=>x.action)).toEqual(["reading_review_draft_saved:1","reading_review_draft_saved:2"]);
 });
 it("concurrent draft saves reject stale revision without overwriting the winner",async()=>{
  const {openReadingReview,saveReadingReviewDraft}=await import("../src/modules/review/service");const {result}=await prepare(),orderId=result.context.orderId;
@@ -514,6 +521,8 @@ it("approval requires the exact saved revision and preserves saved draft and ori
  const before=(await db.select().from(schema.readingReviewDrafts))[0];
  const approved=await approveReadingReview(db,a,orderId,unitId,1);
  expect(approved.approvedContent).toEqual(content);expect(approved.approvedDraftRevision).toBe(1);
+ await approveReadingReview(db,a,orderId,unitId,1);
+ const approvals=(await db.select().from(schema.auditLogs)).filter(x=>x.action==="reading_review_approved");expect(approvals).toHaveLength(1);expect(approvals[0]).toMatchObject({actorId:a.userId,resourceId:approved.id,storeId:a.storeId});
  expect((await db.select().from(schema.readingReviewDrafts))[0]).toEqual(before);
  expect((await openReadingReview(db,a,orderId,unitId)).sections).toEqual(content.sections.map(({title,content})=>({title,content})));
  await expect(saveReadingReviewDraft(db,a,orderId,unitId,1,content)).rejects.toThrow();
