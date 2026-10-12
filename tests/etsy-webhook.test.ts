@@ -88,3 +88,55 @@ it("normal Orders contains no developer configuration and diagnostics retain bot
   expect(diag).toContain("internalOperatorAllowed");expect(diag).toContain("verifyScope(database(),scope,true)");expect(diag).toContain("Webhook intake history");
   expect(worker).not.toMatch(/runAutomaticIntakeTick|Gemini|GenerationService|productionRuntime|documentRuntime/);
 });
+
+it.each([
+ {label:"Portal example: alternate host and mismatched shop",resource_url:"https://openapi.etsy.com/v3/application/shops/12345/receipts/54321",shop_id:42,status:400},
+ {label:"alternate host alone",resource_url:"https://openapi.etsy.com/v3/application/shops/42/receipts/54321",shop_id:42,status:400},
+ {label:"shop mismatch alone",resource_url:"https://api.etsy.com/v3/application/shops/12345/receipts/54321",shop_id:42,status:400},
+ {label:"synthetic identifiers with matching allowed URL",resource_url:"https://api.etsy.com/v3/application/shops/42/receipts/54321",shop_id:42,status:204},
+])("distinguishes payload constraints with valid HMAC: $label",async({resource_url,shop_id,status})=>{
+ const raw=Buffer.from(JSON.stringify({event_type:"order.paid",resource_url,shop_id}));
+ expect(verifyEtsyWebhookSignature(proof(raw))).toBe(true);
+ const accept=vi.fn(async()=>{});
+ const response=await handleEtsyWebhook(request(raw),{secret,nowSeconds:now,accept});
+ expect(response.status).toBe(status);
+ expect(await response.text()).toBe("");
+ expect(accept).toHaveBeenCalledTimes(status===204?1:0);
+});
+it("test header cannot bypass signature checks for the Portal example",async()=>{
+ const raw=Buffer.from(JSON.stringify({event_type:"order.paid",resource_url:"https://openapi.etsy.com/v3/application/shops/12345/receipts/54321",shop_id:42}));
+ const accept=vi.fn(async()=>{});
+ const response=await handleEtsyWebhook(request(raw,{"webhook-test":"true","webhook-signature":"v1,"+Buffer.alloc(32).toString("base64")}),{secret,nowSeconds:now,accept});
+ expect(response.status).toBe(401);expect(accept).not.toHaveBeenCalled();
+});
+it("missing body and stream read failure return empty 400 before acceptance",async()=>{
+ const accept=vi.fn(async()=>{});
+ const missing=new Request("https://reading.example",{method:"POST"});
+ const stream=new ReadableStream({pull(controller){controller.error(new Error("synthetic read failure"));}});
+ const broken=new Request("https://reading.example",{method:"POST",body:stream,duplex:"half"} as RequestInit);
+ for(const req of [missing,broken]){
+  const response=await handleEtsyWebhook(req,{secret,nowSeconds:now,accept});
+  expect(response.status).toBe(400);expect(await response.text()).toBe("");
+ }
+ expect(accept).not.toHaveBeenCalled();
+});
+
+it("valid signed Portal example acknowledges transport without persistence",async()=>{
+ const raw=Buffer.from(JSON.stringify({event_type:"order.paid",resource_url:"https://openapi.etsy.com/v3/application/shops/12345/receipts/54321",shop_id:42}));
+ const accept=vi.fn(async()=>{throw new Error("must not persist a Portal test");});
+ const response=await handleEtsyWebhook(request(raw,{"webhook-test":"true"}),{secret,nowSeconds:now,accept});
+ expect(response.status).toBe(204);expect(await response.text()).toBe("");expect(accept).not.toHaveBeenCalled();
+});
+it.each(["expired","missing","malformed"])("Portal test still rejects %s signature proof",async failure=>{
+ const headers:Record<string,string>={"webhook-test":"true"};
+ if(failure==="missing")headers["webhook-signature"]="";
+ if(failure==="malformed")headers["webhook-signature"]="v2,AAAA";
+ const accept=vi.fn(async()=>{});
+ const response=await handleEtsyWebhook(request(body,headers),{secret,nowSeconds:failure==="expired"?now+301:now,accept});
+ expect(response.status).toBe(401);expect(accept).not.toHaveBeenCalled();
+});
+it.each(["false","TRUE","1","true,false"])("only exact test header true selects the non-persistent path (case %#)",async marker=>{
+ const accept=vi.fn(async()=>{});
+ expect((await handleEtsyWebhook(request(body,{"webhook-test":marker}),{secret,nowSeconds:now,accept})).status).toBe(204);
+ expect(accept).toHaveBeenCalledOnce();
+});

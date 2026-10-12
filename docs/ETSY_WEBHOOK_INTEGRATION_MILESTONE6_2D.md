@@ -74,6 +74,21 @@ characters are accepted. Identity is bounded and excludes dots/whitespace. Every
 accepted entry is compared using `timingSafeEqual`; no unversioned/unsigned fallback
 exists. The inclusive freshness margin remains 300 seconds in either direction.
 Raw bytes are authenticated before any JSON parsing. Secrets stay server-side.
+
+Compatibility follow-up (2026-10-11): the shared `decodeSigningSecret()` accepts
+canonical nonempty Base64 key material either bare or with `whsec_`; optional
+Base64 padding remains supported. Both `webhookSecretConfigured()` (used by the
+HTTP receiver and `webhookIntakeStatus()`) and digest verification use this decoder.
+The 1024-character secret bound remains. No prefix is added, no UTF-8/hex fallback
+is attempted, and malformed/noncanonical Base64 is rejected. Signature grammar,
+HMAC-SHA256, constant-time comparison and timestamp checks are unchanged.
+
+The reported Portal secret lacks the prefix; official Etsy documentation still
+shows `whsec_` stripping followed by Base64 decoding. Local test-environment
+inspection found a noncanonical value, so this code change alone cannot establish
+live compatibility or resolve that configuration. Environment files were unchanged.
+Synthetic prefixless/prefixed known-answer, invalid-key, route and shared-status
+regressions were added. Live Portal acceptance remains unverified.
 The original known-answer vector was computed independently using Python; it is
 synthetic, not supplied by Etsy. Multiple entries support producer-side key rotation
 while the consumer accepts a matching configured secret.
@@ -308,3 +323,37 @@ legacy fixture. Orders page tests mock the new read-only status query separately
 Local implementation and isolated validation are complete. Actual Etsy operation
 remains **NOT VERIFIED** until authorized Portal/app coverage acceptance and operator
 deployment are completed. No push, deployment or Milestone 6.3 work is included.
+
+
+### Secret compatibility follow-up validation
+
+- Digest, signature/receiver and HTTP route suites: 78 tests passed.
+- Shared secret validation / intake status suite: 6 tests passed.
+- Isolated in-memory PGlite webhook suite: 55 tests passed, including duplicate,
+  concurrent-delivery and changed-evidence replay rejection. No external DB used.
+- Full TypeScript check (`tsc --noEmit --incremental false`): passed.
+- `git diff --check`: passed.
+- Additional core TypeScript check: failed with four `string | undefined` errors
+  in unchanged `src/app/actions.ts`, `src/app/onboarding/actions.ts` and
+  `src/modules/identity/session.ts`. The core include list omits the existing
+  `src/types/next-auth.d.ts` Session augmentation; full typecheck includes it.
+  No unrelated configuration or identity fixes were made. No commit was created
+  because not every check passed.
+
+
+### Authenticated Portal test compatibility
+
+`handleEtsyWebhook()` verifies the bounded raw body using the existing strict v1,
+HMAC-SHA256, canonical Base64, timestamp and timing-safe comparison rules before
+checking `webhook-test`. Only the exact header value `true` acknowledges a Portal
+transport test with an empty 204. No VerifiedWebhook evidence is constructed and
+no acceptance callback, database construction, receipt fetch or worker dispatch
+occurs. The test marker itself is not part of the signed content: it selects only
+a non-persistent acknowledgement, never intake authorization.
+
+Non-test events retain the existing authenticated payload factory, strict literal
+`api.etsy.com` allowlist, matching shop IDs, durable inbox, tenant and epoch fencing.
+The synthetic `openapi.etsy.com` example does not justify expanding that allowlist.
+Real-event host compatibility and live Portal interoperability remain unverified;
+a real signed event using another host would still be rejected pending separate
+source verification and narrowly scoped compatibility work.

@@ -1,5 +1,5 @@
 import {expect, it} from "vitest";
-import {verifyEtsyWebhookDigest} from "../src/modules/etsy/webhook-digest";
+import {verifyEtsyWebhookDigest, verifyEtsyWebhookSignature, webhookSecretConfigured} from "../src/modules/etsy/webhook-digest";
 
 // Synthetic known-answer vector computed independently with Python hmac/hashlib.
 // This is NOT an Etsy-provided signature or live interoperability evidence.
@@ -42,4 +42,20 @@ it("enforces application bounds and rejects invalid server clock", () => {
   expect(verifyEtsyWebhookDigest({...input, rawBody: Buffer.alloc(65537)})).toBe(false);
   expect(verifyEtsyWebhookDigest({...input, messageId: "x".repeat(257)})).toBe(false);
   expect(verifyEtsyWebhookDigest({...input, nowSeconds: NaN})).toBe(false);
+});
+
+// Prefixless Portal-format coverage uses synthetic Base64, never a real secret.
+it.each([input.secret, input.secret.slice(6), input.secret.slice(6).replace(/=+$/, "")])("accepts both key representations with the same known-answer HMAC", secret => {
+  expect(webhookSecretConfigured(secret)).toBe(true);
+  expect(verifyEtsyWebhookDigest({...input, secret})).toBe(true);
+  const proof = {...input, secret, signature: `v1,${input.digestBase64}`};
+  expect(verifyEtsyWebhookSignature(proof)).toBe(true);
+  expect(verifyEtsyWebhookSignature({...proof, signature: `v1,${Buffer.alloc(32).toString("base64")}`})).toBe(false);
+  expect(verifyEtsyWebhookSignature({...proof, signature: proof.signature + " v2,AAAA"})).toBe(false);
+  for (const delta of [-301, 301]) expect(verifyEtsyWebhookSignature({...proof, nowSeconds: input.nowSeconds + delta})).toBe(false);
+});
+it.each([undefined, "", "plain-secret", "!", "whsec_", "whsec_!", "AAAA==", "whsec_AAAA==", "AB", "whsec_AB", " c3ludGhldGlj", "c3ludGhldGlj\n", "whsk_c3ludGhldGlj", "A".repeat(1025)])("configuration and signature verification reject malformed keys consistently (case %#)", secret => {
+  expect(webhookSecretConfigured(secret)).toBe(false);
+  expect(verifyEtsyWebhookDigest({...input, secret})).toBe(false);
+  expect(verifyEtsyWebhookSignature({...input, secret, signature: `v1,${input.digestBase64}`})).toBe(false);
 });

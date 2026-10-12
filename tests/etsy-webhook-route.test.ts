@@ -21,3 +21,22 @@ it("actual route uses server configuration and durable acceptance for a signed e
 it("actual route refuses acceptance when persistence fails",async()=>{
   vi.stubEnv("ETSY_WEBHOOK_SIGNING_SECRET",secret);calls.accept.mockRejectedValueOnce(new Error("synthetic secret internal details"));const response=await POST(signedRequest());expect(response.status).toBe(503);expect(await response.text()).toBe("");
 });
+
+it("actual route accepts a prefixless Base64 key with the unchanged v1 signature", async()=>{
+  vi.stubEnv("ETSY_WEBHOOK_SIGNING_SECRET",secret.slice(6));
+  expect((await POST(signedRequest())).status).toBe(204);
+  expect(calls.accept).toHaveBeenCalledOnce();
+});
+it.each(["", "plain-secret", "AB", "whsec_!"])("actual route rejects malformed secret before opening the database (case %#)",async configured=>{
+  vi.stubEnv("ETSY_WEBHOOK_SIGNING_SECRET",configured);
+  expect((await POST(signedRequest())).status).toBe(503);
+  expect(calls.db).not.toHaveBeenCalled();
+  expect(calls.accept).not.toHaveBeenCalled();
+});
+
+it("signed Portal route never constructs a database or invokes durable acceptance",async()=>{
+ vi.stubEnv("ETSY_WEBHOOK_SIGNING_SECRET",secret);
+ const req=signedRequest();req.headers.set("webhook-test","true");
+ expect((await POST(req)).status).toBe(204);
+ expect(calls.db).not.toHaveBeenCalled();expect(calls.accept).not.toHaveBeenCalled();
+});

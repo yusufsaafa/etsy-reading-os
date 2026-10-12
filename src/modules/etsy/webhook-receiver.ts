@@ -54,11 +54,16 @@ export async function handleEtsyWebhook(request:Request,ports:{
     }
   } catch {return new Response(null,{status:400});}
   finally {reader.releaseLock();}
+  const proof={messageId:request.headers.get("webhook-id")??undefined,
+    timestamp:request.headers.get("webhook-timestamp")??undefined,signature:request.headers.get("webhook-signature")??undefined,
+    rawBody:Buffer.concat(chunks),secret:ports.secret,nowSeconds:ports.nowSeconds};
+  // Portal examples contain synthetic resource identities. Authenticate exact bytes
+  // first; tests acknowledge transport only and never create durable intake evidence.
+  if (!verifyEtsyWebhookSignature(proof)) return new Response(null,{status:401});
+  if (request.headers.get("webhook-test")==="true") return new Response(null,{status:204});
   let event:VerifiedWebhook|undefined;
   try {
-    event=authenticateEtsyWebhook({messageId:request.headers.get("webhook-id")??undefined,
-      timestamp:request.headers.get("webhook-timestamp")??undefined,signature:request.headers.get("webhook-signature")??undefined,
-      rawBody:Buffer.concat(chunks),secret:ports.secret,nowSeconds:ports.nowSeconds});
+    event=authenticateEtsyWebhook(proof);
   } catch {return new Response(null,{status:400});}
   if(!event)return new Response(null,{status:401});
   try {await ports.accept(event);} catch {return new Response(null,{status:503});}

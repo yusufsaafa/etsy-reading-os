@@ -13,6 +13,16 @@ function decodeBase64(value: string): Buffer | undefined {
   return decoded;
 }
 
+/** Decode the same Base64 key with or without the optional transport prefix.
+ * Never treat malformed Base64 as a literal UTF-8 key or guess another encoding.
+ */
+function decodeSigningSecret(secret: string | undefined): Buffer | undefined {
+  if (!secret || secret.length > 1024) return undefined;
+  const encoded = secret.startsWith("whsec_") ? secret.slice(6) : secret;
+  const key = decodeBase64(encoded);
+  return key?.length ? key : undefined;
+}
+
 /** Verify one already-separated Base64 digest using the Etsy-documented algorithm.
  * This deliberately does not authenticate an HTTP webhook-signature header.
  * Source: https://developers.etsy.com/documentation/essentials/webhooks/
@@ -31,11 +41,11 @@ export function verifyEtsyWebhookDigest(input: {
       !timestamp || !/^\d{1,16}$/.test(timestamp) ||
       !rawBody || rawBody.byteLength > MAX_WEBHOOK_BODY_BYTES ||
       !digestBase64 || digestBase64.length > 44 ||
-      !secret?.startsWith("whsec_") || secret.length > 1024) return false;
+      !webhookSecretConfigured(secret)) return false;
   const emitted = Number(timestamp);
   if (!Number.isSafeInteger(emitted) || !Number.isSafeInteger(now) ||
       Math.abs(now - emitted) > TOLERANCE_SECONDS) return false;
-  const key = decodeBase64(secret.slice("whsec_".length));
+  const key = decodeSigningSecret(secret);
   const digest = decodeBase64(digestBase64);
   if (!key?.length || digest?.length !== 32) return false;
   const expected = createHmac("sha256", key)
@@ -46,8 +56,7 @@ export function verifyEtsyWebhookDigest(input: {
 }
 
 export function webhookSecretConfigured(secret: string | undefined): boolean {
-  return !!secret?.startsWith("whsec_") && secret.length <= 1024 &&
-    !!decodeBase64(secret.slice(6))?.length;
+  return !!decodeSigningSecret(secret);
 }
 
 /** Strict Standard Webhooks v1 grammar; no unsigned/unversioned fallback.
