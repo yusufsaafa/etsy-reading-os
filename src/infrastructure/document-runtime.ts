@@ -1,6 +1,7 @@
 import {constants} from "node:fs";
 import {lstat,realpath,open} from "node:fs/promises";
 import {resolve,isAbsolute,sep} from "node:path";
+import {S3ArtifactStorage,s3Configuration} from "./s3-artifact-storage";
 import {LocalArtifactStorage} from "./local-artifact-storage";
 import {ArtifactStorageError,type PlatformAssetStorage} from "./object-storage";
 import {objectKeySchema} from "../modules/media/contracts";
@@ -27,9 +28,10 @@ export function configuredPlatformAssets(env:NodeJS.ProcessEnv=process.env):Plat
  return new LocalPlatformAssets(env.DOCUMENT_ASSET_ROOT??resolve(process.cwd(),"resources"));
 }
 /** Explicit storage selection; production has no ephemeral/local fallback.
- * Deployment owner must provision and back up the persistent root for both app and worker. */
+ * Deployment owner provisions shared private S3 storage or a durable root for both processes. */
 export function configuredDocumentPorts(env:NodeJS.ProcessEnv=process.env):DocumentProductionPorts|undefined {
  if(!env.DOCUMENT_STORAGE_DRIVER)return undefined;
+ if(env.DOCUMENT_STORAGE_DRIVER==="s3-compatible")return Object.freeze({artifacts:new S3ArtifactStorage(s3Configuration(env)),assets:configuredPlatformAssets(env)});
  const persistent=env.DOCUMENT_STORAGE_DRIVER==="persistent-volume";
  if(!env.DOCUMENT_ARTIFACT_ROOT||(!persistent&&env.DOCUMENT_STORAGE_DRIVER!=="local")||
    (env.NODE_ENV==="production"&&!persistent)||(persistent&&env.DOCUMENT_STORAGE_PERSISTENCE_CONFIRMED!=="true"))throw new ArtifactStorageError("UNAVAILABLE");
@@ -39,9 +41,10 @@ export function configuredDocumentPorts(env:NodeJS.ProcessEnv=process.env):Docum
 }
 
 /** Bounded infrastructure status; no paths, keys or filesystem writes returned. */
-export async function localDocumentStorageReadiness(env:NodeJS.ProcessEnv=process.env,repositoryRoot=process.cwd()):Promise<"NOT_CONFIGURED"|"LOCAL_READY"|"INVALID_CONFIGURATION"|"PRODUCTION_CONFIGURATION_REQUIRED"|"PERSISTENT_READY"> {
- if(env.NODE_ENV==="production"&&env.DOCUMENT_STORAGE_DRIVER!=="persistent-volume")return "PRODUCTION_CONFIGURATION_REQUIRED";
+export async function localDocumentStorageReadiness(env:NodeJS.ProcessEnv=process.env,repositoryRoot=process.cwd()):Promise<"NOT_CONFIGURED"|"LOCAL_READY"|"INVALID_CONFIGURATION"|"PRODUCTION_CONFIGURATION_REQUIRED"|"PERSISTENT_READY"|"S3_CONFIGURED"> {
  if(!["development","test","production"].includes(env.NODE_ENV??""))return "INVALID_CONFIGURATION";
+ if(env.DOCUMENT_STORAGE_DRIVER==="s3-compatible"){try{s3Configuration(env);return "S3_CONFIGURED";}catch{return "INVALID_CONFIGURATION";}}
+ if(env.NODE_ENV==="production"&&env.DOCUMENT_STORAGE_DRIVER!=="persistent-volume")return "PRODUCTION_CONFIGURATION_REQUIRED";
  if(!env.DOCUMENT_STORAGE_DRIVER&&!env.DOCUMENT_ARTIFACT_ROOT)return "NOT_CONFIGURED";
  try{
   const ports=configuredDocumentPorts(env);

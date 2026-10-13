@@ -1,4 +1,5 @@
 import {pathToFileURL} from "node:url";
+import {s3Configuration} from "../src/infrastructure/s3-artifact-storage";
 import {resolve} from "node:path";
 import {createDatabase} from "../src/db/client";
 import {productionRuntime} from "../src/modules/production/runtime";
@@ -13,14 +14,15 @@ export function productionWorkerConfiguration(env:Readonly<Record<string,string|
  const url=new URL(env.DATABASE_URL);
  if(!["postgres:","postgresql:"].includes(url.protocol)||!url.hostname||url.pathname.length<=1)throw new Error("DATABASE_CONFIGURATION_REQUIRED");
  if(!/^\d+$/.test(env.AI_DAILY_BUDGET_NANOS??"")||!/^\d+$/.test(env.AI_ATTEMPT_BUDGET_NANOS??""))throw new Error("AI_BUDGET_CONFIGURATION_REQUIRED");
- if(env.DOCUMENT_STORAGE_DRIVER!=="persistent-volume"||env.DOCUMENT_STORAGE_PERSISTENCE_CONFIRMED!=="true"||!env.DOCUMENT_ARTIFACT_ROOT)throw new Error("PERSISTENT_STORAGE_REQUIRED");
+ if(env.DOCUMENT_STORAGE_DRIVER==="s3-compatible")s3Configuration(env);
+ else if(env.DOCUMENT_STORAGE_DRIVER!=="persistent-volume"||env.DOCUMENT_STORAGE_PERSISTENCE_CONFIRMED!=="true"||!env.DOCUMENT_ARTIFACT_ROOT)throw new Error("PERSISTENT_STORAGE_REQUIRED");
  const interval=Number(env.PRODUCTION_WORKER_INTERVAL_MS??"2000");
  if(!Number.isInteger(interval)||interval<1000||interval>60000)throw new Error("INVALID_WORKER_INTERVAL");
  return {interval};
 }
 async function main(){
  const {interval}=productionWorkerConfiguration(process.env);
- if(await localDocumentStorageReadiness()!=="PERSISTENT_READY")throw new Error("PERSISTENT_STORAGE_UNAVAILABLE");
+ if(!["PERSISTENT_READY","S3_CONFIGURED"].includes(await localDocumentStorageReadiness()))throw new Error("PERSISTENT_STORAGE_UNAVAILABLE");
  const ports=configuredDocumentPorts();if(!ports)throw new Error("PERSISTENT_STORAGE_UNAVAILABLE");
  const {db,client}=createDatabase(process.env.DATABASE_URL!);let stopping=false;
  const stop=()=>{stopping=true;};process.on("SIGINT",stop);process.on("SIGTERM",stop);

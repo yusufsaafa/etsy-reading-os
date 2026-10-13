@@ -12,3 +12,9 @@ it("production migration requires exact target and explicit authorization withou
  expect(productionMigrationConfiguration(migration)).toEqual({database:"build_only",role:"synthetic"});
  for(const patch of [{NODE_ENV:"development"},{PRODUCTION_MIGRATION_CONFIRM:""},{PRODUCTION_DATABASE_NAME:"other"},{PRODUCTION_DATABASE_ROLE:""},{DATABASE_URL:"postgresql://synthetic@127.0.0.1:1/other"}])expect(()=>productionMigrationConfiguration({...migration,...patch})).toThrow();
 });
+
+it("independent S3-backed worker requires verified storage configuration without a shared root",()=>{
+ const config={...env,DOCUMENT_STORAGE_DRIVER:"s3-compatible",DOCUMENT_ARTIFACT_ROOT:undefined,DOCUMENT_STORAGE_PERSISTENCE_CONFIRMED:undefined,S3_ENDPOINT:"https://example.invalid",S3_BUCKET:"synthetic-pdfs",S3_REGION:"auto",S3_ACCESS_KEY_ID:"fake",S3_SECRET_ACCESS_KEY:"fake",S3_CONDITIONAL_WRITES_CONFIRMED:"true"};
+ expect(productionWorkerConfiguration(config,"22.23.1")).toEqual({interval:2000});
+ expect(()=>productionWorkerConfiguration({...config,S3_CONDITIONAL_WRITES_CONFIRMED:"false"},"22.23.1")).toThrow();
+});

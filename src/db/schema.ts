@@ -1,6 +1,6 @@
 import { MAX_GENERATION_ATTEMPTS } from "../modules/generation/limits";
 import { sql } from "drizzle-orm";
-import { pgTable, uuid, text, integer, bigint, boolean, timestamp, jsonb, unique, foreignKey, check, index, uniqueIndex, type AnyPgColumn } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, integer, bigint, boolean, timestamp, jsonb, unique, foreignKey, check, index, uniqueIndex, primaryKey, type AnyPgColumn } from "drizzle-orm/pg-core";
 import type { Configuration } from "../modules/products/contracts";
 import type { Answer, ExternalOrder, ExternalListing, InputPolicy } from "../modules/intake/contracts";
 
@@ -45,7 +45,7 @@ export const automaticReceipts = pgTable("etsy_automatic_receipts", {
  check("automatic_receipt_status",sql`${t.status} in ('PENDING','PROCESSING','SUCCEEDED','ATTENTION')`),
  check("automatic_receipt_claim",sql`(${t.status}='PROCESSING')=(${t.claim} is not null and ${t.leaseUntil} is not null)`),
  index("automatic_receipts_due").on(t.status,t.nextAt)]);
-export const users = pgTable("app_users", { id: text("id").primaryKey(), name: text("name").notNull(), email: text("email").unique(), passwordHash: text("password_hash"), createdAt: time("created_at").defaultNow().notNull() });
+export const users = pgTable("app_users", { id: text("id").primaryKey(), name: text("name").notNull(), email: text("email").unique(), passwordHash: text("password_hash"), sessionVersion: integer("session_version").notNull().default(0), createdAt: time("created_at").defaultNow().notNull() },t=>[check("app_users_session_version_check",sql`${t.sessionVersion} >= 0`)]);
 export const organizations = pgTable("organizations", { id: id(), name: text("name").notNull(), createdAt: time("created_at").defaultNow().notNull() });
 export const memberships = pgTable("memberships", { id: id(), organizationId: org().references(() => organizations.id), userId: text("user_id").notNull().references(() => users.id), role: text("role").notNull().default("owner") }, t => [unique().on(t.organizationId, t.userId), check("membership_role", sql`${t.role} in ('owner', 'operator')`)]);
 export const stores = pgTable("stores", {
@@ -536,3 +536,14 @@ export const manualDeliveryEvents=pgTable("manual_delivery_events",{
  foreignKey({name:"manual_delivery_exact_artifact_fk",columns:[t.organizationId,t.storeId,t.readingId,t.artifactId],foreignColumns:[documentArtifacts.organizationId,documentArtifacts.storeId,documentArtifacts.readingId,documentArtifacts.id]}),
  check("manual_delivery_events_sequence_check",sql`${t.sequence}>0`),check("manual_delivery_events_action_check",sql`${t.action} in ('CONFIRMED','CORRECTED')`),
  check("manual_delivery_events_command_hash_check",sql`${t.commandHash} ~ '^[a-f0-9]{64}$'`),check("manual_delivery_events_note_check",sql`length(${t.note})<=1000`)]);
+
+// Credential identities are separate from historical OAuth/development identities.
+export const authCredentials = pgTable("auth_credentials", {
+ userId: text("user_id").primaryKey().references(() => users.id), email: text("email").notNull().unique("auth_credentials_email_key"),
+ passwordHash: text("password_hash").notNull(), verifiedAt: time("verified_at"), createdAt: time("created_at").defaultNow().notNull(),
+},t=>[check("auth_credentials_email_check",sql`${t.email}=lower(trim(${t.email})) and length(${t.email}) between 3 and 254`),check("auth_credentials_password_hash_check",sql`${t.passwordHash} like '$argon2id$%'`)]);
+export const authChallenges = pgTable("auth_challenges", {
+ userId: text("user_id").notNull().references(() => authCredentials.userId), purpose: text("purpose").notNull(), identity: uuid("identity").notNull().unique("auth_challenges_identity_key"),
+ codeHash: text("code_hash").notNull(), expiresAt: time("expires_at").notNull(), issuedAt: time("issued_at").defaultNow().notNull(), consumedAt: time("consumed_at"), attempts: integer("attempts").notNull().default(0),
+},t=>[primaryKey({columns:[t.userId,t.purpose]}),check("auth_challenges_purpose_check",sql`${t.purpose} in ('verify','reset')`),check("auth_challenges_code_hash_check",sql`${t.codeHash} ~ '^[0-9a-f]{64}$'`),check("auth_challenges_attempts_check",sql`${t.attempts} between 0 and 5`)]);
+export const authRateLimits = pgTable("auth_rate_limits", { key: text("key").primaryKey(), windowStart: time("window_start").defaultNow().notNull(), attempts: integer("attempts").notNull().default(1) },t=>[check("auth_rate_limits_attempts_check",sql`${t.attempts}>0`)]);

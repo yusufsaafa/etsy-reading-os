@@ -12,6 +12,6 @@ export async function productGenerationSetup(db:Database,scope:Scope,productId:s
  const title=data.active?.status==="ACTIVE"&&data.active.configuration.productMetadata?.title?"TITLE_READY" as const:"REPUBLICATION_REQUIRED" as const;
  const storage=await localDocumentStorageReadiness();
  const internal=internalOperatorAllowed(scope.userId)?"ENABLED" as const:process.env.INTERNAL_TOOLS_ENABLED==="true"?"NOT_AUTHORIZED" as const:"DISABLED" as const;
- return {title,design:design.status,storage,internal,configurationPrerequisitesComplete:title==="TITLE_READY"&&design.status==="DESIGN_READY"&&storage==="LOCAL_READY"};
+ return {title,design:design.status,storage,internal,configurationPrerequisitesComplete:title==="TITLE_READY"&&design.status==="DESIGN_READY"&&["LOCAL_READY","PERSISTENT_READY","S3_CONFIGURED"].includes(storage)};
 }
 export type ProductGenerationSetup=Awaited<ReturnType<typeof productGenerationSetup>>;

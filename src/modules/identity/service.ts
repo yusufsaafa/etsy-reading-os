@@ -14,8 +14,9 @@ export async function createWorkspace(db: Database, userId: string, name: string
     await tx.select().from(users).where(eq(users.id, userId)).for("update");
     const [existing] = await tx.select({ id: stores.id }).from(stores).innerJoin(memberships, eq(memberships.organizationId, stores.organizationId)).where(eq(memberships.userId, userId));
     if (existing) return existing.id;
-    const [organization] = await tx.insert(organizations).values({ name }).returning();
-    await tx.insert(memberships).values({ organizationId: organization.id, userId, role: "owner" });
+    const [owned] = await tx.select({ id: organizations.id }).from(organizations).innerJoin(memberships, and(eq(memberships.organizationId, organizations.id), eq(memberships.userId,userId), eq(memberships.role,"owner"))).limit(1);
+    const organization = owned ?? (await tx.insert(organizations).values({ name }).returning())[0];
+    if (!owned) await tx.insert(memberships).values({ organizationId: organization.id, userId, role: "owner" });
     const [store] = await tx.insert(stores).values({ organizationId: organization.id, name, source, onboardingStage, importSince: new Date(Date.now() - 30 * 86400000) }).returning();
     await tx.insert(connections).values({ organizationId: organization.id, storeId: store.id });
     await tx.insert(auditLogs).values({ organizationId: organization.id, storeId: store.id, actorId: userId, action: "workspace_created" });

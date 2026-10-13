@@ -148,7 +148,10 @@ it("migration runner replay is a no-op and additive application preserves popula
   for(const file of readdirSync("drizzle").filter(f=>f.endsWith(".sql")&&f<"0020").sort())await legacy.exec(readFileSync("drizzle/"+file,"utf8"));
   const tables=(await legacy.query<{tablename:string}>("SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename")).rows;
   await legacy.exec("SET session_replication_role=replica");const before=new Map<string,unknown[]>();
-  for(const {tablename} of tables){const rows=(await pg.query(`SELECT * FROM "${tablename}"`)).rows;before.set(tablename,rows);for(const row of rows)await legacy.query(`INSERT INTO "${tablename}" SELECT (jsonb_populate_record(NULL::"${tablename}",$1::jsonb)).*`,[JSON.stringify(row,(_,v)=>typeof v==="bigint"?v.toString():v)]);}
+  for(const {tablename} of tables){
+   // Compare only columns present at the historical migration boundary.
+   const columns=(await legacy.query<{column_name:string}>("SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name=$1 ORDER BY ordinal_position",[tablename])).rows.map(c=>`"${c.column_name}"`).join(",");
+   const rows=(await pg.query(`SELECT ${columns} FROM "${tablename}"`)).rows;before.set(tablename,rows);for(const row of rows)await legacy.query(`INSERT INTO "${tablename}" SELECT (jsonb_populate_record(NULL::"${tablename}",$1::jsonb)).*`,[JSON.stringify(row,(_,v)=>typeof v==="bigint"?v.toString():v)]);}
   await legacy.exec("SET session_replication_role=origin");await legacy.exec(readFileSync("drizzle/0020_clean_franklin_storm.sql","utf8"));for(const [table,rows] of before)expect((await legacy.query(`SELECT * FROM "${table}"`)).rows).toEqual(rows);expect((await legacy.query("SELECT * FROM document_artifacts")).rows).toEqual([]);
   const native=drizzle(runner,{schema});await migrate(native,{migrationsFolder:"drizzle"});const beforeCount=(await runner.query("SELECT * FROM drizzle.__drizzle_migrations")).rows.length;await migrate(native,{migrationsFolder:"drizzle"});expect((await runner.query("SELECT * FROM drizzle.__drizzle_migrations")).rows).toHaveLength(beforeCount);
  }finally{await legacy.close();await runner.close();}
@@ -382,3 +385,24 @@ it("delivery pagination and sorting retain every generated quantity unit",async(
  expect(page1.total).toBe(27);expect(page1.pages).toBe(2);expect(page1.rows).toHaveLength(25);expect(page2.rows).toHaveLength(2);expect(new Set([...page1.rows,...page2.rows].map(x=>x.readingId)).size).toBe(27);
  const oldest=await listDeliveries(db,a,deliveryQuery({q:"9910",sort:"OLDEST"}));expect(oldest.rows[0].generatedAt!<=page1.rows[0].generatedAt!).toBe(true);expect((await listDeliveries(db,a,deliveryQuery({q:"9910",status:"DELIVERED"}))).total).toBe(0);
 },20000);
+
+// Exercise the same durable artifact protocol with shared private S3 transport.
+import {S3ArtifactStorage,s3Configuration} from "../src/infrastructure/s3-artifact-storage";
+import {FakeS3} from "./s3-storage.fixture";
+const s3TestConfig=()=>s3Configuration({S3_ENDPOINT:"https://example.invalid",S3_BUCKET:"synthetic-pdfs",S3_REGION:"auto",S3_ACCESS_KEY_ID:"fake",S3_SECRET_ACCESS_KEY:"fake",S3_CONDITIONAL_WRITES_CONFIRMED:"true"});
+it("S3 artifacts survive worker restart and deny tenant access before remote reads",async()=>{
+ await ready();const f=await input(),remote=new FakeS3(),worker=new S3ArtifactStorage(s3TestConfig(),remote);
+ remote.lose=true;await expect(produceDocumentArtifact(db,a,f.media.id,assets,worker)).rejects.toThrow("UNAVAILABLE");
+ const [pending]=await db.select().from(schema.documentArtifacts);expect(pending.state).toBe("PENDING");expect(remote.objects.size).toBe(1);
+ remote.lose=false;const web=new S3ArtifactStorage(s3TestConfig(),remote),adopted=await produceDocumentArtifact(db,a,f.media.id,{read:async()=>{throw Error("Must not rerender");}},web);
+ expect(adopted.id).toBe(pending.id);expect(adopted.state).toBe("AVAILABLE");expect(remote.puts).toBe(1);
+ const reads=remote.gets;await expect(retrieveDocumentArtifact(db,b,{readingId,artifactId:adopted.id},web)).rejects.toThrow();expect(remote.gets).toBe(reads);
+ expect((await retrieveDocumentArtifact(db,a,{readingId,artifactId:adopted.id},web)).copyBytes().byteLength).toBe(adopted.byteLength);
+});
+it("S3 upload survives database finalization failure without a second object",async()=>{
+ await ready();const f=await input(),remote=new FakeS3(),storage=new S3ArtifactStorage(s3TestConfig(),remote);
+ await pg.exec("CREATE FUNCTION s3_block_finalize() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.state='AVAILABLE' THEN RAISE EXCEPTION 'Synthetic failure'; END IF; RETURN NEW; END $$; CREATE TRIGGER s3_block_finalize BEFORE UPDATE ON document_artifacts FOR EACH ROW EXECUTE FUNCTION s3_block_finalize()");
+ await expect(produceDocumentArtifact(db,a,f.media.id,assets,storage)).rejects.toThrow();expect(remote.objects.size).toBe(1);const [pending]=await db.select().from(schema.documentArtifacts);expect(pending.state).toBe("PENDING");
+ await pg.exec("DROP TRIGGER s3_block_finalize ON document_artifacts; DROP FUNCTION s3_block_finalize()");
+ expect((await produceDocumentArtifact(db,a,f.media.id,assets,new S3ArtifactStorage(s3TestConfig(),remote))).id).toBe(pending.id);expect(remote.puts).toBe(1);
+});
