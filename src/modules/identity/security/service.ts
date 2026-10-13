@@ -1,3 +1,4 @@
+import { UnverifiedLogin } from "./unverified-login";
 import { createHmac, randomInt, randomUUID, timingSafeEqual } from "node:crypto";
 import { hash, verify } from "@node-rs/argon2";
 import { sql } from "drizzle-orm";
@@ -107,7 +108,7 @@ export class AccountSecurity {
     await this.limit("reset-global", "global", 200);
     return this.consume(data.email, data.code, "reset", await hash(data.password, options));
   }
-  async login(raw: unknown) {
+  async login(raw: unknown, resumeVerification = false) {
     const parsed = z.object({ email: emailSchema, password: z.string().min(1).max(128) }).safeParse(raw);
     if (!parsed.success) return null;
     await this.limit("login", parsed.data.email, 10);
@@ -115,6 +116,7 @@ export class AccountSecurity {
     const user = await this.credential(this.db, parsed.data.email);
     // Compute equivalent Argon2 work when no credential identity exists.
     const valid = user ? await verify(user.password_hash, parsed.data.password).catch(() => false) : (await hash(parsed.data.password, options), false);
+    if (resumeVerification && valid && user && !user.verified_at) throw new UnverifiedLogin(user.email);
     return valid && user?.verified_at ? { id: user.user_id, email: user.email, name: "Seller", sessionVersion: user.session_version } : null;
   }
   async change(userId: string, sessionVersion: number, raw: unknown) {

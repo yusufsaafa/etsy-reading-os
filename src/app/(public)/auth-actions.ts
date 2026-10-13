@@ -1,6 +1,9 @@
 "use server";
+import { unverifiedLoginEmail } from "@/modules/identity/security/unverified-login";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
+import { cookies } from "next/headers";
+import { safeAuthDestination } from "@/components/entry/auth-ux";
 import { auth, signIn, signOut, devLoginAllowed } from "@/auth";
 import { database } from "@/db/client";
 import { currentDestination } from "@/modules/identity/session";
@@ -15,12 +18,21 @@ export async function register(_state: AuthFormState, form: FormData): Promise<A
   const data = { email: form.get("email"), password: form.get("password"), confirmPassword: form.get("confirmPassword") };
   if (!signupSchema.safeParse(data).success) return { error: "Enter a valid email and matching passwords of 12–128 characters." };
   try { await security(true).register(data); } catch { return { error: "Account creation is temporarily unavailable or limited. Please wait and try again." }; }
+  const email = signupSchema.parse(data).email;
+  (await cookies()).set("reading-auth-email", email, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 600 });
   redirect("/verify-email");
 }
 export async function login(_state: AuthFormState, form: FormData): Promise<AuthFormState> {
   try { await signIn("email-password", { email: form.get("email"), password: form.get("password"), redirect: false, redirectTo: "/onboarding" }); }
-  catch { return { error: "Unable to log in. Check your details, verify your email, or try again later." }; }
-  redirect("/onboarding");
+  catch (error) {
+    const email = unverifiedLoginEmail(error);
+    if (email) {
+      (await cookies()).set("reading-auth-email", email, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 600 });
+      redirect("/verify-email");
+    }
+    return { error: "Unable to log in. Check your details or try again later." };
+  }
+  redirect(safeAuthDestination(form.get("callbackUrl")));
 }
 export async function sendVerification(_state: AuthFormState, form: FormData): Promise<AuthFormState> {
   try { await security(true).sendCode(form.get("email"), "verify"); } catch { return { error: "Email service unavailable or request limited. Please try again later." }; }

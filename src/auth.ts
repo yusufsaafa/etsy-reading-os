@@ -1,3 +1,4 @@
+import { UnverifiedLogin } from "./modules/identity/security/unverified-login";
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import GitHub from "next-auth/providers/github";
@@ -34,10 +35,10 @@ providers.push(Credentials({
         const development = await authenticateDevelopmentAccount(database(), credentials);
         if (development) return development;
       }
-      const account = await new AccountSecurity(database(), { async send() { throw new Error("EMAIL_UNAVAILABLE"); } }, process.env.AUTH_CODE_SECRET || "").login(credentials);
+      const account = await new AccountSecurity(database(), { async send() { throw new Error("EMAIL_UNAVAILABLE"); } }, process.env.AUTH_CODE_SECRET || "").login(credentials, true);
       if (account) return account;
       return null;
-    } catch { return null; }
+    } catch (error) { if (error instanceof UnverifiedLogin) throw error; return null; }
   },
 }));
 export const { handlers, signIn, signOut, auth } = NextAuth({
